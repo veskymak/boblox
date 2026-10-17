@@ -606,7 +606,7 @@ function initLiveSocketAndPresence() {
                 }
             } else if (data.type === 'boblox_update_detected') {
                 if (typeof showUpdateNotificationModal === 'function') {
-                    showUpdateNotificationModal(data.version, data.buildTime);
+                    showUpdateNotificationModal(data.version, data.buildTime, false);
                 }
             } else if (data.type === 'tabHeartbeat' && data.tabId !== mpState.myId) {
                 mpState.localTabPeers[data.tabId] = { gameId: data.gameId, lastSeen: Date.now() };

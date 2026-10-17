@@ -1934,17 +1934,44 @@ function sanitizeStoredFriends() {
     const myId = getMyUniqueSocialId();
     const isRegistered = typeof authState !== 'undefined' && authState.user && !myUName.startsWith('guest');
 
+    // Build map from user ID / dbId to clean username
+    const idToUsernameMap = new Map();
+    if (typeof getCloudUsersCache === 'function') {
+        getCloudUsersCache().forEach(u => {
+            if (u && u.username && u.id) idToUsernameMap.set(String(u.id).toLowerCase(), u.username.toLowerCase());
+        });
+    }
+    if (typeof getLocalUsersDB === 'function') {
+        getLocalUsersDB().forEach(u => {
+            if (u && u.username && u.id) idToUsernameMap.set(String(u.id).toLowerCase(), u.username.toLowerCase());
+        });
+    }
+
     let changed = false;
     for (const fid of [...friendsSet]) {
         if (!fid || fid === 'local' || fid === myId) {
             friendsSet.delete(fid);
             changed = true;
-        } else if (isRegistered && typeof fid === 'string') {
-            const fLower = fid.toLowerCase();
-            if (fLower === myUName || fLower === `db_${myUName}` || fLower === `cloud_${myUName}`) {
-                friendsSet.delete(fid);
-                changed = true;
-            }
+            continue;
+        }
+        const fLower = String(fid).toLowerCase();
+        if (isRegistered && (fLower === myUName || fLower === `db_${myUName}` || fLower === `cloud_${myUName}`)) {
+            friendsSet.delete(fid);
+            changed = true;
+            continue;
+        }
+        // If fid is a raw UUID or ID, resolve it to username or remove it:
+        if (idToUsernameMap.has(fLower)) {
+            const mappedName = idToUsernameMap.get(fLower);
+            friendsSet.delete(fid);
+            friendsSet.add(mappedName);
+            changed = true;
+            continue;
+        }
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(fid)) {
+            friendsSet.delete(fid);
+            changed = true;
+            continue;
         }
     }
     if (changed) {
@@ -1970,11 +1997,23 @@ function sanitizeStoredFriends() {
 
     try {
         const cached = getCachedFriendsProfiles();
-        const cleanedCached = cached.filter(p => {
-            if (!p || !p.id || p.id === 'local' || p.id === myId) return false;
-            if (isRegistered && (p.username || '').toLowerCase() === myUName) return false;
-            return true;
-        });
+        const seenUsernames = new Set();
+        const cleanedCached = [];
+        for (const p of cached) {
+            if (!p || !p.id || p.id === 'local' || p.id === myId) continue;
+            if (isRegistered && (p.username || '').toLowerCase() === myUName) continue;
+            const pIdStr = String(p.id).toLowerCase();
+            const pUserStr = (p.username || '').toLowerCase();
+            if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pIdStr) && idToUsernameMap.has(pIdStr)) {
+                continue;
+            }
+            if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pUserStr)) {
+                continue;
+            }
+            if (pUserStr && seenUsernames.has(pUserStr)) continue;
+            if (pUserStr) seenUsernames.add(pUserStr);
+            cleanedCached.push(p);
+        }
         if (cleanedCached.length !== cached.length) {
             localStorage.setItem(STORAGE_KEY_FRIENDS_CACHE, JSON.stringify(cleanedCached));
         }
@@ -2084,7 +2123,6 @@ function syncFriendRequestsWithCloudUsers(cloudUsers) {
 
                 friendsSet.add(cleanKey);
                 friendsSet.add(uName);
-                if (u.id) friendsSet.add(String(u.id));
                 friendsChanged = true;
 
                 saveCachedFriendProfile({
@@ -2335,15 +2373,25 @@ function getAllSearchablePlayers() {
         if (!fid || fid === 'local' || fid === myId) return;
         const fidLower = String(fid).toLowerCase();
         if (myUName && fidLower === myUName) return;
+
+        // Skip raw UUID strings
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(fid)) return;
+
         let exists = false;
         for (const existing of map.values()) {
-            if (existing.id === fid || (existing.username && existing.username.toLowerCase() === fidLower)) {
+            if (
+                existing.id === fid ||
+                (existing.dbId && String(existing.dbId).toLowerCase() === fidLower) ||
+                (existing.username && existing.username.toLowerCase() === fidLower) ||
+                (existing.displayName && existing.displayName.toLowerCase() === fidLower)
+            ) {
                 exists = true;
                 break;
             }
         }
         if (!exists) {
             const cleanName = String(fid).replace(/^(db_|cloud_|peer_|user_)/, '');
+            if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanName)) return;
             const pres = (typeof liveFriendsPresence !== 'undefined') ? (liveFriendsPresence[fid] || liveFriendsPresence[fidLower] || liveFriendsPresence[cleanName]) : null;
             map.set(fid, {
                 id: fid,
@@ -2961,7 +3009,8 @@ function renderHomeFriendsStrip() {
     const seenUsernames = new Set();
     const friendList = [];
     for (const f of rawFriendList) {
-        const u = (f.username || f.displayName || f.id || '').toLowerCase();
+        const u = (f.username || f.displayName || '').toLowerCase();
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(u)) continue;
         if (u && !seenUsernames.has(u)) {
             seenUsernames.add(u);
             friendList.push(f);
@@ -4006,7 +4055,8 @@ function renderPeopleResultsGrid() {
     for (const p of allPlayers) {
         if (!p || p.id === 'local' || p.id === myId) continue;
         if (isRegistered && (p.username || '').toLowerCase() === myUName) continue;
-        const u = (p.username || p.displayName || p.id || '').toLowerCase();
+        const u = (p.username || p.displayName || '').toLowerCase();
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(u)) continue;
         if (u && !seenUsernames.has(u)) {
             seenUsernames.add(u);
             filteredPlayers.push(p);
@@ -4315,7 +4365,7 @@ function getAppClientVersion() {
         const m = s.src.match(/\?v=([\d\.]+)/);
         if (m) return m[1];
     }
-    return '3.7';
+    return '3.9';
 }
 
 function reloadForUpdateNow() {
@@ -4323,7 +4373,7 @@ function reloadForUpdateNow() {
         try { syncAccountToServer(); } catch (e) {}
     }
     const cleanUrl = window.location.origin + window.location.pathname;
-    window.location.href = cleanUrl + '?_update=' + Date.now();
+    window.location.replace(cleanUrl + '?_update=' + Date.now());
 }
 
 function postponeUpdatePrompt() {
@@ -4342,8 +4392,17 @@ function postponeUpdatePrompt() {
     if (floatSecs) floatSecs.textContent = `${updateCountdownRemaining}s`;
 }
 
-function showUpdateNotificationModal(newVersion, buildTime) {
+function showUpdateNotificationModal(newVersion, buildTime, shouldBroadcast = true) {
     if (isUpdatePromptActive) return;
+
+    const currentVer = getAppClientVersion();
+    const cleanRemoteVer = newVersion ? String(newVersion).trim() : '';
+
+    // If client is already running this version, NEVER show update modal!
+    if (cleanRemoteVer && cleanRemoteVer === currentVer) {
+        return;
+    }
+
     isUpdatePromptActive = true;
 
     // Exit pointer lock if playing in 3D game
@@ -4358,8 +4417,8 @@ function showUpdateNotificationModal(newVersion, buildTime) {
         try { sfx.playWinFanfare(); } catch (e) {}
     }
 
-    // Broadcast across other local tabs
-    if (typeof mpState !== 'undefined' && mpState.bc) {
+    // Broadcast across other local tabs only if this tab initiated it
+    if (shouldBroadcast && typeof mpState !== 'undefined' && mpState.bc) {
         try {
             mpState.bc.postMessage({
                 type: 'boblox_update_detected',

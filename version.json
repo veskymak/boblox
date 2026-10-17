@@ -1,7 +1,7 @@
 {
-  "version": "3.8",
-  "buildTime": 1729200840000,
-  "updatedAt": "2026-10-17T22:34:00Z",
-  "title": "Boblox Aktualizace v3.8",
-  "message": "Oprava synchronizace žádostí o přátelství a oboustranného přijetí."
+  "version": "3.9",
+  "buildTime": 1729201500000,
+  "updatedAt": "2026-10-17T22:45:00Z",
+  "title": "Boblox Aktualizace v3.9",
+  "message": "Oprava zobrazení duplicitních přátel a zabránění opakované hlášce o aktualizaci."
 }
