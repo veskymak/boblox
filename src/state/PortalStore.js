@@ -310,9 +310,7 @@ const STORAGE_KEY_CLOUD_USERS = 'boblox_cloud_users_cache_v2';
 
 function isAppropriateUsername(name) {
     if (!name || typeof name !== 'string') return false;
-    const lower = name.toLowerCase();
-    const banned = ['nigger', 'nigga', 'hitler', 'heil'];
-    return !banned.some(b => lower.includes(b));
+    return name.trim().length > 0;
 }
 
 function getCloudUsersCache() {
@@ -346,6 +344,9 @@ async function fetchCloudUsers(searchQuery = '') {
                 });
                 const merged = Array.from(map.values());
                 localStorage.setItem(STORAGE_KEY_CLOUD_USERS, JSON.stringify(merged));
+                if (typeof syncFriendRequestsWithCloudUsers === 'function') {
+                    syncFriendRequestsWithCloudUsers(merged);
+                }
                 return merged;
             }
         } catch (e) {
@@ -369,6 +370,9 @@ async function fetchCloudUsers(searchQuery = '') {
                     });
                     const merged = Array.from(map.values());
                     localStorage.setItem(STORAGE_KEY_CLOUD_USERS, JSON.stringify(merged));
+                    if (typeof syncFriendRequestsWithCloudUsers === 'function') {
+                        syncFriendRequestsWithCloudUsers(merged);
+                    }
                     return merged;
                 }
             }
@@ -616,12 +620,17 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
             currentUser.coins = updatePayload.coins;
         }
 
-        const currentInv = currentUser.inventory || {};
+        const currentInv = (typeof currentUser.inventory === 'object' && currentUser.inventory !== null)
+            ? currentUser.inventory
+            : (typeof currentUser.inventory === 'string' ? (() => { try { return JSON.parse(currentUser.inventory); } catch (e) { return {}; } })() : {});
         updatePayload.inventory = {
+            ...currentInv,
             owned: Array.isArray(body.owned) ? body.owned : (currentInv.owned || []),
             outfit: body.outfit || currentInv.outfit || {},
             torsoHex: body.torsoHex || currentInv.torsoHex || '#0D69AC',
-            gamesPlayed: typeof body.gamesPlayed === 'number' ? body.gamesPlayed : (currentInv.gamesPlayed || 0)
+            gamesPlayed: typeof body.gamesPlayed === 'number' ? body.gamesPlayed : (currentInv.gamesPlayed || 0),
+            friends: Array.isArray(body.friends) ? body.friends : (currentInv.friends || []),
+            sent_friend_requests: Array.isArray(body.sent_friend_requests) ? body.sent_friend_requests : (currentInv.sent_friend_requests || [])
         };
         currentUser.inventory = updatePayload.inventory;
 
@@ -1031,11 +1040,15 @@ async function handleOfflineApiFallback(path, options = {}) {
         if (!currentUser) return { ok: false, status: 401, data: { error: 'Nepřihlášen' } };
         if (typeof body.coins === 'number') currentUser.coins = Math.floor(body.coins);
         currentUser.last_active_at = now;
+        const currentInv = currentUser.inventory || {};
         currentUser.inventory = {
-            owned: Array.isArray(body.owned) ? body.owned : currentUser.inventory.owned,
-            outfit: body.outfit || currentUser.inventory.outfit,
-            torsoHex: body.torsoHex || currentUser.inventory.torsoHex,
-            gamesPlayed: typeof body.gamesPlayed === 'number' ? body.gamesPlayed : currentUser.inventory.gamesPlayed
+            ...currentInv,
+            owned: Array.isArray(body.owned) ? body.owned : (currentInv.owned || []),
+            outfit: body.outfit || currentInv.outfit,
+            torsoHex: body.torsoHex || currentInv.torsoHex,
+            gamesPlayed: typeof body.gamesPlayed === 'number' ? body.gamesPlayed : (currentInv.gamesPlayed || 0),
+            friends: Array.isArray(body.friends) ? body.friends : (currentInv.friends || []),
+            sent_friend_requests: Array.isArray(body.sent_friend_requests) ? body.sent_friend_requests : (currentInv.sent_friend_requests || [])
         };
         saveLocalUsersDB(users);
         return { ok: true, status: 200, data: { user: currentUser, serverTime: now } };
@@ -1207,6 +1220,22 @@ function applyAuthenticatedUser(user) {
             gamesPlayedCount = Math.max(gamesPlayedCount, user.inventory.gamesPlayed);
             localStorage.setItem(STORAGE_KEY_PLAYED, String(gamesPlayedCount));
         }
+        if (Array.isArray(user.inventory.friends) && user.inventory.friends.length > 0 && typeof friendsSet !== 'undefined') {
+            user.inventory.friends.forEach(f => {
+                if (f && typeof f === 'string') {
+                    friendsSet.add(f);
+                }
+            });
+            if (typeof saveFriendsList === 'function') saveFriendsList();
+        }
+        if (Array.isArray(user.inventory.sent_friend_requests) && typeof sentFriendRequests !== 'undefined') {
+            user.inventory.sent_friend_requests.forEach(r => {
+                if (r && r.id) {
+                    sentFriendRequests[r.id] = r;
+                }
+            });
+            if (typeof saveSentFriendRequests === 'function') saveSentFriendRequests();
+        }
         saveShopState();
     }
     if (typeof user.adoptme_bucks === 'number') {
@@ -1229,6 +1258,8 @@ function applyAuthenticatedUser(user) {
 async function syncAccountToServer() {
     if (!authState.user) return;
     const adopt = typeof loadAdoptMeSavedData === 'function' ? loadAdoptMeSavedData() : null;
+    const friendsList = (typeof friendsSet !== 'undefined') ? [...friendsSet] : [];
+    const sentReqsList = (typeof sentFriendRequests !== 'undefined') ? Object.values(sentFriendRequests) : [];
     await apiRequest('/api/user/sync', {
         method: 'POST',
         body: {
@@ -1239,7 +1270,9 @@ async function syncAccountToServer() {
             gamesPlayed: gamesPlayedCount,
             adoptme_pets: adopt ? adopt.pets : undefined,
             adoptme_bucks: adopt ? adopt.bucks : undefined,
-            daily_claim_date: lastClaimTimestamp
+            daily_claim_date: lastClaimTimestamp,
+            friends: friendsList,
+            sent_friend_requests: sentReqsList
         }
     });
 }

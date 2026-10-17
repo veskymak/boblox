@@ -332,6 +332,7 @@ app.post('/api/user/sync', requireAuth, (req, res) => {
         }
 
         const updatedInv = {
+            ...currentInv,
             owned: Array.isArray(body.owned) ? body.owned.filter(x => typeof x === 'string').slice(0, 100) : (currentInv.owned || ['face_classic']),
             outfit: (body.outfit && typeof body.outfit === 'object') ? {
                 shirt: typeof body.outfit.shirt === 'string' ? body.outfit.shirt : null,
@@ -340,7 +341,9 @@ app.post('/api/user/sync', requireAuth, (req, res) => {
                 hat: typeof body.outfit.hat === 'string' ? body.outfit.hat : null
             } : (currentInv.outfit || { shirt: null, pants: null, face: 'face_classic', hat: null }),
             torsoHex: (typeof body.torsoHex === 'string' && /^#[0-9A-Fa-f]{6}$/.test(body.torsoHex)) ? body.torsoHex : (currentInv.torsoHex || '#0D69AC'),
-            gamesPlayed: (typeof body.gamesPlayed === 'number' && body.gamesPlayed >= 0) ? Math.floor(body.gamesPlayed) : (currentInv.gamesPlayed || 0)
+            gamesPlayed: (typeof body.gamesPlayed === 'number' && body.gamesPlayed >= 0) ? Math.floor(body.gamesPlayed) : (currentInv.gamesPlayed || 0),
+            friends: Array.isArray(body.friends) ? body.friends.slice(0, 500) : (currentInv.friends || []),
+            sent_friend_requests: Array.isArray(body.sent_friend_requests) ? body.sent_friend_requests.slice(0, 100) : (currentInv.sent_friend_requests || [])
         };
 
         const now = Date.now();
