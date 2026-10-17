@@ -385,7 +385,7 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
             }
         }
 
-        // 2. Zpětná kompatibilita pro staré účty vytvořené před zapnutím Supabase Auth
+        // 2. Zpětná kompatibilita a tichá auto-migrace pro účty vytvořené před zapnutím Supabase Auth
         const { data: legacyRow } = await sb.from('profiles')
             .select('*')
             .ilike('username', uname)
@@ -394,6 +394,33 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
         if (legacyRow) {
             const hash = await hashPasswordClientFallback(pass);
             if (legacyRow.password_hash === hash) {
+                // Automatická migrace: zaregistrovat do Supabase Auth se stejným heslem a přenést data
+                try {
+                    const { data: newAuth } = await sb.auth.signUp({
+                        email,
+                        password: pass,
+                        options: { data: { username: legacyRow.username } }
+                    });
+                    if (newAuth?.user) {
+                        const migratedProfile = {
+                            id: newAuth.user.id,
+                            username: legacyRow.username,
+                            password_hash: legacyRow.password_hash,
+                            coins: legacyRow.coins || 250,
+                            inventory: legacyRow.inventory || { owned: [] },
+                            adoptme_pets: legacyRow.adoptme_pets || [],
+                            adoptme_bucks: legacyRow.adoptme_bucks || 120,
+                            daily_claim_date: legacyRow.daily_claim_date || 0
+                        };
+                        const { data: migratedRow } = await sb.from('profiles').upsert(migratedProfile).select().single();
+                        const finalRow = migratedRow || legacyRow;
+                        const token = 'sb_jwt_' + finalRow.id;
+                        return { ok: true, status: 200, data: { token, user: finalRow, serverTime: now } };
+                    }
+                } catch (migErr) {
+                    console.warn('Auto-migrace účtu selhala, pokračuji legacy fallbackem:', migErr);
+                }
+
                 const token = 'sb_jwt_' + legacyRow.id;
                 return { ok: true, status: 200, data: { token, user: legacyRow, serverTime: now } };
             }
