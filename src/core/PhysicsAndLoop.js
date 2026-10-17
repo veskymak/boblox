@@ -9,6 +9,29 @@ function triggerPrimaryAction() {
     playerState.weaponCooldownTimer = w.cooldown || 0.28;
     playerState.attackTimer = 0.28;
 
+    // 0B. Casino Game UI Hotbar Triggers (Slots 1-5) or Proximity Prompt [E]
+    if (activeGameMode === 'casino') {
+        if (w.type === 'casino_ui' || (w.id && w.id.startsWith('casino_'))) {
+            if (typeof openCasinoModal === 'function') {
+                const tabMap = {
+                    casino_blackjack: 'blackjack',
+                    casino_slots: 'slots',
+                    casino_wheel: 'wheel',
+                    casino_derby: 'derby',
+                    casino_cashier: 'cashier'
+                };
+                openCasinoModal(tabMap[w.id] || 'blackjack');
+            }
+            return;
+        }
+        if (gameSpecificData && gameSpecificData.activeProximityStation) {
+            if (typeof openCasinoModal === 'function') {
+                openCasinoModal(gameSpecificData.activeProximityStation.id);
+            }
+            return;
+        }
+    }
+
     // 0. Adopt Me! Pet Care & Fly/Ride Actions (Slots 1-4)
     if (w.type === 'pet_care' && activeGameMode === 'adoptme') {
         const gd = gameSpecificData;
@@ -855,6 +878,7 @@ function gameLoop(now) {
     else if (activeGameMode === 'speedrun') updateGame8SpeedRun(dt);
     else if (activeGameMode === 'hideandseek') updateGame9HideAndSeek(dt);
     else if (activeGameMode === 'bedwars') updateGame10Bedwars(dt, elapsedSec);
+    else if (activeGameMode === 'casino') updateGame12Casino(dt, elapsedSec);
 
     // 4B. P2P Multiplayer Network Sync & Remote Friends Rendering
     broadcastLocalPlayerState(dt);
@@ -1730,4 +1754,54 @@ function updateGame11AdoptMe(dt, elapsedSec) {
         });
     }
 }
+
+function updateGame12Casino(dt, elapsedSec) {
+    const gd = gameSpecificData;
+    if (!gd || activeGameMode !== 'casino') return;
+
+    // 1. Update confetti particles (from casino wins)
+    if (typeof updateGame1Obby === 'function') {
+        updateGame1Obby(dt);
+    }
+
+    // 2. Idle 3D prize wheel rotation
+    if (gd.wheelMesh) {
+        gd.wheelMesh.rotation.z += dt * 0.45;
+    }
+
+    // 3. Dealer NPC breathing / idle bounce
+    if (gd.dealerChar && gd.dealerChar.root) {
+        gd.dealerChar.root.position.y = 1.8 + Math.sin(elapsedSec * 2.5) * 0.05;
+    }
+
+    // 4. Proximity detection to tables / stations
+    let nearStation = null;
+    let minDist = 999;
+    if (gd.stations) {
+        for (let i = 0; i < gd.stations.length; i++) {
+            const st = gd.stations[i];
+            const dist = Math.hypot(playerState.pos.x - st.pos.x, playerState.pos.z - st.pos.z);
+            if (dist < (st.radius || 6.0) && dist < minDist) {
+                minDist = dist;
+                nearStation = st;
+            }
+        }
+    }
+
+    gd.activeProximityStation = nearStation;
+
+    const titleEl = document.getElementById('hud-objective-title');
+    const textEl = document.getElementById('hud-objective-text');
+
+    if (nearStation) {
+        if (titleEl) titleEl.textContent = `${nearStation.icon} ${nearStation.name.toUpperCase()}`;
+        if (textEl) textEl.textContent = `Stiskni [E] nebo klepni sem pro hraní!`;
+    } else {
+        if (titleEl && titleEl.textContent !== '🎰 BLOX VEGAS CASINO') {
+            titleEl.textContent = '🎰 BLOX VEGAS CASINO';
+            if (textEl) textEl.textContent = 'Vstup do světa her! Přistup ke stolům nebo vyber hru z lišty (1-5) a vyhraj Bobuxy!';
+        }
+    }
+}
+
 

@@ -233,6 +233,108 @@ class BobloxSoundEngine {
             osc.stop(now + i * 0.09 + 0.09);
         });
     }
+
+    playCardFlip() {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(620, now);
+        osc.frequency.exponentialRampToValueAtTime(140, now + 0.07);
+        gain.gain.setValueAtTime(0.24, now);
+        gain.gain.exponentialRampToValueAtTime(0.005, now + 0.07);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.07);
+    }
+
+    playSlotSpin() {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(450, now);
+        osc.frequency.exponentialRampToValueAtTime(180, now + 0.04);
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.005, now + 0.04);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.04);
+    }
+
+    playWheelTick() {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(1100, now);
+        osc.frequency.exponentialRampToValueAtTime(350, now + 0.035);
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.005, now + 0.035);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.035);
+    }
+
+    playDerbyHorn() {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        // Classic equestrian bugle fanfare: G4(392), C5(523), E5(659), G5(784), E5(659), G5(784)
+        const notes = [
+            { f: 392.00, dur: 0.12, delay: 0.00 },
+            { f: 523.25, dur: 0.12, delay: 0.12 },
+            { f: 659.25, dur: 0.12, delay: 0.24 },
+            { f: 783.99, dur: 0.24, delay: 0.36 },
+            { f: 659.25, dur: 0.12, delay: 0.62 },
+            { f: 783.99, dur: 0.45, delay: 0.74 }
+        ];
+        notes.forEach(n => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(n.f, now + n.delay);
+            gain.gain.setValueAtTime(0.18, now + n.delay);
+            gain.gain.exponentialRampToValueAtTime(0.005, now + n.delay + n.dur);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now + n.delay);
+            osc.stop(now + n.delay + n.dur);
+        });
+    }
+
+    playJackpot() {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const arpeggio = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98];
+        arpeggio.forEach((freq, idx) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(freq, now + idx * 0.07);
+            gain.gain.setValueAtTime(0.16, now + idx * 0.07);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.35);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now + idx * 0.07);
+            osc.stop(now + idx * 0.07 + 0.36);
+        });
+    }
 }
 
 const sfx = new BobloxSoundEngine();

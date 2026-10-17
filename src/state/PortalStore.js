@@ -220,6 +220,21 @@ const GAMES_CATALOG = [
             '⛏️ Slot 2 (Krumpáč) & Slot 1 (Meč): těž obranu a znič Červenou postel',
             '💎 Středový ostrov generuje bonusové diamanty a Bobuxy (+200 B$ za výhru)'
         ]
+    },
+    {
+        id: 'casino',
+        title: 'Blox Vegas: Casino & Derby',
+        author: 'BloxVegas_Studios',
+        tag: 'PARTY',
+        badgeText: 'CASINO & DERBY',
+        reward: 'Až 10 000 B$',
+        description: 'Luxusní neonové kasino Blox Vegas s blackjackovým stolem, výherními automaty Lucky 7, obřím kolem štěstí a napínavými sázkami na živé koňské dostihy! Vsaď Bobuxy, poraž krupiéra a vyhraj pohádkový jackpot!',
+        mechanics: [
+            '🃏 Blackjack (21): Vyzvi krupiéra, ber karty (Hit), stůj (Stand), zdvojnásob (Double) a vyhraj 2x až 2.5x vkladu',
+            '🎰 Výherní automaty (Slots): 3 rotující válce se symboly Bobloxu a obřím jackpotem Lucky 7 (až 50x)',
+            '🎡 Kolo štěstí (Daily Wheel): Denní zatočení zdarma o Bobuxy (až 2 500 B$) nebo toč za Bobuxy',
+            '🏇 Koňské dostihy (Blox Derby): 5 závodních koní s kurzy od 2.2x do 15x. Vsaď na vítěze a sleduj napínavý závod!'
+        ]
     }
 ];
 
@@ -1568,6 +1583,20 @@ function addBobux(amount, reasonText = '') {
         showHudToast(`+${amount} Bobux! (${reasonText})`, 'gold');
     }
     syncAccountToServer();
+}
+
+function spendBobux(amount, reasonText = '') {
+    if (amount <= 0) return true;
+    if (bobuxBalance < amount) {
+        showHudToast(`Nemáš dostatek Bobuxů! (Chybí ${amount - bobuxBalance} B$)`, 'red');
+        return false;
+    }
+    bobuxBalance -= amount;
+    localStorage.setItem(STORAGE_KEY_BOBUX, String(bobuxBalance));
+    recordBobuxTransaction(-amount, reasonText);
+    updateBobuxUI();
+    syncAccountToServer();
+    return true;
 }
 
 function updateBobuxUI() {

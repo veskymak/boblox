@@ -112,6 +112,46 @@
             transform: translateY(1px);
         }
 
+        /* Casino Card & Slots Animations */
+        .casino-playing-card {
+            width: 54px;
+            height: 78px;
+            background: #ffffff;
+            border-radius: 6px;
+            border: 1.5px solid #0f172a;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            display: inline-flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 4px 5px;
+            user-select: none;
+            font-family: monospace, sans-serif;
+            font-weight: 800;
+            line-height: 1;
+            transition: transform 0.2s ease;
+        }
+        @media (min-width: 640px) {
+            .casino-playing-card {
+                width: 68px;
+                height: 98px;
+                padding: 6px 7px;
+            }
+        }
+        .casino-card-hidden {
+            background: repeating-linear-gradient(45deg, #1e3a8a, #1e3a8a 6px, #1d4ed8 6px, #1d4ed8 12px) !important;
+            border: 2px solid #ffffff !important;
+        }
+        .casino-chip-btn {
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+        }
+        .casino-chip-btn:active {
+            transform: scale(0.92);
+        }
+        .casino-chip-active {
+            outline: 2.5px solid #FFE066;
+            box-shadow: 0 0 12px rgba(255, 224, 102, 0.6);
+        }
+
         /* Roblox 2021–Present Custom Cursors (Arrow & Hand Pointer with Black Outline + Drop Shadow) */
         :root {
             --roblox-cursor-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 32 32'%3E%3Cpath d='M7.2 4.8 L7.2 22.8 L11.8 18.8 L15.2 26.2 C15.8 27.4 17.3 27.9 18.5 27.3 C19.7 26.7 20.2 25.2 19.6 24.0 L16.2 16.6 L22.2 16.2 Z' fill='rgba(0,0,0,0.32)' transform='translate(1.6, 1.6)'/%3E%3Cpath d='M6 3.5 C6 2.5 7.2 2 7.9 2.7 L22.6 15.2 C23.4 15.9 22.9 17.2 21.8 17.3 L15.8 17.6 L19.1 24.7 C19.6 25.8 19.1 27.1 18.0 27.6 C16.9 28.1 15.6 27.6 15.1 26.5 L11.8 19.4 L7.8 23.1 C7.0 23.8 6 23.2 6 22.2 Z' fill='%23ffffff' stroke='%23000000' stroke-width='2.6' stroke-linejoin='round' stroke-linecap='round'/%3E%3C/svg%3E") 6 3, auto;
@@ -528,7 +568,7 @@
                         <h2 class="text-base sm:text-lg font-extrabold text-white">Recommended For You</h2>
 
                         <div class="flex flex-wrap items-center gap-1.5 text-xs font-semibold">
-                            <button onclick="setFilterTag('ALL')" data-tag="ALL" class="tag-btn px-2.5 py-1 rounded-md bg-[#00A2FF] text-white transition">All (11)</button>
+                            <button onclick="setFilterTag('ALL')" data-tag="ALL" class="tag-btn px-2.5 py-1 rounded-md bg-[#00A2FF] text-white transition">All (12)</button>
                             <button onclick="setFilterTag('RP')" data-tag="RP" class="tag-btn px-2.5 py-1 rounded-md bg-[#232527] hover:bg-[#2C2F33] text-gray-300 border border-[#393B3D] transition">Adopt Me & RP</button>
                             <button onclick="setFilterTag('OBBY')" data-tag="OBBY" class="tag-btn px-2.5 py-1 rounded-md bg-[#232527] hover:bg-[#2C2F33] text-gray-300 border border-[#393B3D] transition">Obby</button>
                             <button onclick="setFilterTag('ACTION')" data-tag="ACTION" class="tag-btn px-2.5 py-1 rounded-md bg-[#232527] hover:bg-[#2C2F33] text-gray-300 border border-[#393B3D] transition">Action</button>
@@ -1256,7 +1296,8 @@
                 <span class="text-gray-500">|</span>
                 <span id="hud-mp-status" class="text-[#00A2FF]">Globální</span>
             </div>
-            <div id="hud-objective-banner" class="bg-[#121316]/75 border border-white/10 backdrop-blur-md rounded-lg px-3.5 py-1.5 shadow-lg text-center transition-opacity duration-300">
+            <div id="hud-objective-banner" onclick="if(activeGameMode==='casino'&&typeof openCasinoModal==='function') openCasinoModal(gameSpecificData?.activeProximityStation?.id || 'blackjack');"
+                class="bg-[#121316]/75 border border-white/10 backdrop-blur-md rounded-lg px-3.5 py-1.5 shadow-lg text-center transition-opacity duration-300 pointer-events-auto cursor-pointer">
                 <div id="hud-objective-title" class="text-[10px] font-bold uppercase tracking-wider text-[#00A2FF]">ÚKOL HRY</div>
                 <div id="hud-objective-text" class="text-[11px] sm:text-xs font-semibold text-white mt-0.5">Dosáhni zlatého cíle na konci dráhy!</div>
             </div>
@@ -1710,15 +1751,378 @@
         </div>
     </div>
 
+    <!-- =======================================================================
+         CASINO MODAL: BLOX VEGAS (BLACKJACK, SLOTS, DAILY WHEEL, BLOX DERBY)
+         ======================================================================= -->
+    <div id="casino-modal" class="fixed inset-0 z-[120] hidden items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md select-none">
+        <div class="bg-[#191B1D] border border-[#393B3D] rounded-2xl max-w-4xl w-full max-h-[96vh] flex flex-col overflow-hidden shadow-2xl text-white">
+            
+            <!-- Casino Top Header -->
+            <div class="bg-gradient-to-r from-[#380e12] via-[#1b1d22] to-[#0a2333] border-b border-[#393B3D] px-4 py-3 flex flex-wrap items-center justify-between gap-3 shrink-0">
+                <div class="flex items-center gap-3">
+                    <span class="text-3xl filter drop-shadow">🎰</span>
+                    <div>
+                        <h2 class="font-boblox text-xl sm:text-2xl font-black text-white tracking-wide flex items-center gap-2">
+                            <span>BLOX VEGAS CASINO</span>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-gradient-to-r from-[#FFE066] to-[#F59F00] text-black shadow">VIP</span>
+                        </h2>
+                        <p class="text-xs text-gray-300">Blackjack (21) • Automaty Lucky 7 • Kolo Štěstí • Koňské Dostihy</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <!-- Bobux Chip Display Pill -->
+                    <div class="flex items-center gap-2 bg-[#121316]/90 border border-[#FFE066]/40 px-3.5 py-1.5 rounded-xl shadow">
+                        <span class="w-5 h-5 rounded-md bg-gradient-to-br from-[#FFE066] to-[#F59F00] text-[#191B1D] font-black text-xs flex items-center justify-center">B$</span>
+                        <span id="casino-bobux-display" class="font-black text-sm text-[#FFE066]">0 B$</span>
+                    </div>
+                    <!-- Close / Back to 3D Button -->
+                    <button type="button" onclick="closeCasinoModal()" class="w-9 h-9 rounded-full bg-[#232527] hover:bg-[#393B3D] text-gray-300 hover:text-white flex items-center justify-center font-bold text-lg border border-white/10 transition" title="Zavřít a vrátit se do kasina">
+                        ✕
+                    </button>
+                </div>
+            </div>
+
+            <!-- Casino Navigation Tabs Bar -->
+            <div class="bg-[#141619] border-b border-[#393B3D] px-3 flex items-center gap-1.5 overflow-x-auto py-2 shrink-0">
+                <button type="button" id="casino-tab-btn-blackjack" onclick="switchCasinoTab('blackjack')" class="casino-nav-tab px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition bg-[#00B06F] text-white shrink-0">
+                    <span>🃏</span>
+                    <span>Blackjack (21)</span>
+                </button>
+                <button type="button" id="casino-tab-btn-slots" onclick="switchCasinoTab('slots')" class="casino-nav-tab px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition text-gray-300 hover:text-white hover:bg-white/10 shrink-0">
+                    <span>🎰</span>
+                    <span>Automaty (Slots)</span>
+                </button>
+                <button type="button" id="casino-tab-btn-wheel" onclick="switchCasinoTab('wheel')" class="casino-nav-tab px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition text-gray-300 hover:text-white hover:bg-white/10 shrink-0">
+                    <span>🎡</span>
+                    <span>Kolo Štěstí</span>
+                </button>
+                <button type="button" id="casino-tab-btn-derby" onclick="switchCasinoTab('derby')" class="casino-nav-tab px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition text-gray-300 hover:text-white hover:bg-white/10 shrink-0">
+                    <span>🏇</span>
+                    <span>Koňské Dostihy</span>
+                </button>
+                <button type="button" id="casino-tab-btn-cashier" onclick="switchCasinoTab('cashier')" class="casino-nav-tab px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition text-gray-300 hover:text-white hover:bg-white/10 shrink-0">
+                    <span>🪙</span>
+                    <span>Pokladna & Pravidla</span>
+                </button>
+            </div>
+
+            <!-- Scrollable Content Viewport -->
+            <div class="flex-1 overflow-y-auto p-3 sm:p-5">
+
+                <!-- ===============================================================
+                     1. BLACKJACK TAB VIEW
+                     =============================================================== -->
+                <div id="casino-view-blackjack" class="space-y-4 max-w-2xl mx-auto">
+                    <!-- Felt Card Table -->
+                    <div class="bg-gradient-to-b from-[#064e3b] to-[#043327] rounded-2xl border-4 border-[#78350f] p-4 sm:p-6 shadow-[inset_0_4px_16px_rgba(0,0,0,0.6)] space-y-5">
+                        <!-- Dealer Section -->
+                        <div class="space-y-1.5">
+                            <div class="flex items-center justify-between text-xs font-bold text-emerald-200">
+                                <span>KRUPIÉR (DEALER)</span>
+                                <span id="bj-dealer-score" class="px-2 py-0.5 rounded-full bg-black/40 border border-emerald-500/30 font-mono">Součet: ?</span>
+                            </div>
+                            <div id="bj-dealer-cards" class="flex items-center gap-2 flex-wrap min-h-[82px] sm:min-h-[102px]">
+                                <!-- Dealer playing cards inserted here -->
+                            </div>
+                        </div>
+
+                        <!-- Status Message Banner -->
+                        <div id="bj-status-msg" class="py-2.5 px-4 rounded-xl bg-black/60 border border-white/15 text-center text-xs sm:text-sm font-bold text-[#FFE066] shadow">
+                            Zvol výši sázky a klikni na "Rozdat karty"
+                        </div>
+
+                        <!-- Player Section -->
+                        <div class="space-y-1.5">
+                            <div class="flex items-center justify-between text-xs font-bold text-emerald-200">
+                                <span>TVOJE KARTY</span>
+                                <span id="bj-player-score" class="px-2 py-0.5 rounded-full bg-black/40 border border-emerald-500/30 font-mono">Součet: 0</span>
+                            </div>
+                            <div id="bj-player-cards" class="flex items-center gap-2 flex-wrap min-h-[82px] sm:min-h-[102px]">
+                                <!-- Player playing cards inserted here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Blackjack Controls & Chip Bet Selector -->
+                    <div class="bg-[#232527] border border-[#393B3D] rounded-xl p-3.5 sm:p-4 space-y-3">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div class="text-xs font-bold uppercase text-gray-300">
+                                Sázka: <span id="bj-current-bet" class="text-[#FFE066] font-black text-sm sm:text-base">50 B$</span>
+                            </div>
+                            <!-- Chips Row -->
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                <button type="button" onclick="setBjBet(10)" class="casino-chip-btn px-2.5 py-1 rounded-lg bg-[#3b82f6] hover:bg-[#2563eb] text-white text-xs font-bold shadow">10</button>
+                                <button type="button" onclick="setBjBet(25)" class="casino-chip-btn px-2.5 py-1 rounded-lg bg-[#10b981] hover:bg-[#059669] text-white text-xs font-bold shadow">25</button>
+                                <button type="button" onclick="setBjBet(50)" class="casino-chip-btn px-2.5 py-1 rounded-lg bg-[#f59e0b] hover:bg-[#d97706] text-white text-xs font-bold shadow casino-chip-active">50</button>
+                                <button type="button" onclick="setBjBet(100)" class="casino-chip-btn px-2.5 py-1 rounded-lg bg-[#ef4444] hover:bg-[#dc2626] text-white text-xs font-bold shadow">100</button>
+                                <button type="button" onclick="setBjBet(250)" class="casino-chip-btn px-2.5 py-1 rounded-lg bg-[#8b5cf6] hover:bg-[#7c3aed] text-white text-xs font-bold shadow">250</button>
+                                <button type="button" onclick="setBjBet(500)" class="casino-chip-btn px-2.5 py-1 rounded-lg bg-[#ec4899] hover:bg-[#db2777] text-white text-xs font-bold shadow">500</button>
+                                <button type="button" onclick="clearBjBet()" class="px-2 py-1 rounded-lg bg-[#191B1D] hover:bg-[#2C2F33] text-gray-400 hover:text-white text-xs font-bold border border-white/10">✕</button>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                            <button type="button" id="bj-btn-deal" onclick="dealBlackjack()" class="col-span-2 sm:col-span-1 py-3 px-3 rounded-xl bg-gradient-to-r from-[#00C87E] to-[#00B06F] hover:brightness-110 text-white font-bold text-xs sm:text-sm shadow-lg transition active:scale-95">
+                                🟢 Rozdat karty
+                            </button>
+                            <button type="button" id="bj-btn-hit" onclick="hitBlackjack()" disabled class="py-3 px-3 rounded-xl bg-[#00A2FF] hover:bg-[#008BDB] disabled:opacity-40 disabled:pointer-events-none text-white font-bold text-xs sm:text-sm shadow transition active:scale-95">
+                                🔵 Karta (Hit)
+                            </button>
+                            <button type="button" id="bj-btn-stand" onclick="standBlackjack()" disabled class="py-3 px-3 rounded-xl bg-[#EF4444] hover:bg-[#DC2626] disabled:opacity-40 disabled:pointer-events-none text-white font-bold text-xs sm:text-sm shadow transition active:scale-95">
+                                🔴 Stát (Stand)
+                            </button>
+                            <button type="button" id="bj-btn-double" onclick="doubleBlackjack()" disabled class="py-3 px-3 rounded-xl bg-[#F59E0B] hover:bg-[#D97706] disabled:opacity-40 disabled:pointer-events-none text-black font-extrabold text-xs sm:text-sm shadow transition active:scale-95">
+                                🟡 2x Double
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===============================================================
+                     2. SLOTS (AUTOMATY) TAB VIEW
+                     =============================================================== -->
+                <div id="casino-view-slots" class="hidden space-y-4 max-w-xl mx-auto">
+                    <!-- Slot Machine Housing -->
+                    <div class="bg-gradient-to-b from-[#7f1d1d] via-[#991b1b] to-[#450a0a] rounded-2xl border-4 border-[#f59e0b] p-4 sm:p-6 shadow-[0_12px_36px_rgba(0,0,0,0.8)] text-center space-y-4">
+                        <!-- Neon Marquee -->
+                        <div class="bg-[#121316] border-2 border-[#facc15] py-2 px-4 rounded-xl shadow-[0_0_15px_rgba(250,204,21,0.4)]">
+                            <span class="font-boblox text-sm sm:text-base font-black tracking-widest text-[#FFE066] animate-pulse">
+                                ⭐ BLOX 777 LUCKY JACKPOT (50x) ⭐
+                            </span>
+                        </div>
+
+                        <!-- 3 Animated Reels Window -->
+                        <div class="relative bg-[#0b0f19] border-4 border-[#facc15]/80 rounded-xl p-3 sm:p-5 shadow-inner">
+                            <!-- Payline Laser Line -->
+                            <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1 bg-red-500/80 shadow-[0_0_8px_#ef4444] pointer-events-none z-10"></div>
+                            
+                            <div class="grid grid-cols-3 gap-2 sm:gap-4 relative z-0">
+                                <div id="slot-reel-1" class="bg-[#1e293b] border-2 border-white/20 rounded-xl h-24 sm:h-32 flex items-center justify-center text-4xl sm:text-6xl font-black shadow transition-all">
+                                    7️⃣
+                                </div>
+                                <div id="slot-reel-2" class="bg-[#1e293b] border-2 border-white/20 rounded-xl h-24 sm:h-32 flex items-center justify-center text-4xl sm:text-6xl font-black shadow transition-all">
+                                    🪙
+                                </div>
+                                <div id="slot-reel-3" class="bg-[#1e293b] border-2 border-white/20 rounded-xl h-24 sm:h-32 flex items-center justify-center text-4xl sm:text-6xl font-black shadow transition-all">
+                                    💎
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Win / Result Status Banner -->
+                        <div id="slots-status-msg" class="py-2.5 px-4 rounded-xl bg-[#121316]/90 border border-[#facc15]/40 text-xs sm:text-sm font-extrabold text-[#FFE066] shadow min-h-[38px] flex items-center justify-center">
+                            Vsaď Bobuxy a roztoč válce!
+                        </div>
+                    </div>
+
+                    <!-- Slots Controls -->
+                    <div class="bg-[#232527] border border-[#393B3D] rounded-xl p-3.5 sm:p-4 space-y-3">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div class="text-xs font-bold uppercase text-gray-300">
+                                Sázka na spin: <span id="slots-current-bet" class="text-[#FFE066] font-black text-sm sm:text-base">25 B$</span>
+                            </div>
+                            <!-- Chips Row -->
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                <button type="button" onclick="setSlotsBet(10)" class="casino-chip-btn px-2.5 py-1 rounded-lg bg-[#3b82f6] hover:bg-[#2563eb] text-white text-xs font-bold shadow">10</button>
+                                <button type="button" onclick="setSlotsBet(25)" class="casino-chip-btn px-2.5 py-1 rounded-lg bg-[#10b981] hover:bg-[#059669] text-white text-xs font-bold shadow casino-chip-active">25</button>
+                                <button type="button" onclick="setSlotsBet(50)" class="casino-chip-btn px-2.5 py-1 rounded-lg bg-[#f59e0b] hover:bg-[#d97706] text-white text-xs font-bold shadow">50</button>
+                                <button type="button" onclick="setSlotsBet(100)" class="casino-chip-btn px-2.5 py-1 rounded-lg bg-[#ef4444] hover:bg-[#dc2626] text-white text-xs font-bold shadow">100</button>
+                                <button type="button" onclick="setSlotsBet(250)" class="casino-chip-btn px-2.5 py-1 rounded-lg bg-[#8b5cf6] hover:bg-[#7c3aed] text-white text-xs font-bold shadow">250</button>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-3">
+                            <button type="button" id="slots-spin-btn" onclick="spinSlots()" class="flex-1 py-3.5 px-4 rounded-xl bg-gradient-to-r from-[#FFE066] via-[#F59F00] to-[#E67700] hover:brightness-110 active:scale-95 text-[#191B1D] font-black text-sm sm:text-base shadow-xl transition flex items-center justify-center gap-2">
+                                <span>🎰</span>
+                                <span>ROZTOČIT VÁLCE</span>
+                            </button>
+                            <label class="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-gray-300 bg-[#191B1D] px-3 py-3 rounded-xl border border-white/10 shrink-0">
+                                <input type="checkbox" id="slots-auto-spin" onchange="toggleSlotsAutoSpin()" class="rounded text-[#00A2FF]">
+                                <span>Auto Spin</span>
+                            </label>
+                        </div>
+
+                        <!-- Paytable Mini Info -->
+                        <div class="bg-[#191B1D] rounded-lg p-2.5 border border-white/5 text-[11px] grid grid-cols-2 sm:grid-cols-4 gap-2 text-gray-300">
+                            <div>7️⃣ 7️⃣ 7️⃣ = <strong class="text-[#FFE066]">50x</strong></div>
+                            <div>🪙 🪙 🪙 = <strong class="text-amber-400">35x</strong></div>
+                            <div>💎 💎 💎 = <strong class="text-cyan-400">25x</strong></div>
+                            <div>🔔 🔔 🔔 = <strong class="text-yellow-300">15x</strong></div>
+                            <div>🍇 🍇 🍇 = <strong class="text-purple-400">8x</strong></div>
+                            <div>🍋 🍋 🍋 = <strong class="text-lime-400">4x</strong></div>
+                            <div>🍒 🍒 🍒 = <strong class="text-rose-400">2x</strong></div>
+                            <div>🍒 🍒 = <strong class="text-rose-300">1.5x</strong></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===============================================================
+                     3. DENNÍ KOLO ŠTĚSTÍ (DAILY WHEEL) TAB VIEW
+                     =============================================================== -->
+                <div id="casino-view-wheel" class="hidden space-y-4 max-w-lg mx-auto text-center">
+                    <!-- Daily Status Header -->
+                    <div id="wheel-header-banner" class="bg-[#232527] border border-[#FFE066]/30 rounded-xl p-3 shadow">
+                        <div class="text-xs font-bold text-gray-300 uppercase">Status volného zatočení</div>
+                        <div id="wheel-daily-status" class="text-sm sm:text-base font-extrabold text-[#00B06F] mt-0.5">
+                            🎁 1 VOLNÉ ZATOČENÍ PŘIPRAVENO!
+                        </div>
+                    </div>
+
+                    <!-- Interactive Spinning Canvas Wheel -->
+                    <div class="relative inline-block mx-auto py-2">
+                        <!-- Top Pointer Needle -->
+                        <div class="absolute top-0 left-1/2 -translate-x-1/2 z-20 w-0 h-0 border-l-[14px] border-l-transparent border-r-[14px] border-r-transparent border-t-[24px] border-t-[#FFE066] filter drop-shadow"></div>
+                        <canvas id="casino-wheel-canvas" width="340" height="340" class="block mx-auto rounded-full shadow-[0_10px_35px_rgba(0,0,0,0.8)] border-4 border-[#facc15]"></canvas>
+                    </div>
+
+                    <!-- Outcome Message -->
+                    <div id="wheel-status-msg" class="py-2.5 px-4 rounded-xl bg-[#232527] border border-white/10 text-xs sm:text-sm font-bold text-[#FFE066] shadow min-h-[38px] flex items-center justify-center">
+                        Roztoč kolo a získej až 2 500 Bobuxů!
+                    </div>
+
+                    <!-- Spin Button & Daily Timer -->
+                    <div class="space-y-2">
+                        <button type="button" id="wheel-spin-btn" onclick="spinDailyWheel()" class="w-full py-4 rounded-xl bg-gradient-to-r from-[#00C87E] via-[#00B06F] to-[#009E63] hover:brightness-110 active:scale-95 text-white font-black text-base shadow-xl transition flex items-center justify-center gap-2">
+                            <span>🎁</span>
+                            <span id="wheel-btn-text">ZATOČIT ZDARMA!</span>
+                        </button>
+                        <div id="wheel-daily-timer" class="text-xs text-gray-400">
+                            Každých 24 hodin máš 1 zatočení zdarma! Extra zatočení stojí 100 B$.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===============================================================
+                     4. KOŇSKÉ DOSTIHY (BLOX DERBY) TAB VIEW
+                     =============================================================== -->
+                <div id="casino-view-derby" class="hidden space-y-4 max-w-2xl mx-auto">
+                    <!-- Derby Arena Header -->
+                    <div class="bg-gradient-to-r from-[#065f46] to-[#064e3b] rounded-xl border border-white/15 p-3 sm:p-4 text-center shadow">
+                        <div class="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-emerald-200">VELKÁ BLOX PARDUBICKÁ • 1 000 METRŮ</div>
+                        <div id="derby-status-label" class="font-boblox text-base sm:text-xl font-extrabold text-white mt-0.5">
+                            🏇 VYBER SVÉHO FAVORITA A VSAĎ BOBUXY
+                        </div>
+                    </div>
+
+                    <!-- 5 Horse Selection Cards -->
+                    <div class="grid grid-cols-1 sm:grid-cols-5 gap-2" id="derby-horses-list">
+                        <!-- Populated dynamically via JS -->
+                    </div>
+
+                    <!-- Live Race Track Progress (Shown during race) -->
+                    <div id="derby-track-container" class="hidden bg-[#0f172a] rounded-xl border-2 border-[#38bdf8]/40 p-3 sm:p-4 shadow-2xl space-y-2">
+                        <div class="flex items-center justify-between text-xs font-mono text-gray-300">
+                            <span>START (0m)</span>
+                            <span id="derby-meters-counter" class="text-[#FFE066] font-bold">0 m / 1 000 m</span>
+                            <span>CÍL 🏁</span>
+                        </div>
+                        <div id="derby-lanes" class="space-y-2">
+                            <!-- 5 Track Lanes dynamically animated -->
+                        </div>
+                    </div>
+
+                    <!-- Result Banner -->
+                    <div id="derby-result-banner" class="hidden py-3 px-4 rounded-xl bg-black/80 border border-[#FFE066] text-center text-sm font-black text-[#FFE066] shadow"></div>
+
+                    <!-- Derby Betting Controls -->
+                    <div class="bg-[#232527] border border-[#393B3D] rounded-xl p-3.5 sm:p-4 space-y-3">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div class="text-xs font-bold uppercase text-gray-300">
+                                Sázka: <span id="derby-current-bet" class="text-[#FFE066] font-black text-sm sm:text-base">50 B$</span>
+                                <span class="text-gray-400 text-[11px] ml-2">Možná výhra: <strong id="derby-potential-win" class="text-emerald-400 font-bold">110 B$</strong></span>
+                            </div>
+                            <!-- Chips Row -->
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                <button type="button" onclick="setDerbyBet(25)" class="casino-chip-btn px-2.5 py-1 rounded-lg bg-[#10b981] hover:bg-[#059669] text-white text-xs font-bold shadow">25</button>
+                                <button type="button" onclick="setDerbyBet(50)" class="casino-chip-btn px-2.5 py-1 rounded-lg bg-[#f59e0b] hover:bg-[#d97706] text-white text-xs font-bold shadow casino-chip-active">50</button>
+                                <button type="button" onclick="setDerbyBet(100)" class="casino-chip-btn px-2.5 py-1 rounded-lg bg-[#ef4444] hover:bg-[#dc2626] text-white text-xs font-bold shadow">100</button>
+                                <button type="button" onclick="setDerbyBet(250)" class="casino-chip-btn px-2.5 py-1 rounded-lg bg-[#8b5cf6] hover:bg-[#7c3aed] text-white text-xs font-bold shadow">250</button>
+                                <button type="button" onclick="setDerbyBet(500)" class="casino-chip-btn px-2.5 py-1 rounded-lg bg-[#ec4899] hover:bg-[#db2777] text-white text-xs font-bold shadow">500</button>
+                            </div>
+                        </div>
+
+                        <button type="button" id="derby-start-btn" onclick="startDerbyRace()" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#00A2FF] to-[#007ACC] hover:brightness-110 active:scale-95 text-white font-black text-sm sm:text-base shadow-xl transition flex items-center justify-center gap-2">
+                            <span>🏇</span>
+                            <span>ODSTARTOVAT DOSTIHY!</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ===============================================================
+                     5. POKLADNA & PRAVIDLA (CASHIER & RULES) TAB VIEW
+                     =============================================================== -->
+                <div id="casino-view-cashier" class="hidden space-y-4 max-w-2xl mx-auto">
+                    <div class="bg-[#232527] border border-[#393B3D] rounded-xl p-4 sm:p-5 space-y-3">
+                        <div class="flex items-center gap-3">
+                            <span class="text-3xl">🪙</span>
+                            <div>
+                                <h3 class="font-boblox text-lg font-bold text-white">Kasínová Pokladna & Informace</h3>
+                                <p class="text-xs text-gray-300">Oficiální pravidla a výplatní kurzy her v Blox Vegas</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                            <div class="bg-[#191B1D] p-3 rounded-xl border border-white/5 space-y-1 text-xs">
+                                <div class="font-bold text-[#00A2FF] flex items-center gap-1.5">
+                                    <span>🃏</span>
+                                    <span>Blackjack (21)</span>
+                                </div>
+                                <p class="text-gray-300">Poraž krupiéra bez překročení 21. Běžná výhra vyplácí 1:1 (2x vklad), přirozený Blackjack (A + 10/J/Q/K) vyplácí 3:2 (2.5x vklad). Krupiér stojí na 17.</p>
+                            </div>
+
+                            <div class="bg-[#191B1D] p-3 rounded-xl border border-white/5 space-y-1 text-xs">
+                                <div class="font-bold text-[#F59E0B] flex items-center gap-1.5">
+                                    <span>🎰</span>
+                                    <span>Automaty Lucky 7</span>
+                                </div>
+                                <p class="text-gray-300">3 válce s ovocem a Bobuxy. Spoj 3 stejné symboly pro výhru až 50x (Lucky 7) nebo 35x (Bobux mince). 2 třešně vrací 1.5x sázky.</p>
+                            </div>
+
+                            <div class="bg-[#191B1D] p-3 rounded-xl border border-white/5 space-y-1 text-xs">
+                                <div class="font-bold text-[#00B06F] flex items-center gap-1.5">
+                                    <span>🎡</span>
+                                    <span>Denní Kolo Štěstí</span>
+                                </div>
+                                <p class="text-gray-300">Každých 24 hodin má každý hráč 1 zatočení zcela zdarma s jistou výhrou od 50 B$ až po obří Jackpot 2 500 B$! Další točení stojí 100 B$.</p>
+                            </div>
+
+                            <div class="bg-[#191B1D] p-3 rounded-xl border border-white/5 space-y-1 text-xs">
+                                <div class="font-bold text-[#EC4899] flex items-center gap-1.5">
+                                    <span>🏇</span>
+                                    <span>Koňské Dostihy</span>
+                                </div>
+                                <p class="text-gray-300">5 koní s různými kurzy (od 2.2x do 15x). Vsaď na svého favorita, sleduj napínavý závod na dráze a pokud vyhraje, vklad se znásobí kurzem!</p>
+                            </div>
+                        </div>
+
+                        <!-- How to earn Bobux banner -->
+                        <div class="bg-gradient-to-r from-[#00A2FF]/20 to-[#00B06F]/20 border border-[#00A2FF]/40 rounded-xl p-3.5 flex items-center justify-between gap-3 text-xs">
+                            <div>
+                                <div class="font-bold text-white">Docházejí ti Bobuxy?</div>
+                                <div class="text-gray-300 mt-0.5">Zahraj si Adopt Me!, Obby, Bedwars nebo Zombie Outpost a získej další Bobuxy zdarma!</div>
+                            </div>
+                            <button type="button" onclick="closeCasinoModal(); leaveFromRobloxMenu();" class="px-3.5 py-2 rounded-lg bg-[#00A2FF] hover:bg-[#008BDB] text-white font-bold shrink-0 shadow transition">
+                                Herní Portál
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
     <!-- BOBLOX Modular Architecture (Core Engine, State, Network, Games & UI with Cache-Busting) -->
-    <script src="src/core/SoundEngine.js?v=3.3" defer></script>
-    <script src="src/state/PortalStore.js?v=3.3" defer></script>
-    <script src="src/network/NetworkManager.js?v=3.3" defer></script>
-    <script src="src/ui/PortalUI.js?v=3.3" defer></script>
-    <script src="src/core/AvatarAndShop.js?v=3.3" defer></script>
-    <script src="src/core/Engine.js?v=3.3" defer></script>
-    <script src="src/games/GameWorlds.js?v=3.3" defer></script>
-    <script src="src/core/PhysicsAndLoop.js?v=3.3" defer></script>
-    <script src="src/core/InputManager.js?v=3.3" defer></script>
+    <script src="src/core/SoundEngine.js?v=3.4" defer></script>
+    <script src="src/state/PortalStore.js?v=3.4" defer></script>
+    <script src="src/network/NetworkManager.js?v=3.4" defer></script>
+    <script src="src/ui/PortalUI.js?v=3.4" defer></script>
+    <script src="src/core/AvatarAndShop.js?v=3.4" defer></script>
+    <script src="src/core/Engine.js?v=3.4" defer></script>
+    <script src="src/games/GameWorlds.js?v=3.4" defer></script>
+    <script src="src/core/PhysicsAndLoop.js?v=3.4" defer></script>
+    <script src="src/core/InputManager.js?v=3.4" defer></script>
 </body>
 </html>

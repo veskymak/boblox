@@ -1612,3 +1612,1080 @@ function setupGame11AdoptMe() {
     refreshAdoptMeHUD();
 }
 
+/* ============================================================================
+ * 12. GAME 12: "BLOX VEGAS: CASINO & DERBY" (BLACKJACK, SLOTS, WHEEL, DERBY)
+ * ============================================================================ */
+const CASINO_STATIONS = [
+    { id: 'blackjack', name: 'Blackjack (21)', icon: '🃏', pos: new THREE.Vector3(-18, 1.2, -8), radius: 6.0 },
+    { id: 'slots', name: 'Výherní Automaty', icon: '🎰', pos: new THREE.Vector3(18, 1.2, -8), radius: 6.0 },
+    { id: 'wheel', name: 'Denní Kolo Štěstí', icon: '🎡', pos: new THREE.Vector3(0, 1.2, -18), radius: 6.0 },
+    { id: 'derby', name: 'Koňské Dostihy', icon: '🏇', pos: new THREE.Vector3(0, 1.2, 14), radius: 6.5 },
+    { id: 'cashier', name: 'Pokladna & Info', icon: '🪙', pos: new THREE.Vector3(-20, 1.2, 24), radius: 6.0 }
+];
+
+function setupGame12Casino() {
+    scene.background = new THREE.Color(0x0a0c10);
+    scene.fog = new THREE.FogExp2(0x0a0c10, 0.007);
+
+    document.getElementById('hud-objective-title').textContent = '🎰 BLOX VEGAS CASINO';
+    document.getElementById('hud-objective-text').textContent = 'Vstup do světa her! Přistup ke stolům nebo vyber hru z lišty (1-5) a vyhraj Bobuxy!';
+    document.getElementById('hud-extra-label').textContent = 'Zůstatek: ';
+    document.getElementById('hud-extra-value').textContent = `${bobuxBalance.toLocaleString('cs-CZ')} B$`;
+
+    playerState.spawnPoint.set(0, 3, 26);
+    playerState.pos.copy(playerState.spawnPoint);
+
+    // 1. Luxurious Velvet Royal Carpet Floor (80x80)
+    createBlock(0, 0, 0, 80, 1.5, 80, 0x4c0519); // Deep Burgundy Velvet Carpet
+    // Center Golden Plaza Disc / Crossways
+    createBlock(0, 0.8, 0, 18, 0.2, 18, 0xd97706); // Golden Center Star
+    createBlock(0, 0.82, -9, 4.5, 0.18, 18, 0xf59e0b); // North Golden Carpet Path
+    createBlock(0, 0.82, 9, 4.5, 0.18, 18, 0xf59e0b);  // South Golden Carpet Path
+    createBlock(-9, 0.82, 0, 18, 0.18, 4.5, 0xf59e0b); // West Golden Carpet Path
+    createBlock(9, 0.82, 0, 18, 0.18, 4.5, 0xf59e0b);  // East Golden Carpet Path
+
+    // 2. Mahogany Walls & Grand Casino Perimeter
+    createBlock(0, 6.5, -40, 80, 14, 2, 0x1e1b18); // North Wall
+    createBlock(0, 6.5, 40, 80, 14, 2, 0x1e1b18);  // South Wall
+    createBlock(-40, 6.5, 0, 2, 14, 80, 0x1e1b18); // West Wall
+    createBlock(40, 6.5, 0, 2, 14, 80, 0x1e1b18);  // East Wall
+
+    // 3. Classical Golden Pillars (8 Columns)
+    const pillarPositions = [
+        [-14, -14], [14, -14], [-14, 14], [14, 14],
+        [-28, -24], [28, -24], [-28, 24], [28, 24]
+    ];
+    pillarPositions.forEach(p => {
+        // Pillar Base & Top Rings
+        createBlock(p[0], 1.2, p[1], 2.8, 0.8, 2.8, 0xfacc15);
+        createBlock(p[0], 7.0, p[1], 2.0, 11, 2.0, 0x1e293b);
+        createBlock(p[0], 12.8, p[1], 2.8, 0.8, 2.8, 0xfacc15);
+    });
+
+    // 4. Grand Golden Chandeliers Hanging from Ceiling
+    const chandelierPositions = [[0, 0], [-18, -10], [18, -10], [0, 16], [-20, 22]];
+    chandelierPositions.forEach(cp => {
+        const chan = new THREE.Mesh(
+            new THREE.SphereGeometry(1.4, 12, 12),
+            new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xf59e0b, emissiveIntensity: 0.85 })
+        );
+        chan.position.set(cp[0], 13.5, cp[1]);
+        scene.add(chan);
+    });
+
+    // 5. STATION 1: 🃏 BLACKJACK ZONE (West at X = -18, Z = -8)
+    createBlock(-18, 0.85, -8, 14, 0.25, 12, 0x064e3b, { emissive: 0x064e3b, emissiveIntensity: 0.2 }); // Emerald Felt Pad
+    // Semicircular / Pill-shaped Blackjack Table
+    createBlock(-18, 1.8, -8, 8.5, 1.6, 5.2, 0x065f46);
+    createBlock(-18, 2.65, -8, 9.2, 0.2, 5.8, 0x78350f); // Mahogany Trim
+    // 3D Dealer NPC Character
+    const dealerChar = createBlockyCharacterMesh({
+        headColor: 0xF5CD30,
+        torsoColor: 0x111827, // Black Tuxedo / Vest
+        legColor: 0x1e293b
+    });
+    dealerChar.root.position.set(-18, 1.8, -11.5);
+    scene.add(dealerChar.root);
+    // Floating Neon Sign above Blackjack table
+    const bjNeon = createBlock(-18, 7.5, -8, 7.5, 1.2, 0.8, 0x10b981, {
+        emissive: 0x059669,
+        emissiveIntensity: 0.85,
+        noStuds: true
+    });
+
+    // 6. STATION 2: 🎰 SLOTS ZONE (East at X = 18, Z = -8)
+    createBlock(18, 0.85, -8, 14, 0.25, 12, 0x831843, { emissive: 0x701a75, emissiveIntensity: 0.2 });
+    // Row of 4 3D Slot Machines
+    for (let i = 0; i < 4; i++) {
+        const sx = 13.5 + i * 3.0;
+        createBlock(sx, 2.6, -10, 2.2, 3.6, 2.2, 0x991b1b); // Red casing
+        createBlock(sx, 4.4, -10, 2.2, 0.4, 2.2, 0xfacc15); // Gold top marquee
+        createBlock(sx, 2.8, -8.8, 1.6, 1.4, 0.2, 0x0f172a, { emissive: 0xf59e0b, emissiveIntensity: 0.5 }); // Screen
+        // Lever
+        createBlock(sx + 1.2, 2.6, -9.5, 0.2, 1.8, 0.2, 0x94a3b8);
+        const leverKnob = new THREE.Mesh(new THREE.SphereGeometry(0.24, 8, 8), new THREE.MeshStandardMaterial({ color: 0xef4444 }));
+        leverKnob.position.set(sx + 1.2, 3.5, -9.5);
+        scene.add(leverKnob);
+    }
+    // Floating Neon Sign above Slots
+    const slotsNeon = createBlock(18, 7.5, -8, 7.5, 1.2, 0.8, 0xf59e0b, {
+        emissive: 0xd97706,
+        emissiveIntensity: 0.85,
+        noStuds: true
+    });
+
+    // 7. STATION 3: 🎡 DENNÍ KOLO ŠTĚSTÍ (North Center at X = 0, Z = -18)
+    createBlock(0, 1.1, -18, 9, 0.7, 9, 0xd97706); // Golden Raised Pedestal
+    // Giant 3D Spinning Wheel Mesh Standing Vertically
+    const wheelGroup = new THREE.Group();
+    const wheelRim = new THREE.Mesh(
+        new THREE.CylinderGeometry(3.6, 3.6, 0.6, 24),
+        new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.6, roughness: 0.25 })
+    );
+    wheelRim.rotation.x = Math.PI / 2;
+    wheelGroup.add(wheelRim);
+    // Colored Pie Slices
+    const wColors = [0xef4444, 0x3b82f6, 0x10b981, 0xf59e0b, 0x8b5cf6, 0x06b6d4, 0xec4899, 0xfde047];
+    for (let s = 0; s < 8; s++) {
+        const wedge = new THREE.Mesh(
+            new THREE.CylinderGeometry(3.4, 3.4, 0.65, 3, 1, false, (s * Math.PI) / 4, Math.PI / 4),
+            new THREE.MeshStandardMaterial({ color: wColors[s % wColors.length], emissive: wColors[s % wColors.length], emissiveIntensity: 0.25 })
+        );
+        wedge.rotation.x = Math.PI / 2;
+        wheelGroup.add(wedge);
+    }
+    // Golden Center Hub
+    const hub = new THREE.Mesh(new THREE.SphereGeometry(0.85, 16, 16), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfacc15, emissiveIntensity: 0.6 }));
+    wheelGroup.add(hub);
+
+    wheelGroup.position.set(0, 5.2, -18);
+    scene.add(wheelGroup);
+
+    // Golden Pointer Needle at Top of Wheel
+    const pointer = new THREE.Mesh(new THREE.ConeGeometry(0.45, 1.1, 8), new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xca8a04, emissiveIntensity: 0.6 }));
+    pointer.position.set(0, 9.2, -18);
+    pointer.rotation.z = Math.PI;
+    scene.add(pointer);
+
+    // Floating Neon Sign above Wheel
+    createBlock(0, 11.2, -18, 8, 1.2, 0.8, 0xfacc15, {
+        emissive: 0xeab308,
+        emissiveIntensity: 0.85,
+        noStuds: true
+    });
+
+    // 8. STATION 4: 🏇 KOŇSKÉ DOSTIHY (South Arena at X = 0, Z = 14)
+    createBlock(0, 0.9, 14, 22, 0.35, 12, 0x15803d); // Green Turf Track
+    // White Wooden Rail Fences around track
+    createBlock(0, 1.5, 8.2, 22, 0.7, 0.3, 0xffffff);
+    createBlock(0, 1.5, 19.8, 22, 0.7, 0.3, 0xffffff);
+    createBlock(-10.8, 1.5, 14, 0.3, 0.7, 12, 0xffffff);
+    createBlock(10.8, 1.5, 14, 0.3, 0.7, 12, 0xffffff);
+
+    // 5 Miniature 3D Blocky Racing Horses in Stalls
+    const horseColors = [0x00A2FF, 0xEF4444, 0x8B5CF6, 0x10B981, 0xFACC15];
+    const horses3D = [];
+    for (let h = 0; h < 5; h++) {
+        const horseGroup = new THREE.Group();
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0x78350f });
+        const saddleMat = new THREE.MeshStandardMaterial({ color: horseColors[h], emissive: horseColors[h], emissiveIntensity: 0.35 });
+        // Horse Body & Neck
+        const body = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.9, 0.7), bodyMat);
+        body.position.y = 1.1;
+        horseGroup.add(body);
+        const neck = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.8, 0.5), bodyMat);
+        neck.position.set(0.65, 1.6, 0);
+        neck.rotation.z = -0.35;
+        horseGroup.add(neck);
+        // Jockey Torso on saddle
+        const jockey = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.65, 0.55), saddleMat);
+        jockey.position.set(0.1, 1.8, 0);
+        horseGroup.add(jockey);
+        const jockeyHead = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), new THREE.MeshStandardMaterial({ color: 0xF5CD30 }));
+        jockeyHead.position.set(0.1, 2.3, 0);
+        horseGroup.add(jockeyHead);
+
+        // Position in starting lane
+        horseGroup.position.set(-8.0, 0.9, 10.0 + h * 2.0);
+        horseGroup.rotation.y = Math.PI / 2; // Facing right (towards finish)
+        scene.add(horseGroup);
+        horses3D.push({ group: horseGroup, baseZ: 10.0 + h * 2.0, idx: h });
+    }
+
+    // Floating Neon Sign above Derby Track
+    createBlock(0, 5.8, 14, 8, 1.2, 0.8, 0x06b6d4, {
+        emissive: 0x0891b2,
+        emissiveIntensity: 0.85,
+        noStuds: true
+    });
+
+    // 9. STATION 5: 🪙 POKLADNA & VIP LOUNGE (X = -20, Z = 24)
+    createBlock(-20, 1.8, 24, 7, 1.6, 3, 0x1e293b);
+    createBlock(-20, 2.65, 24, 7.6, 0.2, 3.4, 0xfacc15); // Golden top counter
+    // Golden Bullion Bars on Counter
+    for (let g = 0; g < 3; g++) {
+        createBlock(-22 + g * 1.8, 2.9, 24, 1.2, 0.35, 0.6, 0xfacc15, { emissive: 0xca8a04, emissiveIntensity: 0.5 });
+    }
+    // Cashier NPC
+    const cashierChar = createBlockyCharacterMesh({ headColor: 0xF5CD30, torsoColor: 0x059669, legColor: 0x111827 });
+    cashierChar.root.position.set(-20, 1.8, 26.2);
+    scene.add(cashierChar.root);
+
+    // Initialize Game Specific State
+    gameSpecificData = {
+        stations: CASINO_STATIONS,
+        wheelMesh: wheelGroup,
+        horses3D,
+        dealerChar,
+        activeProximityStation: null,
+        confettiParticles: []
+    };
+
+    updateCasinoBobuxDisplay();
+    renderDerbyHorsesList();
+    renderCasinoWheel();
+    updateDailyWheelTimer();
+}
+
+/* ============================================================================
+ * CASINO UI MODAL & VIEW SWITCHER
+ * ============================================================================ */
+let activeCasinoTab = 'blackjack';
+
+function updateCasinoBobuxDisplay() {
+    const el = document.getElementById('casino-bobux-display');
+    if (el) el.textContent = `${bobuxBalance.toLocaleString('cs-CZ')} B$`;
+    const elHud = document.getElementById('hud-bobux-count');
+    if (elHud) elHud.textContent = bobuxBalance.toLocaleString('cs-CZ');
+    const elExtra = document.getElementById('hud-extra-value');
+    if (elExtra && activeGameMode === 'casino') elExtra.textContent = `${bobuxBalance.toLocaleString('cs-CZ')} B$`;
+}
+
+function openCasinoModal(tabName = 'blackjack') {
+    if (document.pointerLockElement) {
+        try { document.exitPointerLock(); } catch (e) {}
+    }
+    const modal = document.getElementById('casino-modal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    updateCasinoBobuxDisplay();
+    switchCasinoTab(tabName);
+}
+
+function closeCasinoModal() {
+    const modal = document.getElementById('casino-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    // Refocus canvas for smooth gameplay
+    const canvas = document.getElementById('three-canvas');
+    if (canvas && activeGameMode === 'casino') {
+        canvas.focus();
+    }
+}
+
+function switchCasinoTab(tabName) {
+    activeCasinoTab = tabName;
+    const tabs = ['blackjack', 'slots', 'wheel', 'derby', 'cashier'];
+    tabs.forEach(t => {
+        const btn = document.getElementById(`casino-tab-btn-${t}`);
+        const view = document.getElementById(`casino-view-${t}`);
+        if (btn) {
+            if (t === tabName) {
+                btn.className = 'casino-nav-tab px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition bg-[#00B06F] text-white shrink-0';
+            } else {
+                btn.className = 'casino-nav-tab px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition text-gray-300 hover:text-white hover:bg-white/10 shrink-0';
+            }
+        }
+        if (view) {
+            if (t === tabName) view.classList.remove('hidden');
+            else view.classList.add('hidden');
+        }
+    });
+
+    updateCasinoBobuxDisplay();
+
+    if (tabName === 'wheel') {
+        renderCasinoWheel();
+        updateDailyWheelTimer();
+    } else if (tabName === 'derby') {
+        renderDerbyHorsesList();
+    }
+}
+
+/* ============================================================================
+ * A. BLACKJACK (21) GAME ENGINE
+ * ============================================================================ */
+const bjState = {
+    deck: [],
+    dealerHand: [],
+    playerHand: [],
+    bet: 50,
+    phase: 'betting' // 'betting' | 'playing' | 'dealer' | 'finished'
+};
+
+function createShuffledDeck() {
+    const suits = ['♠', '♥', '♦', '♣'];
+    const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+    const deck = [];
+    suits.forEach(suit => {
+        values.forEach(val => {
+            deck.push({ val, suit, color: (suit === '♥' || suit === '♦') ? 'red' : 'black' });
+        });
+    });
+    // Fisher-Yates Shuffle
+    for (let i = deck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+    return deck;
+}
+
+function calculateHandScore(hand, hideFirstCard = false) {
+    if (!hand || hand.length === 0) return { total: 0, isSoft: false, isBust: false, isBlackjack: false };
+    const cardsToScore = hideFirstCard ? hand.slice(1) : hand;
+    let sum = 0;
+    let aces = 0;
+    cardsToScore.forEach(card => {
+        if (card.val === 'A') {
+            aces++;
+            sum += 11;
+        } else if (['K', 'Q', 'J'].includes(card.val)) {
+            sum += 10;
+        } else {
+            sum += parseInt(card.val, 10);
+        }
+    });
+    while (sum > 21 && aces > 0) {
+        sum -= 10;
+        aces--;
+    }
+    const isBust = sum > 21;
+    const isBlackjack = hand.length === 2 && sum === 21;
+    return { total: sum, isSoft: aces > 0, isBust, isBlackjack };
+}
+
+function renderHandCards(containerId, hand, hideHoleCard = false) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+    hand.forEach((card, idx) => {
+        const cardEl = document.createElement('div');
+        if (hideHoleCard && idx === 0) {
+            cardEl.className = 'casino-playing-card casino-card-hidden';
+            cardEl.innerHTML = '<div class="w-full h-full flex items-center justify-center text-white/50 text-xl font-bold">🂠</div>';
+        } else {
+            const isRed = card.color === 'red';
+            const colClass = isRed ? 'text-red-600' : 'text-slate-900';
+            cardEl.className = `casino-playing-card ${colClass}`;
+            cardEl.innerHTML = `
+                <div class="text-left text-xs font-black leading-none">${card.val}<br>${card.suit}</div>
+                <div class="text-center text-2xl font-black leading-none">${card.suit}</div>
+                <div class="text-right text-xs font-black leading-none rotate-180">${card.val}<br>${card.suit}</div>
+            `;
+        }
+        container.appendChild(cardEl);
+    });
+}
+
+function setBjBet(amount) {
+    if (bjState.phase === 'playing') return;
+    bjState.bet = amount;
+    const el = document.getElementById('bj-current-bet');
+    if (el) el.textContent = `${bjState.bet} B$`;
+    // Update chip active classes
+    const chipBtns = document.querySelectorAll('#casino-view-blackjack .casino-chip-btn');
+    chipBtns.forEach(btn => {
+        btn.classList.toggle('casino-chip-active', parseInt(btn.textContent, 10) === amount);
+    });
+    sfx.playJump();
+}
+
+function clearBjBet() {
+    if (bjState.phase === 'playing') return;
+    setBjBet(10);
+}
+
+function dealBlackjack() {
+    if (bjState.phase === 'playing') return;
+    if (bobuxBalance < bjState.bet) {
+        showHudToast(`Nemáš dostatek Bobuxů! (Máš ${bobuxBalance} B$, sázka je ${bjState.bet} B$)`, 'red');
+        return;
+    }
+    if (!spendBobux(bjState.bet, `Blackjack sázka (${bjState.bet} B$)`)) return;
+
+    updateCasinoBobuxDisplay();
+    sfx.playCardFlip();
+
+    if (bjState.deck.length < 15) {
+        bjState.deck = createShuffledDeck();
+    }
+
+    bjState.playerHand = [bjState.deck.pop(), bjState.deck.pop()];
+    bjState.dealerHand = [bjState.deck.pop(), bjState.deck.pop()];
+    bjState.phase = 'playing';
+
+    // Update buttons state
+    document.getElementById('bj-btn-deal').disabled = true;
+    document.getElementById('bj-btn-hit').disabled = false;
+    document.getElementById('bj-btn-stand').disabled = false;
+    document.getElementById('bj-btn-double').disabled = (bobuxBalance < bjState.bet);
+
+    renderHandCards('bj-dealer-cards', bjState.dealerHand, true);
+    renderHandCards('bj-player-cards', bjState.playerHand, false);
+
+    const pScore = calculateHandScore(bjState.playerHand);
+    const dScoreVisible = calculateHandScore([bjState.dealerHand[1]]);
+    document.getElementById('bj-dealer-score').textContent = `Karta: ${dScoreVisible.total}`;
+    document.getElementById('bj-player-score').textContent = `Součet: ${pScore.total}`;
+
+    // Check Natural Blackjack for player
+    if (pScore.isBlackjack) {
+        setTimeout(resolveBlackjackDealerTurn, 600);
+    } else {
+        document.getElementById('bj-status-msg').textContent = 'Tvůj tah: Vezmi kartu (Hit), Stůj (Stand) nebo Zdvojnásob (Double)';
+    }
+}
+
+function hitBlackjack() {
+    if (bjState.phase !== 'playing') return;
+    sfx.playCardFlip();
+    bjState.playerHand.push(bjState.deck.pop());
+    renderHandCards('bj-player-cards', bjState.playerHand, false);
+
+    const pScore = calculateHandScore(bjState.playerHand);
+    document.getElementById('bj-player-score').textContent = `Součet: ${pScore.total}`;
+    document.getElementById('bj-btn-double').disabled = true;
+
+    if (pScore.isBust) {
+        finishBlackjackRound('bust');
+    } else if (pScore.total === 21) {
+        standBlackjack();
+    }
+}
+
+function standBlackjack() {
+    if (bjState.phase !== 'playing') return;
+    bjState.phase = 'dealer';
+    document.getElementById('bj-btn-hit').disabled = true;
+    document.getElementById('bj-btn-stand').disabled = true;
+    document.getElementById('bj-btn-double').disabled = true;
+    resolveBlackjackDealerTurn();
+}
+
+function doubleBlackjack() {
+    if (bjState.phase !== 'playing' || bjState.playerHand.length !== 2) return;
+    if (bobuxBalance < bjState.bet) {
+        showHudToast('Nemáš dostatek Bobuxů na zdvojnásobení!', 'red');
+        return;
+    }
+    spendBobux(bjState.bet, 'Blackjack Double Down');
+    bjState.bet *= 2;
+    updateCasinoBobuxDisplay();
+    document.getElementById('bj-current-bet').textContent = `${bjState.bet} B$`;
+    sfx.playCardFlip();
+    bjState.playerHand.push(bjState.deck.pop());
+    renderHandCards('bj-player-cards', bjState.playerHand, false);
+
+    const pScore = calculateHandScore(bjState.playerHand);
+    document.getElementById('bj-player-score').textContent = `Součet: ${pScore.total}`;
+
+    if (pScore.isBust) {
+        finishBlackjackRound('bust');
+    } else {
+        standBlackjack();
+    }
+}
+
+function resolveBlackjackDealerTurn() {
+    bjState.phase = 'dealer';
+    // Reveal dealer's hole card
+    renderHandCards('bj-dealer-cards', bjState.dealerHand, false);
+    let dScore = calculateHandScore(bjState.dealerHand);
+    document.getElementById('bj-dealer-score').textContent = `Součet: ${dScore.total}`;
+
+    const pScore = calculateHandScore(bjState.playerHand);
+
+    // Dealer draws to soft/hard 17
+    function dealerStep() {
+        dScore = calculateHandScore(bjState.dealerHand);
+        document.getElementById('bj-dealer-score').textContent = `Součet: ${dScore.total}`;
+        if (dScore.total < 17) {
+            sfx.playCardFlip();
+            bjState.dealerHand.push(bjState.deck.pop());
+            renderHandCards('bj-dealer-cards', bjState.dealerHand, false);
+            setTimeout(dealerStep, 500);
+        } else {
+            evaluateBlackjackWinner(pScore, dScore);
+        }
+    }
+    setTimeout(dealerStep, 450);
+}
+
+function evaluateBlackjackWinner(pScore, dScore) {
+    if (pScore.isBlackjack) {
+        if (dScore.isBlackjack) {
+            finishBlackjackRound('push', 'Oba mají Blackjack! Sázka vrácena (Push).');
+        } else {
+            const payout = Math.round(bjState.bet * 2.5); // Natural 3:2 payout
+            finishBlackjackRound('blackjack', `🎉 PŘIROZENÝ BLACKJACK (3:2)! Vyhráváš ${payout} B$!`, payout);
+        }
+    } else if (dScore.isBust) {
+        const payout = bjState.bet * 2;
+        finishBlackjackRound('win', `🎉 KRUPIÉR PŘEBRA L (${dScore.total})! Vyhráváš ${payout} B$!`, payout);
+    } else if (pScore.total > dScore.total) {
+        const payout = bjState.bet * 2;
+        finishBlackjackRound('win', `🎉 VYHRÁVÁŠ (${pScore.total} vs ${dScore.total})! Získáváš ${payout} B$!`, payout);
+    } else if (pScore.total < dScore.total) {
+        finishBlackjackRound('lose', `Krupiér vyhrál (${dScore.total} vs ${pScore.total}).`);
+    } else {
+        finishBlackjackRound('push', `Remíza (${pScore.total} vs ${dScore.total}). Sázka vrácena.`);
+    }
+}
+
+function finishBlackjackRound(result, msg = '', payout = 0) {
+    bjState.phase = 'finished';
+    renderHandCards('bj-dealer-cards', bjState.dealerHand, false);
+    const dScore = calculateHandScore(bjState.dealerHand);
+    document.getElementById('bj-dealer-score').textContent = `Součet: ${dScore.total}`;
+
+    const msgEl = document.getElementById('bj-status-msg');
+
+    if (result === 'bust') {
+        sfx.playOof();
+        msgEl.textContent = `💥 PŘEKROČIL JSI 21 (BUST)! Ztráta sázky ${bjState.bet} B$.`;
+        msgEl.className = 'py-2.5 px-4 rounded-xl bg-red-950/80 border border-red-500/60 text-center text-xs sm:text-sm font-black text-red-200 shadow';
+    } else if (result === 'win' || result === 'blackjack') {
+        sfx.playWinFanfare();
+        addBobux(payout, 'Výhra v Blackjacku');
+        updateCasinoBobuxDisplay();
+        msgEl.textContent = msg;
+        msgEl.className = 'py-2.5 px-4 rounded-xl bg-emerald-950/80 border border-emerald-400 text-center text-xs sm:text-sm font-black text-emerald-200 shadow';
+        if (gameSpecificData && gameSpecificData.dealerChar) {
+            spawnObbyConfetti(gameSpecificData.dealerChar.root.position.clone().add(new THREE.Vector3(0, 2, 0)));
+        }
+    } else if (result === 'push') {
+        sfx.playCoin();
+        addBobux(bjState.bet, 'Blackjack remíza');
+        updateCasinoBobuxDisplay();
+        msgEl.textContent = msg;
+        msgEl.className = 'py-2.5 px-4 rounded-xl bg-blue-950/80 border border-blue-400 text-center text-xs sm:text-sm font-bold text-blue-200 shadow';
+    } else {
+        sfx.playOof();
+        msgEl.textContent = msg || 'Prohrál jsi tuto hru.';
+        msgEl.className = 'py-2.5 px-4 rounded-xl bg-red-950/80 border border-red-500/60 text-center text-xs sm:text-sm font-bold text-red-200 shadow';
+    }
+
+    document.getElementById('bj-btn-deal').disabled = false;
+    document.getElementById('bj-btn-hit').disabled = true;
+    document.getElementById('bj-btn-stand').disabled = true;
+    document.getElementById('bj-btn-double').disabled = true;
+}
+
+/* ============================================================================
+ * B. VÝHERNÍ AUTOMATY (SLOTS) ENGINE
+ * ============================================================================ */
+const SLOTS_SYMBOLS = [
+    { icon: '🍒', name: 'Třešně', mult: 2, weight: 30 },
+    { icon: '🍋', name: 'Citron', mult: 4, weight: 24 },
+    { icon: '🍇', name: 'Hrozny', mult: 8, weight: 18 },
+    { icon: '🔔', name: 'Zvonec', mult: 15, weight: 14 },
+    { icon: '💎', name: 'Diamant', mult: 25, weight: 8 },
+    { icon: '🪙', name: 'Bobux', mult: 35, weight: 5 },
+    { icon: '7️⃣', name: 'Lucky 7', mult: 50, weight: 3 }
+];
+
+const slotsState = {
+    bet: 25,
+    spinning: false,
+    autoSpin: false,
+    reels: [0, 0, 0]
+};
+
+function setSlotsBet(amount) {
+    if (slotsState.spinning) return;
+    slotsState.bet = amount;
+    const el = document.getElementById('slots-current-bet');
+    if (el) el.textContent = `${amount} B$`;
+    const chipBtns = document.querySelectorAll('#casino-view-slots .casino-chip-btn');
+    chipBtns.forEach(btn => {
+        btn.classList.toggle('casino-chip-active', parseInt(btn.textContent, 10) === amount);
+    });
+    sfx.playJump();
+}
+
+function toggleSlotsAutoSpin() {
+    const cb = document.getElementById('slots-auto-spin');
+    slotsState.autoSpin = !!(cb && cb.checked);
+    if (slotsState.autoSpin && !slotsState.spinning) {
+        spinSlots();
+    }
+}
+
+function pickRandomSlotSymbol() {
+    const totalWeight = SLOTS_SYMBOLS.reduce((sum, s) => sum + s.weight, 0);
+    let r = Math.random() * totalWeight;
+    for (let i = 0; i < SLOTS_SYMBOLS.length; i++) {
+        r -= SLOTS_SYMBOLS[i].weight;
+        if (r <= 0) return i;
+    }
+    return 0;
+}
+
+function spinSlots() {
+    if (slotsState.spinning) return;
+    if (bobuxBalance < slotsState.bet) {
+        slotsState.autoSpin = false;
+        const cb = document.getElementById('slots-auto-spin');
+        if (cb) cb.checked = false;
+        showHudToast(`Nemáš dostatek Bobuxů! (Máš ${bobuxBalance} B$, sázka je ${slotsState.bet} B$)`, 'red');
+        return;
+    }
+
+    if (!spendBobux(slotsState.bet, `Automaty sázka (${slotsState.bet} B$)`)) return;
+    updateCasinoBobuxDisplay();
+
+    slotsState.spinning = true;
+    document.getElementById('slots-spin-btn').disabled = true;
+    const msgEl = document.getElementById('slots-status-msg');
+    msgEl.textContent = 'Válce se točí... Hodně štěstí!';
+    msgEl.className = 'py-2.5 px-4 rounded-xl bg-[#121316]/90 border border-[#facc15]/40 text-xs sm:text-sm font-extrabold text-[#FFE066] shadow flex items-center justify-center';
+
+    const r1 = document.getElementById('slot-reel-1');
+    const r2 = document.getElementById('slot-reel-2');
+    const r3 = document.getElementById('slot-reel-3');
+
+    // Rapid emoji cycling simulation
+    const cycleInterval = setInterval(() => {
+        r1.textContent = SLOTS_SYMBOLS[Math.floor(Math.random() * SLOTS_SYMBOLS.length)].icon;
+        r2.textContent = SLOTS_SYMBOLS[Math.floor(Math.random() * SLOTS_SYMBOLS.length)].icon;
+        r3.textContent = SLOTS_SYMBOLS[Math.floor(Math.random() * SLOTS_SYMBOLS.length)].icon;
+        sfx.playSlotSpin();
+    }, 60);
+
+    const final1 = pickRandomSlotSymbol();
+    const final2 = pickRandomSlotSymbol();
+    const final3 = pickRandomSlotSymbol();
+
+    // Stop Reel 1
+    setTimeout(() => {
+        r1.textContent = SLOTS_SYMBOLS[final1].icon;
+        sfx.playWheelTick();
+    }, 600);
+
+    // Stop Reel 2
+    setTimeout(() => {
+        r2.textContent = SLOTS_SYMBOLS[final2].icon;
+        sfx.playWheelTick();
+    }, 1100);
+
+    // Stop Reel 3 and Resolve
+    setTimeout(() => {
+        clearInterval(cycleInterval);
+        r3.textContent = SLOTS_SYMBOLS[final3].icon;
+        sfx.playWheelTick();
+
+        slotsState.reels = [final1, final2, final3];
+        slotsState.spinning = false;
+        document.getElementById('slots-spin-btn').disabled = false;
+
+        const s1 = SLOTS_SYMBOLS[final1];
+        const s2 = SLOTS_SYMBOLS[final2];
+        const s3 = SLOTS_SYMBOLS[final3];
+
+        if (final1 === final2 && final2 === final3) {
+            // 3-of-a-kind JACKPOT
+            const win = slotsState.bet * s1.mult;
+            if (s1.mult >= 35) sfx.playJackpot();
+            else sfx.playWinFanfare();
+            addBobux(win, `Výhra na automatech: 3x ${s1.icon}`);
+            updateCasinoBobuxDisplay();
+            msgEl.textContent = `🎉 3x ${s1.icon} ${s1.name.toUpperCase()}! VÝHRA ${win} B$ (${s1.mult}x)!`;
+            msgEl.className = 'py-2.5 px-4 rounded-xl bg-amber-950/80 border border-amber-400 text-xs sm:text-sm font-black text-amber-200 shadow animate-bounce';
+            spawnObbyConfetti(new THREE.Vector3(18, 3, -8));
+        } else if (s1.icon === '🍒' && s2.icon === '🍒') {
+            const win = Math.round(slotsState.bet * 1.5);
+            sfx.playCoin();
+            addBobux(win, 'Výhra na automatech: 2x 🍒');
+            updateCasinoBobuxDisplay();
+            msgEl.textContent = `🍒 2x Třešně! Výhra ${win} B$ (1.5x)`;
+            msgEl.className = 'py-2.5 px-4 rounded-xl bg-emerald-950/80 border border-emerald-400 text-xs sm:text-sm font-bold text-emerald-200 shadow';
+        } else {
+            msgEl.textContent = 'Žádná výhra. Zkus to znovu!';
+            msgEl.className = 'py-2.5 px-4 rounded-xl bg-[#121316]/90 border border-white/10 text-xs sm:text-sm font-bold text-gray-400 shadow';
+        }
+
+        // Auto Spin continuation
+        if (slotsState.autoSpin) {
+            setTimeout(() => {
+                if (slotsState.autoSpin && !slotsState.spinning) spinSlots();
+            }, 1200);
+        }
+    }, 1600);
+}
+
+/* ============================================================================
+ * C. DENNÍ KOLO ŠTĚSTÍ (DAILY WHEEL) ENGINE
+ * ============================================================================ */
+const WHEEL_PRIZES = [
+    { label: '100 B$', type: 'bobux', amount: 100, color: '#3b82f6', icon: '🪙' },
+    { label: '250 B$', type: 'bobux', amount: 250, color: '#10b981', icon: '🪙' },
+    { label: '50 B$', type: 'bobux', amount: 50, color: '#64748b', icon: '🪙' },
+    { label: '500 B$', type: 'bobux', amount: 500, color: '#f59e0b', icon: '🪙' },
+    { label: 'VOLNÉ TOČENÍ', type: 'extra', amount: 0, color: '#ec4899', icon: '🎁' },
+    { label: '150 B$', type: 'bobux', amount: 150, color: '#06b6d4', icon: '🪙' },
+    { label: '75 B$', type: 'bobux', amount: 75, color: '#8b5cf6', icon: '🪙' },
+    { label: '1 000 B$', type: 'bobux', amount: 1000, color: '#ef4444', icon: '👑' },
+    { label: '200 B$', type: 'bobux', amount: 200, color: '#14b8a6', icon: '🪙' },
+    { label: 'JACKPOT 2500', type: 'bobux', amount: 2500, color: '#eab308', icon: '⭐' }
+];
+
+const STORAGE_KEY_CASINO_WHEEL = 'boblox_casino_wheel_last_spin_v2';
+let wheelCurrentAngle = 0;
+let isWheelSpinning = false;
+
+function isDailyWheelFree() {
+    const last = parseInt(localStorage.getItem(STORAGE_KEY_CASINO_WHEEL) || '0', 10);
+    return (Date.now() - last) >= 24 * 3600 * 1000;
+}
+
+function updateDailyWheelTimer() {
+    const isFree = isDailyWheelFree();
+    const statusEl = document.getElementById('wheel-daily-status');
+    const btnText = document.getElementById('wheel-btn-text');
+    const timerEl = document.getElementById('wheel-daily-timer');
+
+    if (isFree) {
+        if (statusEl) statusEl.textContent = '🎁 1 VOLNÉ ZATOČENÍ PŘIPRAVENO!';
+        if (btnText) btnText.textContent = 'ZATOČIT ZDARMA!';
+        if (timerEl) timerEl.textContent = 'Tvé denní volné zatočení je aktivní! Vytoč si až 2 500 B$ zdarma.';
+    } else {
+        const last = parseInt(localStorage.getItem(STORAGE_KEY_CASINO_WHEEL) || '0', 10);
+        const remMs = Math.max(0, 24 * 3600 * 1000 - (Date.now() - last));
+        const remHms = formatHMS(remMs);
+        if (statusEl) statusEl.textContent = `⏳ Další volné zatočení za: ${remHms}`;
+        if (btnText) btnText.textContent = 'ZATOČIT (100 B$)';
+        if (timerEl) timerEl.textContent = `Denní bonus vyčerpán. Další zdarma za ${remHms}, nebo toč za 100 B$.`;
+    }
+}
+
+function renderCasinoWheel(rotation = wheelCurrentAngle) {
+    const canvas = document.getElementById('casino-wheel-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const radius = cx - 12;
+    const numSlices = WHEEL_PRIZES.length;
+    const sliceAngle = (Math.PI * 2) / numSlices;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(rotation);
+
+    for (let i = 0; i < numSlices; i++) {
+        const p = WHEEL_PRIZES[i];
+        const start = i * sliceAngle;
+        const end = start + sliceAngle;
+
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, radius, start, end);
+        ctx.closePath();
+        ctx.fillStyle = p.color;
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Label & Icon
+        ctx.save();
+        ctx.rotate(start + sliceAngle / 2);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 12px Fredoka, Inter, sans-serif';
+        ctx.fillText(`${p.icon} ${p.label}`, radius - 16, 4);
+        ctx.restore();
+    }
+
+    // Outer Decorative Golden Rim & Lights
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.strokeStyle = '#facc15';
+    ctx.lineWidth = 7;
+    ctx.stroke();
+
+    // Golden Pegs
+    for (let i = 0; i < numSlices; i++) {
+        const ang = i * sliceAngle;
+        const px = Math.cos(ang) * (radius - 2);
+        const py = Math.sin(ang) * (radius - 2);
+        ctx.beginPath();
+        ctx.arc(px, py, 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+    }
+
+    // Center Golden Hub
+    ctx.beginPath();
+    ctx.arc(0, 0, 32, 0, Math.PI * 2);
+    ctx.fillStyle = '#f59e0b';
+    ctx.fill();
+    ctx.strokeStyle = '#fde047';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+    ctx.fillStyle = '#191B1D';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('B$', 0, 6);
+
+    ctx.restore();
+}
+
+function spinDailyWheel() {
+    if (isWheelSpinning) return;
+    const isFree = isDailyWheelFree();
+
+    if (!isFree) {
+        if (bobuxBalance < 100) {
+            showHudToast('Nemáš 100 Bobuxů na placené zatočení kola!', 'red');
+            return;
+        }
+        if (!spendBobux(100, 'Zatočení Kola Štěstí (100 B$)')) return;
+        updateCasinoBobuxDisplay();
+    } else {
+        localStorage.setItem(STORAGE_KEY_CASINO_WHEEL, String(Date.now()));
+    }
+
+    isWheelSpinning = true;
+    document.getElementById('wheel-spin-btn').disabled = true;
+    const msgEl = document.getElementById('wheel-status-msg');
+    msgEl.textContent = 'Kolo štěstí se točí...';
+
+    // Pick target prize
+    const targetIdx = Math.floor(Math.random() * WHEEL_PRIZES.length);
+    const numSlices = WHEEL_PRIZES.length;
+    const sliceAngle = (Math.PI * 2) / numSlices;
+
+    // Pointer is at TOP (-PI/2). To align targetIdx at top:
+    // angle = (3 * PI / 2) - (targetIdx + 0.5) * sliceAngle
+    const fullRevs = 5 + Math.floor(Math.random() * 3);
+    const targetSliceCenter = (targetIdx + 0.5) * sliceAngle;
+    const finalAngle = fullRevs * Math.PI * 2 + (Math.PI * 1.5 - targetSliceCenter);
+
+    const startAngle = wheelCurrentAngle % (Math.PI * 2);
+    const totalRotation = finalAngle - startAngle;
+    const durationMs = 4500;
+    const startTime = performance.now();
+    let lastTickAngle = startAngle;
+
+    function animateWheel(now) {
+        const elapsed = now - startTime;
+        const t = Math.min(1, elapsed / durationMs);
+        // Cubic ease-out
+        const ease = 1 - Math.pow(1 - t, 3);
+        wheelCurrentAngle = startAngle + totalRotation * ease;
+
+        if (Math.abs(wheelCurrentAngle - lastTickAngle) >= sliceAngle * 0.95) {
+            sfx.playWheelTick();
+            lastTickAngle = wheelCurrentAngle;
+        }
+
+        renderCasinoWheel(wheelCurrentAngle);
+
+        if (t < 1) {
+            requestAnimationFrame(animateWheel);
+        } else {
+            isWheelSpinning = false;
+            document.getElementById('wheel-spin-btn').disabled = false;
+            updateDailyWheelTimer();
+
+            const prize = WHEEL_PRIZES[targetIdx];
+            if (prize.type === 'bobux') {
+                if (prize.amount >= 1000) sfx.playJackpot();
+                else sfx.playWinFanfare();
+                addBobux(prize.amount, `Kolo Štěstí (${prize.label})`);
+                updateCasinoBobuxDisplay();
+                msgEl.textContent = `🎉 GRATULACE! Vyhrál jsi ${prize.amount} Bobuxů!`;
+                msgEl.className = 'py-2.5 px-4 rounded-xl bg-emerald-950/80 border border-emerald-400 text-xs sm:text-sm font-black text-emerald-200 shadow animate-bounce';
+                spawnObbyConfetti(new THREE.Vector3(0, 5, -18));
+            } else {
+                sfx.playWinFanfare();
+                msgEl.textContent = '🎁 EXTRA VOLNÉ ZATOČENÍ! Zatoč si ještě jednou zdarma!';
+                msgEl.className = 'py-2.5 px-4 rounded-xl bg-pink-950/80 border border-pink-400 text-xs sm:text-sm font-black text-pink-200 shadow';
+                localStorage.removeItem(STORAGE_KEY_CASINO_WHEEL);
+                updateDailyWheelTimer();
+            }
+        }
+    }
+    requestAnimationFrame(animateWheel);
+}
+
+/* ============================================================================
+ * D. KOŇSKÉ DOSTIHY (BLOX DERBY) ENGINE
+ * ============================================================================ */
+const DERBY_HORSES = [
+    { id: 1, name: 'Blesk', color: '#00A2FF', odds: 2.2, icon: '🐎', desc: 'Favorit (2.2x)' },
+    { id: 2, name: 'Tornádo', color: '#EF4444', odds: 3.5, icon: '🐎', desc: 'Dravý kůň (3.5x)' },
+    { id: 3, name: 'Stín', color: '#8B5CF6', odds: 5.0, icon: '🐎', desc: 'Taktik (5.0x)' },
+    { id: 4, name: 'Kometa', color: '#10B981', odds: 8.0, icon: '🐎', desc: 'Vytrvalec (8.0x)' },
+    { id: 5, name: 'Zlatovláska', color: '#FACC15', odds: 15.0, icon: '🐎', desc: 'Outsider (15x!)' }
+];
+
+const derbyState = {
+    selectedHorseId: 1,
+    bet: 50,
+    racing: false,
+    raceProgress: [0, 0, 0, 0, 0]
+};
+
+function renderDerbyHorsesList() {
+    const list = document.getElementById('derby-horses-list');
+    if (!list) return;
+    list.innerHTML = '';
+    DERBY_HORSES.forEach(h => {
+        const isSel = h.id === derbyState.selectedHorseId;
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.onclick = () => selectDerbyHorse(h.id);
+        card.className = `p-3 rounded-xl border-2 text-left transition ${
+            isSel ? 'bg-[#2a2c30] border-[#00A2FF] shadow-[0_0_12px_rgba(0,162,255,0.4)]' : 'bg-[#191B1D] border-white/10 hover:border-white/30'
+        }`;
+        card.innerHTML = `
+            <div class="flex items-center justify-between">
+                <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-white" style="background:${h.color}">#${h.id}</span>
+                <span class="text-xs font-black px-1.5 py-0.5 rounded bg-black/50 text-[#FFE066]">${h.odds}x</span>
+            </div>
+            <div class="mt-2 font-bold text-xs sm:text-sm text-white">${h.name}</div>
+            <div class="text-[10px] text-gray-400 truncate">${h.desc}</div>
+        `;
+        list.appendChild(card);
+    });
+    updateDerbyBetUI();
+}
+
+function selectDerbyHorse(id) {
+    if (derbyState.racing) return;
+    derbyState.selectedHorseId = id;
+    renderDerbyHorsesList();
+    sfx.playJump();
+}
+
+function setDerbyBet(amount) {
+    if (derbyState.racing) return;
+    derbyState.bet = amount;
+    updateDerbyBetUI();
+    const chipBtns = document.querySelectorAll('#casino-view-derby .casino-chip-btn');
+    chipBtns.forEach(btn => {
+        btn.classList.toggle('casino-chip-active', parseInt(btn.textContent, 10) === amount);
+    });
+    sfx.playJump();
+}
+
+function updateDerbyBetUI() {
+    const horse = DERBY_HORSES.find(h => h.id === derbyState.selectedHorseId) || DERBY_HORSES[0];
+    const betEl = document.getElementById('derby-current-bet');
+    const potEl = document.getElementById('derby-potential-win');
+    if (betEl) betEl.textContent = `${derbyState.bet} B$`;
+    if (potEl) potEl.textContent = `${Math.round(derbyState.bet * horse.odds)} B$`;
+}
+
+function startDerbyRace() {
+    if (derbyState.racing) return;
+    if (bobuxBalance < derbyState.bet) {
+        showHudToast(`Nemáš dostatek Bobuxů! (Máš ${bobuxBalance} B$, sázka je ${derbyState.bet} B$)`, 'red');
+        return;
+    }
+
+    const horse = DERBY_HORSES.find(h => h.id === derbyState.selectedHorseId) || DERBY_HORSES[0];
+    if (!spendBobux(derbyState.bet, `Sázka na koně #${horse.id} ${horse.name} (${derbyState.bet} B$)`)) return;
+    updateCasinoBobuxDisplay();
+
+    derbyState.racing = true;
+    document.getElementById('derby-start-btn').disabled = true;
+
+    // Play Bugle Fanfare
+    sfx.playDerbyHorn();
+
+    // Show 2D Live Track
+    const trackCont = document.getElementById('derby-track-container');
+    const resultBanner = document.getElementById('derby-result-banner');
+    trackCont.classList.remove('hidden');
+    resultBanner.classList.add('hidden');
+
+    const statusLabel = document.getElementById('derby-status-label');
+    statusLabel.textContent = `🐎 DOSTIHY ODSTARTOVÁNY! Fandíš koni: #${horse.id} ${horse.name}`;
+
+    derbyState.raceProgress = [0, 0, 0, 0, 0];
+    const metersEl = document.getElementById('derby-meters-counter');
+
+    // Build Track Lanes
+    const lanesEl = document.getElementById('derby-lanes');
+    lanesEl.innerHTML = '';
+    DERBY_HORSES.forEach(h => {
+        const lane = document.createElement('div');
+        lane.className = 'relative bg-[#1e293b] rounded-lg h-7 overflow-hidden border border-white/10 flex items-center px-2';
+        lane.innerHTML = `
+            <div id="derby-horse-bar-${h.id}" class="absolute left-0 top-0 bottom-0 transition-all duration-75 flex items-center justify-end pr-1 text-sm font-bold text-white shadow" style="width: 4%; background: ${h.color};">
+                🐎 #${h.id}
+            </div>
+            <span class="relative z-10 text-[10px] font-bold text-white/80 pointer-events-none">${h.name}</span>
+        `;
+        lanesEl.appendChild(lane);
+    });
+
+    let currentLeadMeters = 0;
+    const raceInterval = setInterval(() => {
+        let maxMeters = 0;
+        let winnerId = 1;
+
+        // Simulate step for each horse
+        for (let i = 0; i < 5; i++) {
+            // Speed based inversely on odds with high random variance
+            const h = DERBY_HORSES[i];
+            const baseSpd = 12.0 + (16 - h.odds) * 0.45;
+            const variance = (Math.random() - 0.45) * 8.5;
+            derbyState.raceProgress[i] += Math.max(2, baseSpd + variance);
+
+            const bar = document.getElementById(`derby-horse-bar-${h.id}`);
+            const pct = Math.min(100, (derbyState.raceProgress[i] / 1000) * 100);
+            if (bar) bar.style.width = `${Math.max(4, pct)}%`;
+
+            if (derbyState.raceProgress[i] > maxMeters) {
+                maxMeters = derbyState.raceProgress[i];
+                winnerId = h.id;
+            }
+
+            // Animate 3D horse meshes in derby arena
+            if (gameSpecificData && gameSpecificData.horses3D && gameSpecificData.horses3D[i]) {
+                const mesh = gameSpecificData.horses3D[i].group;
+                mesh.position.x = -8.0 + (pct / 100) * 16.0;
+                // Galloping bounce
+                mesh.position.y = 0.9 + Math.abs(Math.sin(performance.now() * 0.015 + i)) * 0.35;
+                mesh.rotation.z = Math.sin(performance.now() * 0.012 + i) * 0.08;
+            }
+        }
+
+        currentLeadMeters = Math.min(1000, Math.round(maxMeters));
+        if (metersEl) metersEl.textContent = `${currentLeadMeters} m / 1 000 m`;
+
+        if (maxMeters >= 1000) {
+            clearInterval(raceInterval);
+            finishDerbyRace(winnerId);
+        }
+    }, 70);
+}
+
+function finishDerbyRace(winnerId) {
+    derbyState.racing = false;
+    document.getElementById('derby-start-btn').disabled = false;
+
+    const winner = DERBY_HORSES.find(h => h.id === winnerId);
+    const chosen = DERBY_HORSES.find(h => h.id === derbyState.selectedHorseId);
+    const resultBanner = document.getElementById('derby-result-banner');
+    const statusLabel = document.getElementById('derby-status-label');
+    resultBanner.classList.remove('hidden');
+
+    if (winnerId === derbyState.selectedHorseId) {
+        // Player Won!
+        const payout = Math.round(derbyState.bet * chosen.odds);
+        sfx.playJackpot();
+        addBobux(payout, `Výhra v dostizích (${chosen.name})`);
+        updateCasinoBobuxDisplay();
+
+        statusLabel.textContent = `🏆 TVŮJ KŮŇ #${chosen.id} ${chosen.name.toUpperCase()} ZVÍTĚZIL!`;
+        resultBanner.className = 'py-3 px-4 rounded-xl bg-emerald-950/90 border-2 border-emerald-400 text-center text-sm sm:text-base font-black text-emerald-200 shadow animate-bounce';
+        resultBanner.innerHTML = `🎉 VÍTĚZSTVÍ! #${chosen.id} ${chosen.name} dorazil první!<br><span class="text-[#FFE066] text-lg font-black">+${payout} Bobuxů (Kurz ${chosen.odds}x)!</span>`;
+        spawnObbyConfetti(new THREE.Vector3(0, 3, 14));
+    } else {
+        sfx.playOof();
+        statusLabel.textContent = `Vítězem je kůň #${winner.id} ${winner.name} (${winner.odds}x).`;
+        resultBanner.className = 'py-3 px-4 rounded-xl bg-red-950/80 border border-red-500/60 text-center text-xs sm:text-sm font-bold text-red-200 shadow';
+        resultBanner.innerHTML = `Bohužel, tvůj kůň #${chosen.id} ${chosen.name} nevyhrál.<br>Vítězem dostihů se stal <strong class="text-white">#${winner.id} ${winner.name}</strong>. Zkus to v dalším závodě!`;
+    }
+}
+
+

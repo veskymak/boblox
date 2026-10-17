@@ -53,6 +53,11 @@ const WEAPON_DEFINITIONS = {
     pet_water: { id: 'pet_water', name: 'Nápoj (Žízeň)', icon: '🍼', type: 'pet_care', hint: 'Klikni pro napojení mazlíčka (splní potřebu Žízeň)', cooldown: 0.35 },
     pet_ride: { id: 'pet_ride', name: 'Fly & Ride', icon: '🦄', type: 'pet_care', hint: 'Klikni pro nasednutí / létání na mazlíčkovi (Mezerník = Létání)', cooldown: 0.35 },
     pet_switch: { id: 'pet_switch', name: 'Sbírka Mazlíčků', icon: '🥚', type: 'pet_care', hint: 'Klikni pro přepnutí aktivního mazlíčka ze své sbírky', cooldown: 0.30 },
+    casino_blackjack: { id: 'casino_blackjack', name: 'Blackjack (21)', icon: '🃏', type: 'casino_ui', hint: 'Klepni pro otevření Blackjack stolu (21)', cooldown: 0.2 },
+    casino_slots: { id: 'casino_slots', name: 'Automaty (Slots)', icon: '🎰', type: 'casino_ui', hint: 'Klepni pro otevření výherních automatů Lucky 7', cooldown: 0.2 },
+    casino_wheel: { id: 'casino_wheel', name: 'Kolo štěstí', icon: '🎡', type: 'casino_ui', hint: 'Klepni pro otevření Denního kola štěstí', cooldown: 0.2 },
+    casino_derby: { id: 'casino_derby', name: 'Dostihy (Derby)', icon: '🏇', type: 'casino_ui', hint: 'Klepni pro sázky na koňské dostihy', cooldown: 0.2 },
+    casino_cashier: { id: 'casino_cashier', name: 'Pokladna & Info', icon: '🪙', type: 'casino_ui', hint: 'Klepni pro informace o kasinu a zůstatek Bobuxů', cooldown: 0.2 },
     none: { id: 'none', name: 'Volné ruce', icon: '🖐️', type: 'hand', damage: 10, range: 4.0, cooldown: 0.3 }
 };
 
@@ -67,7 +72,8 @@ const GAME_LOADOUTS = {
     zombies: ['pistol', 'shotgun', 'sword', 'medkit'],
     speedrun: ['coil_speed', 'coil_gravity', 'none'],
     hideandseek: ['scanner', 'prop_crate', 'prop_barrel', 'prop_bush'],
-    bedwars: ['sword', 'pickaxe', 'block', 'pistol']
+    bedwars: ['sword', 'pickaxe', 'block', 'pistol'],
+    casino: ['casino_blackjack', 'casino_slots', 'casino_wheel', 'casino_derby', 'casino_cashier']
 };
 
 function setupGameWeaponLoadout(gameId) {
@@ -466,6 +472,7 @@ function cleanupCurrentGame() {
     movingBlocks = [];
     if (typeof _juiceParticlePool !== 'undefined') _juiceParticlePool = [];
     if (typeof _camTargetInitialized !== 'undefined') _camTargetInitialized = false;
+    if (typeof closeCasinoModal === 'function') closeCasinoModal();
     gameSpecificData = {};
     playerAvatar = null;
     Object.values(mpState.remotePlayers).forEach(rp => { rp.meshData = null; });
@@ -563,6 +570,7 @@ function startGame(gameId, skipAutoMatchmaking = false) {
     else if (gameId === 'speedrun') setupGame8SpeedRun();
     else if (gameId === 'hideandseek') setupGame9HideAndSeek();
     else if (gameId === 'bedwars') setupGame10Bedwars();
+    else if (gameId === 'casino') setupGame12Casino();
 
     // Re-apply initial equipped weapon model after game setup
     if (playerAvatar && playerState.activeWeapon) {

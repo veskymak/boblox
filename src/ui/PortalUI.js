@@ -300,6 +300,113 @@ function drawGameThumbnail(canvas, gameId) {
 
         // Player character in center
         drawMiniNoob2D(ctx, w * 0.48, h - 66, 0.78);
+    } else if (gameId === 'casino') {
+        // Blox Vegas Casino & Derby Thumbnail Artwork
+        const grad = ctx.createLinearGradient(0, 0, 0, h);
+        grad.addColorStop(0, '#3b0764'); // Deep Royal Purple
+        grad.addColorStop(0.5, '#450a0a'); // Casino Velvet Burgundy
+        grad.addColorStop(1, '#0f172a'); // Dark Slate Floor
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, w, h);
+
+        // Neon Vegas Sunburst / Spotlight Rays
+        ctx.save();
+        ctx.globalAlpha = 0.18;
+        ctx.fillStyle = '#facc15';
+        for (let a = 0; a < Math.PI * 2; a += Math.PI / 6) {
+            ctx.beginPath();
+            ctx.moveTo(w * 0.5, h * 0.35);
+            ctx.lineTo(w * 0.5 + Math.cos(a) * w, h * 0.35 + Math.sin(a) * w);
+            ctx.lineTo(w * 0.5 + Math.cos(a + 0.22) * w, h * 0.35 + Math.sin(a + 0.22) * w);
+            ctx.closePath();
+            ctx.fill();
+        }
+        ctx.restore();
+
+        // Green Felt Blackjack Table (Bottom-Left)
+        ctx.fillStyle = '#065f46';
+        ctx.beginPath();
+        ctx.ellipse(w * 0.28, h - 35, 75, 38, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#d97706';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // 2 Playing Cards (Ace of Spades & King of Hearts)
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(w * 0.20, h - 60, 22, 32);
+        ctx.fillRect(w * 0.28, h - 62, 22, 32);
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(w * 0.20, h - 60, 22, 32);
+        ctx.strokeRect(w * 0.28, h - 62, 22, 32);
+        // Card symbols
+        ctx.fillStyle = '#1e293b';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillText('A♠', w * 0.21, h - 46);
+        ctx.fillStyle = '#dc2626';
+        ctx.fillText('K♥', w * 0.29, h - 48);
+
+        // Slot Machine (Left side)
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(18, h - 115, 45, 65);
+        ctx.strokeStyle = '#facc15';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(18, h - 115, 45, 65);
+        // Screen with 777
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(22, h - 105, 37, 24);
+        ctx.fillStyle = '#ef4444';
+        ctx.font = 'extrabold 12px sans-serif';
+        ctx.fillText('7 7 7', 24, h - 88);
+
+        // Daily Wheel of Fortune (Right top)
+        const wx = w * 0.80, wy = 52, wr = 38;
+        const wheelCols = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899'];
+        for (let i = 0; i < 6; i++) {
+            ctx.fillStyle = wheelCols[i];
+            ctx.beginPath();
+            ctx.moveTo(wx, wy);
+            ctx.arc(wx, wy, wr, (i * Math.PI) / 3, ((i + 1) * Math.PI) / 3);
+            ctx.closePath();
+            ctx.fill();
+        }
+        ctx.strokeStyle = '#fde047';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(wx, wy, wr, 0, Math.PI * 2);
+        ctx.stroke();
+        // Golden Center Hub
+        ctx.fillStyle = '#facc15';
+        ctx.beginPath();
+        ctx.arc(wx, wy, 10, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Derby Race Horse Silhouette (Bottom-Right Turf)
+        ctx.fillStyle = '#15803d';
+        ctx.fillRect(w * 0.55, h - 28, w * 0.45, 28);
+        ctx.fillStyle = '#b45309'; // Brown horse
+        ctx.fillRect(w * 0.68, h - 52, 28, 14); // horse body
+        ctx.fillRect(w * 0.84, h - 64, 12, 18); // horse neck/head
+        ctx.fillRect(w * 0.66, h - 38, 5, 14); // leg 1
+        ctx.fillRect(w * 0.74, h - 38, 5, 14); // leg 2
+        ctx.fillRect(w * 0.88, h - 40, 5, 16); // leg 3
+        ctx.fillStyle = '#38bdf8'; // Blue Jockey
+        ctx.fillRect(w * 0.72, h - 64, 12, 14);
+
+        // Floating Bobux Coins
+        ctx.fillStyle = '#facc15';
+        ctx.beginPath();
+        ctx.arc(w * 0.50, 35, 9, 0, Math.PI * 2);
+        ctx.arc(w * 0.38, 50, 7, 0, Math.PI * 2);
+        ctx.arc(w * 0.62, 50, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#78350f';
+        ctx.font = 'bold 9px sans-serif';
+        ctx.fillText('B$', w * 0.46, 38);
+
+        // Character in Center
+        drawMiniNoob2D(ctx, w * 0.50, h - 62, 0.82);
     }
 }
 
