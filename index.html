@@ -4907,17 +4907,37 @@
             gameLoop(lastTickTime);
         }
 
-        function returnToLobby() {
-            cleanupCurrentGame();
-            activeGameMode = null;
-            if (mpState.mode === 'public' && mpState.peer) {
-                disconnectMultiplayer(true);
+        function leavePublicMatchmaking() {
+            mpState.connections.forEach(c => { try { c.close(); } catch (e) { } });
+            mpState.connections = [];
+            Object.keys(mpState.remotePlayers).forEach(pid => { delete mpState.remotePlayers[pid]; });
+            if (mpState.peer) {
+                try { mpState.peer.destroy(); } catch (e) { }
+                mpState.peer = null;
             }
-            sendWsPresence();
+            mpState.isHost = false;
+            try { updateMpCounters(); } catch (e) { }
+        }
+
+        function returnToLobby() {
+            activeGameMode = null;
+
+            // Restore the lobby UI first so it can never stay stuck, even if cleanup throws
             document.getElementById('game-viewport').style.display = 'none';
             document.getElementById('lobby-view').classList.remove('hidden');
-            updateBobuxUI();
-            renderGameCatalog();
+
+            try {
+                touchState.joyTouchId = null; touchState.joyX = 0; touchState.joyY = 0;
+                touchState.lookTouchId = null; touchState.jumpPressed = false;
+                Object.keys(keysPressed).forEach(k => { keysPressed[k] = false; });
+                cleanupCurrentGame();
+                if (mpState.mode === 'public' && mpState.peer) leavePublicMatchmaking();
+                sendWsPresence();
+                updateBobuxUI();
+                renderGameCatalog();
+            } catch (err) {
+                console.error('returnToLobby cleanup error:', err);
+            }
         }
 
         function respawnPlayerManual() {
