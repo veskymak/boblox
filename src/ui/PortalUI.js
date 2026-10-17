@@ -1399,16 +1399,21 @@ function saveReceivedFriendRequests() {
 
 function hasSentFriendRequest(playerOrId) {
     if (!playerOrId) return false;
+    const myProfile = getLocalRobloxPlayerProfile();
+    const myUName = (myProfile.username || '').toLowerCase();
+
     if (typeof playerOrId === 'object') {
         const p = playerOrId;
         const uName = (p.username || p.displayName || '').toLowerCase();
         if (p.id && sentFriendRequests[p.id]) return true;
         if (p.dbId && sentFriendRequests[p.dbId]) return true;
         if (uName && (sentFriendRequests[uName] || sentFriendRequests[`cloud_${uName}`] || sentFriendRequests[`db_${uName}`] || sentFriendRequests[`user_${uName}`])) return true;
-        for (const rid of Object.keys(sentFriendRequests)) {
+        for (const [rid, req] of Object.entries(sentFriendRequests)) {
             const rLower = rid.toLowerCase();
             if (p.id && rLower === String(p.id).toLowerCase()) return true;
-            if (uName && (rLower === uName || rLower === `cloud_${uName}` || rLower === `db_${uName}`)) return true;
+            if (uName && (rLower === uName || rLower === `cloud_${uName}` || rLower === `db_${uName}` || rLower === `user_${uName}`)) return true;
+            if (req && req.username && uName && req.username.toLowerCase() === uName) return true;
+            if (req && req.toUsername && uName && req.toUsername.toLowerCase() === uName) return true;
         }
         return false;
     }
@@ -1416,9 +1421,11 @@ function hasSentFriendRequest(playerOrId) {
     if (sentFriendRequests[playerOrId] || sentFriendRequests[idStr]) return true;
     const cleanNick = idStr.replace(/^(user_|cloud_|db_|peer_)/, '');
     if (sentFriendRequests[cleanNick] || sentFriendRequests[`cloud_${cleanNick}`] || sentFriendRequests[`db_${cleanNick}`] || sentFriendRequests[`user_${cleanNick}`] || sentFriendRequests[`peer_${cleanNick}`]) return true;
-    for (const rid of Object.keys(sentFriendRequests)) {
+    for (const [rid, req] of Object.entries(sentFriendRequests)) {
         const rLower = rid.toLowerCase();
         if (rLower === idStr || rLower === cleanNick || rLower.replace(/^(user_|cloud_|db_|peer_)/, '') === cleanNick) return true;
+        if (req && req.username && (req.username.toLowerCase() === idStr || req.username.toLowerCase() === cleanNick)) return true;
+        if (req && req.toUsername && (req.toUsername.toLowerCase() === idStr || req.toUsername.toLowerCase() === cleanNick)) return true;
     }
     return false;
 }
@@ -1431,10 +1438,12 @@ function hasReceivedFriendRequest(playerOrId) {
         if (p.id && receivedFriendRequests[p.id]) return true;
         if (p.dbId && receivedFriendRequests[p.dbId]) return true;
         if (uName && (receivedFriendRequests[uName] || receivedFriendRequests[`cloud_${uName}`] || receivedFriendRequests[`db_${uName}`] || receivedFriendRequests[`user_${uName}`])) return true;
-        for (const rid of Object.keys(receivedFriendRequests)) {
+        for (const [rid, req] of Object.entries(receivedFriendRequests)) {
             const rLower = rid.toLowerCase();
             if (p.id && rLower === String(p.id).toLowerCase()) return true;
-            if (uName && (rLower === uName || rLower === `cloud_${uName}` || rLower === `db_${uName}`)) return true;
+            if (uName && (rLower === uName || rLower === `cloud_${uName}` || rLower === `db_${uName}` || rLower === `user_${uName}`)) return true;
+            if (req && req.username && uName && req.username.toLowerCase() === uName) return true;
+            if (req && req.fromUsername && uName && req.fromUsername.toLowerCase() === uName) return true;
         }
         return false;
     }
@@ -1442,16 +1451,23 @@ function hasReceivedFriendRequest(playerOrId) {
     if (receivedFriendRequests[playerOrId] || receivedFriendRequests[idStr]) return true;
     const cleanNick = idStr.replace(/^(user_|cloud_|db_|peer_)/, '');
     if (receivedFriendRequests[cleanNick] || receivedFriendRequests[`cloud_${cleanNick}`] || receivedFriendRequests[`db_${cleanNick}`] || receivedFriendRequests[`user_${cleanNick}`] || receivedFriendRequests[`peer_${cleanNick}`]) return true;
-    for (const rid of Object.keys(receivedFriendRequests)) {
+    for (const [rid, req] of Object.entries(receivedFriendRequests)) {
         const rLower = rid.toLowerCase();
         if (rLower === idStr || rLower === cleanNick || rLower.replace(/^(user_|cloud_|db_|peer_)/, '') === cleanNick) return true;
+        if (req && req.username && (req.username.toLowerCase() === idStr || req.username.toLowerCase() === cleanNick)) return true;
+        if (req && req.fromUsername && (req.fromUsername.toLowerCase() === idStr || req.fromUsername.toLowerCase() === cleanNick)) return true;
     }
     return false;
 }
 
 function updateSidebarFriendsBadge() {
     const badge = document.getElementById('sidebar-friends-badge');
-    const incomingCount = Object.keys(receivedFriendRequests).length;
+    const seenUsers = new Set();
+    Object.values(receivedFriendRequests).forEach(r => {
+        if (r && r.username) seenUsers.add(r.username.toLowerCase());
+        else if (r && r.id) seenUsers.add(String(r.id).toLowerCase());
+    });
+    const incomingCount = seenUsers.size;
     if (badge) {
         if (incomingCount > 0) {
             badge.textContent = String(incomingCount);
@@ -1514,12 +1530,24 @@ function handleIncomingSocialPacket(event, payload) {
             if (!senderId || senderId === myId || (myPeerId && senderId === myPeerId)) return;
             if (payload.fromUsername && payload.fromUsername.toLowerCase() === myUName) return;
 
-            receivedFriendRequests[senderId] = {
+            // If we already sent a request to this player, this is a mutual request -> immediately become friends!
+            if (hasSentFriendRequest(senderId) || (payload.fromUsername && hasSentFriendRequest(payload.fromUsername))) {
+                acceptFriendRequest(senderId);
+                return;
+            }
+
+            const senderNick = (payload.fromUsername || '').toLowerCase();
+            const reqObj = {
                 id: senderId,
                 username: payload.fromUsername || 'Hráč',
                 receivedAt: Date.now(),
                 senderProfile: payload.senderProfile ? { ...payload.senderProfile, id: senderId, isLocal: false } : null
             };
+            receivedFriendRequests[senderId] = reqObj;
+            if (senderNick) {
+                receivedFriendRequests[senderNick] = reqObj;
+                receivedFriendRequests[`cloud_${senderNick}`] = reqObj;
+            }
             saveReceivedFriendRequests();
             if (typeof sfx !== 'undefined' && sfx.playCoin) sfx.playCoin();
             if (typeof showHudToast === 'function') {
@@ -1624,18 +1652,26 @@ function sendFriendRequest(playerId) {
     const pName = player.username || player.displayName || 'Hráč';
     const myProfile = getLocalRobloxPlayerProfile();
     const mySenderId = getMyUniqueSocialId();
+    const cleanNick = (pName || '').toLowerCase().replace(/^(db_|cloud_|user_|peer_)/, '');
 
     // If we already received request or are already friends, auto-accept immediately:
-    if (hasReceivedFriendRequest(playerId) || isPlayerFriend(playerId)) {
+    if (hasReceivedFriendRequest(playerId) || (cleanNick && hasReceivedFriendRequest(cleanNick)) || isPlayerFriend(playerId) || (cleanNick && isPlayerFriend(cleanNick))) {
         acceptFriendRequest(playerId);
         return;
     }
 
-    sentFriendRequests[playerId] = {
+    const reqObj = {
         id: playerId,
+        toId: playerId,
+        toUsername: pName,
         username: pName,
         sentAt: Date.now()
     };
+    sentFriendRequests[playerId] = reqObj;
+    if (cleanNick) {
+        sentFriendRequests[cleanNick] = reqObj;
+        sentFriendRequests[`cloud_${cleanNick}`] = reqObj;
+    }
     saveSentFriendRequests();
 
     if (typeof sendSocialBroadcast === 'function') {
@@ -1669,9 +1705,11 @@ function sendFriendRequest(playerId) {
 function cancelFriendRequest(playerOrId) {
     if (!playerOrId) return;
     const pid = typeof playerOrId === 'object' ? (playerOrId.id || playerOrId.username) : playerOrId;
+    const player = getPlayerById(pid);
+    const pName = player.username || player.displayName || (typeof playerOrId === 'object' ? playerOrId.username : pid);
     const mySenderId = getMyUniqueSocialId();
     const pidLower = String(pid).toLowerCase();
-    const cleanNick = pidLower.replace(/^(user_|cloud_|db_|peer_)/, '');
+    const cleanNick = (pName || pidLower).toLowerCase().replace(/^(user_|cloud_|db_|peer_)/, '');
 
     delete sentFriendRequests[pid];
     delete sentFriendRequests[pidLower];
@@ -1718,7 +1756,16 @@ function acceptFriendRequest(playerId) {
     delete receivedFriendRequests[cleanNick];
     delete receivedFriendRequests[`cloud_${cleanNick}`];
     delete receivedFriendRequests[`db_${cleanNick}`];
+    delete receivedFriendRequests[`user_${cleanNick}`];
     saveReceivedFriendRequests();
+
+    delete sentFriendRequests[playerId];
+    delete sentFriendRequests[pidLower];
+    delete sentFriendRequests[cleanNick];
+    delete sentFriendRequests[`cloud_${cleanNick}`];
+    delete sentFriendRequests[`db_${cleanNick}`];
+    delete sentFriendRequests[`user_${cleanNick}`];
+    saveSentFriendRequests();
 
     friendsSet.add(playerId);
     if (cleanNick) {
@@ -2008,40 +2055,86 @@ function syncFriendRequestsWithCloudUsers(cloudUsers) {
 
         // 1. Check if user sent a friend request to ME
         const sentReqs = Array.isArray(inv.sent_friend_requests) ? inv.sent_friend_requests : [];
-        const reqToMe = sentReqs.find(r => r && (
-            (r.toUsername && r.toUsername.toLowerCase() === myUName) ||
-            (r.toId && (r.toId === myId || r.toId === `cloud_${myUName}` || r.toId === `db_${myUName}`))
-        ));
+        const reqToMe = sentReqs.find(r => {
+            if (!r) return false;
+            const targetName = (r.toUsername || r.username || '').toLowerCase();
+            const targetId = String(r.toId || r.id || '').toLowerCase();
+            const cleanTargetId = targetId.replace(/^(db_|cloud_|user_|peer_)/, '');
+            const cleanMyId = String(myId).toLowerCase().replace(/^(db_|cloud_|user_|peer_)/, '');
+            return (
+                targetName === myUName ||
+                targetId === String(myId).toLowerCase() ||
+                targetId === `cloud_${myUName}` ||
+                targetId === `db_${myUName}` ||
+                targetId === `user_${myUName}` ||
+                cleanTargetId === myUName ||
+                cleanTargetId === cleanMyId
+            );
+        });
 
         if (reqToMe && !alreadyFriends) {
-            if (!receivedFriendRequests[cleanKey] && !receivedFriendRequests[uName]) {
-                const torsoHex = inv.torsoHex || '#0D69AC';
-                const outfit = inv.outfit || null;
-                receivedFriendRequests[cleanKey] = {
+            const iAlsoSent = hasSentFriendRequest(uName) || hasSentFriendRequest(cleanKey) || (u.id && hasSentFriendRequest(u.id));
+            if (iAlsoSent) {
+                // Mutual friend requests! Both players wanted to add each other -> instantly become friends!
+                delete sentFriendRequests[cleanKey];
+                delete sentFriendRequests[uName];
+                delete sentFriendRequests[`db_${uName}`];
+                if (u.id) delete sentFriendRequests[u.id];
+                sentChanged = true;
+
+                friendsSet.add(cleanKey);
+                friendsSet.add(uName);
+                if (u.id) friendsSet.add(String(u.id));
+                friendsChanged = true;
+
+                saveCachedFriendProfile({
                     id: cleanKey,
+                    dbId: u.id,
                     username: u.username,
-                    receivedAt: reqToMe.sentAt || Date.now(),
-                    senderProfile: {
-                        id: cleanKey,
-                        dbId: u.id,
-                        username: u.username,
-                        displayName: u.username,
-                        handle: `@${u.username}`,
-                        bio: u.bio || 'Registrovaný Boblox hráč',
-                        torsoHex: torsoHex,
-                        outfit: outfit,
-                        isLocal: false
-                    }
-                };
-                receivedChanged = true;
+                    displayName: u.username,
+                    handle: `@${u.username}`,
+                    bio: u.bio || 'Registrovaný Boblox hráč',
+                    torsoHex: inv.torsoHex || '#0D69AC',
+                    outfit: inv.outfit || null,
+                    isLocal: false
+                });
+
                 if (typeof showHudToast === 'function') {
-                    showHudToast(`👥 ${u.username} ti poslal žádost o přátelství!`, 'green');
+                    showHudToast(`🎉 Vy i ${u.username} jste si poslali žádost! Nyní jste přátelé.`, 'green');
                 }
-                if (typeof sfx !== 'undefined' && sfx.playCoin) sfx.playCoin();
+                if (typeof sfx !== 'undefined' && sfx.playWinFanfare) sfx.playWinFanfare();
+            } else {
+                if (!receivedFriendRequests[cleanKey] && !receivedFriendRequests[uName]) {
+                    const torsoHex = inv.torsoHex || '#0D69AC';
+                    const outfit = inv.outfit || null;
+                    const reqObj = {
+                        id: cleanKey,
+                        username: u.username,
+                        receivedAt: reqToMe.sentAt || Date.now(),
+                        senderProfile: {
+                            id: cleanKey,
+                            dbId: u.id,
+                            username: u.username,
+                            displayName: u.username,
+                            handle: `@${u.username}`,
+                            bio: u.bio || 'Registrovaný Boblox hráč',
+                            torsoHex: torsoHex,
+                            outfit: outfit,
+                            isLocal: false
+                        }
+                    };
+                    receivedFriendRequests[cleanKey] = reqObj;
+                    receivedFriendRequests[uName] = reqObj;
+                    receivedChanged = true;
+                    if (typeof showHudToast === 'function') {
+                        showHudToast(`👥 ${u.username} ti poslal žádost o přátelství!`, 'green');
+                    }
+                    if (typeof sfx !== 'undefined' && sfx.playCoin) sfx.playCoin();
+                }
             }
         } else if (!reqToMe && !alreadyFriends) {
             // If we previously had a pending request from this cloud user, but they cancelled it:
-            if (receivedFriendRequests[cleanKey] || receivedFriendRequests[uName]) {
+            if (Array.isArray(inv.sent_friend_requests) && (receivedFriendRequests[cleanKey] || receivedFriendRequests[uName])) {
                 delete receivedFriendRequests[cleanKey];
                 delete receivedFriendRequests[uName];
                 receivedChanged = true;
@@ -2885,8 +2978,18 @@ function renderHomeFriendsStrip() {
 
     // 0. Incoming Friend Requests on Home View
     const incomingEntries = Object.entries(receivedFriendRequests);
-    if (incomingEntries.length > 0) {
-        incomingEntries.forEach(([senderId, req]) => {
+    const seenHomeSenders = new Set();
+    const uniqueIncomingHome = [];
+    incomingEntries.forEach(([senderId, req]) => {
+        const u = (req.username || senderId).toLowerCase();
+        if (!seenHomeSenders.has(u)) {
+            seenHomeSenders.add(u);
+            uniqueIncomingHome.push([senderId, req]);
+        }
+    });
+
+    if (uniqueIncomingHome.length > 0) {
+        uniqueIncomingHome.forEach(([senderId, req]) => {
             const reqBox = document.createElement('div');
             reqBox.className = 'flex items-center gap-2 bg-[#00A2FF]/20 border border-[#00A2FF]/60 px-3 py-2 rounded-xl shrink-0 shadow-sm animate-pulse';
             reqBox.innerHTML = `
@@ -3837,12 +3940,22 @@ function renderPeopleResultsGrid() {
     const reqBadge = document.getElementById('people-incoming-requests-badge');
 
     const incomingEntries = Object.entries(receivedFriendRequests);
+    const seenReqSenders = new Set();
+    const uniqueIncomingReqs = [];
+    incomingEntries.forEach(([senderId, req]) => {
+        const u = (req.username || senderId).toLowerCase();
+        if (!seenReqSenders.has(u)) {
+            seenReqSenders.add(u);
+            uniqueIncomingReqs.push([senderId, req]);
+        }
+    });
+
     if (reqContainer && reqList) {
-        if (incomingEntries.length > 0) {
+        if (uniqueIncomingReqs.length > 0) {
             reqContainer.classList.remove('hidden');
-            if (reqBadge) reqBadge.textContent = String(incomingEntries.length);
+            if (reqBadge) reqBadge.textContent = String(uniqueIncomingReqs.length);
             reqList.innerHTML = '';
-            incomingEntries.forEach(([senderId, req]) => {
+            uniqueIncomingReqs.forEach(([senderId, req]) => {
                 const item = document.createElement('div');
                 item.className = 'flex items-center justify-between gap-3 bg-[#191B1D] p-3 rounded-xl border border-[#393B3D] shadow-sm';
                 const senderName = req.username || 'Hráč';

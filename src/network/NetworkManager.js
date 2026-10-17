@@ -514,6 +514,15 @@ function setupPeerConnection(conn) {
 }
 
 function sendSocialBroadcast(event, payload) {
+    if (mpState.ws && mpState.ws.readyState === 1) {
+        try {
+            mpState.ws.send(JSON.stringify({
+                type: 'social_event',
+                event: event,
+                payload: payload
+            }));
+        } catch (e) {}
+    }
     if (mpState.supabaseSocialChannel) {
         try {
             mpState.supabaseSocialChannel.send({
@@ -720,6 +729,10 @@ function initLiveSocketAndPresence() {
                     }
                 } else if (msg.type === 'peerLeft' && msg.id) {
                     removeRemotePlayer(msg.id);
+                } else if (msg.type === 'social_event') {
+                    if (typeof handleIncomingSocialPacket === 'function') {
+                        handleIncomingSocialPacket(msg.event, msg.payload);
+                    }
                 } else if (msg.type === 'playerState' || msg.type === 'weaponSwitch' || msg.type === 'hostGameSelect' || msg.type === 'chatMessage') {
                     handleMultiplayerPacket(msg, null);
                 }

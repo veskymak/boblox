@@ -306,10 +306,10 @@ app.get('/api/users/search', (req, res) => {
         const q = sanitizePlainText(req.query.q || '', 50);
         let rows;
         if (q) {
-            const stmt = db.prepare('SELECT id, username, coins, inventory, created_at FROM users WHERE username LIKE ? ORDER BY username ASC LIMIT 25');
+            const stmt = db.prepare('SELECT id, username, coins, inventory, created_at FROM users WHERE username LIKE ? ORDER BY username ASC LIMIT 100');
             rows = stmt.all(`%${q}%`);
         } else {
-            const stmt = db.prepare('SELECT id, username, coins, inventory, created_at FROM users ORDER BY username ASC LIMIT 25');
+            const stmt = db.prepare('SELECT id, username, coins, inventory, created_at FROM users ORDER BY username ASC LIMIT 100');
             rows = stmt.all();
         }
         return res.json(rows);
@@ -696,6 +696,15 @@ wss.on('connection', (ws) => {
                     roomCode: info.roomCode,
                     peers: roomPeers
                 }));
+            }
+            return;
+        }
+
+        if (msg.type === 'social_event') {
+            const forwardMsg = JSON.stringify(msg);
+            for (const [otherWs, otherInfo] of clients.entries()) {
+                if (otherWs === ws || otherWs.readyState !== 1) continue;
+                otherWs.send(forwardMsg);
             }
             return;
         }

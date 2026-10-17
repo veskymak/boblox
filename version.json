@@ -1,8 +1,7 @@
 {
-  "version": "3.7",
-  "buildTime": 1729199700000,
-  "updatedAt": "2026-10-17T22:15:00Z",
-  "title": "Boblox Aktualizace v3.7",
-  "message": "Nová verze Bobloxu je připravena."
+  "version": "3.8",
+  "buildTime": 1729200840000,
+  "updatedAt": "2026-10-17T22:34:00Z",
+  "title": "Boblox Aktualizace v3.8",
+  "message": "Oprava synchronizace žádostí o přátelství a oboustranného přijetí."
 }
-
