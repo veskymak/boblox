@@ -268,6 +268,81 @@ function getSupabaseClient() {
     return supabaseClient;
 }
 
+/* ============================================================================
+ * 2A-1b. CLOUD USERS DIRECTORY & SEARCH (SUPABASE PROFILES / SERVER BACKEND)
+ * ============================================================================ */
+const STORAGE_KEY_CLOUD_USERS = 'boblox_cloud_users_cache_v2';
+
+function isAppropriateUsername(name) {
+    if (!name || typeof name !== 'string') return false;
+    const lower = name.toLowerCase();
+    const banned = ['nigger', 'nigga', 'hitler', 'heil'];
+    return !banned.some(b => lower.includes(b));
+}
+
+function getCloudUsersCache() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY_CLOUD_USERS);
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) return parsed.filter(u => u && u.username && isAppropriateUsername(u.username));
+        }
+    } catch (e) {}
+    return [];
+}
+
+async function fetchCloudUsers(searchQuery = '') {
+    const sb = getSupabaseClient();
+    if (sb) {
+        try {
+            let req = sb.from('profiles').select('id, username, coins, inventory, created_at');
+            const q = (searchQuery || '').trim();
+            if (q) {
+                req = req.ilike('username', `%${q}%`);
+            }
+            const { data, error } = await req.order('username', { ascending: true }).limit(50);
+            if (!error && Array.isArray(data)) {
+                const currentCache = getCloudUsersCache();
+                const map = new Map(currentCache.map(u => [u.username.toLowerCase(), u]));
+                data.forEach(u => {
+                    if (u && u.username && isAppropriateUsername(u.username)) {
+                        map.set(u.username.toLowerCase(), u);
+                    }
+                });
+                const merged = Array.from(map.values());
+                localStorage.setItem(STORAGE_KEY_CLOUD_USERS, JSON.stringify(merged));
+                return merged;
+            }
+        } catch (e) {
+            console.warn('Supabase fetchCloudUsers error:', e);
+        }
+    }
+
+    if (!isStaticHostingWithoutBackend()) {
+        try {
+            const q = encodeURIComponent((searchQuery || '').trim());
+            const resp = await fetch(`/api/users/search?q=${q}`);
+            if (resp.ok) {
+                const list = await resp.json();
+                if (Array.isArray(list)) {
+                    const currentCache = getCloudUsersCache();
+                    const map = new Map(currentCache.map(u => [u.username.toLowerCase(), u]));
+                    list.forEach(u => {
+                        if (u && u.username && isAppropriateUsername(u.username)) {
+                            map.set(u.username.toLowerCase(), u);
+                        }
+                    });
+                    const merged = Array.from(map.values());
+                    localStorage.setItem(STORAGE_KEY_CLOUD_USERS, JSON.stringify(merged));
+                    return merged;
+                }
+            }
+        } catch (e) {}
+    }
+
+    return getCloudUsersCache();
+}
+
 async function handleSupabaseApiRequest(sb, path, options = {}) {
     const method = (options.method || 'GET').toUpperCase();
     const body = options.body || {};
@@ -1354,6 +1429,11 @@ async function logoutAccount() {
 }
 
 async function initAuthSession() {
+    // 0. Pre-fetch cloud users in background
+    if (typeof fetchCloudUsers === 'function') {
+        fetchCloudUsers().catch(() => {});
+    }
+
     // 1. Okamžitá obnova přihlášeného uživatele z mezipaměti před síťovým voláním (zabraňuje odhlášení při reloadu)
     const cachedUserJson = localStorage.getItem('boblox_auth_user_cache');
     if (cachedUserJson) {

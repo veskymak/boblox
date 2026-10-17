@@ -301,6 +301,23 @@ app.get('/api/auth/me', (req, res) => {
     });
 });
 
+app.get('/api/users/search', (req, res) => {
+    try {
+        const q = sanitizePlainText(req.query.q || '', 50);
+        let rows;
+        if (q) {
+            const stmt = db.prepare('SELECT id, username, coins, inventory, created_at FROM users WHERE username LIKE ? ORDER BY username ASC LIMIT 25');
+            rows = stmt.all(`%${q}%`);
+        } else {
+            const stmt = db.prepare('SELECT id, username, coins, inventory, created_at FROM users ORDER BY username ASC LIMIT 25');
+            rows = stmt.all();
+        }
+        return res.json(rows);
+    } catch (e) {
+        return res.status(500).json({ error: 'Search failed' });
+    }
+});
+
 /* ============================================================================
  * 5. ACCOUNT SYNC & DAILY REWARD ENDPOINTS
  * ============================================================================ */

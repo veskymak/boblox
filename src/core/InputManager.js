@@ -267,14 +267,21 @@ window.addEventListener('keyup', (e) => {
 
 const canvasEl = document.getElementById('three-canvas');
 
-// Keep Shift Lock state & reticle synced with browser Pointer Lock state
+// Sync browser Pointer Lock with Shift Lock reticle and camera dragging
 document.addEventListener('pointerlockchange', () => {
     const isLocked = document.pointerLockElement === canvasEl;
-    if (typeof robloxUiState !== 'undefined') {
-        robloxUiState.isShiftLocked = isLocked;
-        const reticle = document.getElementById('roblox-shiftlock-reticle');
+    const reticle = document.getElementById('roblox-shiftlock-reticle');
+    if (!isLocked) {
+        // Pointer was unlocked (via Escape, RMB release, or window blur)
+        camState.isDragging = false;
+        if (typeof robloxUiState !== 'undefined') {
+            robloxUiState.isShiftLocked = false;
+        }
+        if (reticle) reticle.classList.add('hidden');
+    } else {
+        // Pointer was locked
         if (reticle) {
-            reticle.classList.toggle('hidden', !isLocked);
+            reticle.classList.toggle('hidden', !(typeof robloxUiState !== 'undefined' && robloxUiState.isShiftLocked));
         }
     }
 });
@@ -292,22 +299,37 @@ canvasEl.addEventListener('pointerdown', (e) => {
         // Left Mouse Button: Use equipped tool / attack ONLY (never drags camera)
         triggerPrimaryAction();
     } else if (e.button === 2) {
-        // Right Mouse Button: Hold & drag to rotate camera when not in Shift Lock
+        // Right Mouse Button: Lock mouse cursor in place & rotate camera (authentic Roblox behavior)
+        e.preventDefault();
         camState.isDragging = true;
         camState.lastMouseX = e.clientX;
         camState.lastMouseY = e.clientY;
-        if (canvasEl.setPointerCapture && e.pointerId !== undefined) {
-            try { canvasEl.setPointerCapture(e.pointerId); } catch (err) {}
+        const isShiftLocked = typeof robloxUiState !== 'undefined' && robloxUiState.isShiftLocked;
+        if (!isShiftLocked && canvasEl.requestPointerLock && document.pointerLockElement !== canvasEl) {
+            try { canvasEl.requestPointerLock(); } catch (err) {}
         }
     }
 });
 
+function handleRmbRelease() {
+    if (camState.isDragging) {
+        camState.isDragging = false;
+        const isShiftLocked = typeof robloxUiState !== 'undefined' && robloxUiState.isShiftLocked;
+        if (!isShiftLocked && document.pointerLockElement === canvasEl) {
+            try { document.exitPointerLock(); } catch (err) {}
+        }
+    }
+}
+
 window.addEventListener('pointerup', (e) => {
     if (e.button === 2 || e.buttons === 0) {
-        camState.isDragging = false;
-        if (canvasEl.releasePointerCapture && e.pointerId !== undefined) {
-            try { canvasEl.releasePointerCapture(e.pointerId); } catch (err) {}
-        }
+        handleRmbRelease();
+    }
+});
+
+window.addEventListener('mouseup', (e) => {
+    if (e.button === 2 || e.buttons === 0) {
+        handleRmbRelease();
     }
 });
 
@@ -315,18 +337,24 @@ window.addEventListener('mousemove', (e) => {
     if (!activeGameMode) return;
     if (typeof robloxUiState !== 'undefined' && robloxUiState.isMenuOpen) return;
 
-    if (document.pointerLockElement === canvasEl) {
-        // Shift Lock active: mouse movement directly rotates camera
-        camState.yaw -= e.movementX * 0.0045;
-        camState.pitch = Math.max(0.08, Math.min(1.35, camState.pitch + e.movementY * 0.0045));
+    const isLocked = document.pointerLockElement === canvasEl;
+    if (isLocked) {
+        // Cursor is locked in place: camera rotates smoothly with relative movement (mouse does not drift)
+        const isShiftLocked = typeof robloxUiState !== 'undefined' && robloxUiState.isShiftLocked;
+        if (isShiftLocked || camState.isDragging) {
+            const mx = e.movementX || 0;
+            const my = e.movementY || 0;
+            camState.yaw -= mx * 0.0045;
+            camState.pitch = Math.max(0.08, Math.min(1.35, camState.pitch + my * 0.0045));
+        }
     } else if (camState.isDragging) {
-        // Right Mouse Button held: drag rotates camera while cursor remains visible
-        const dx = e.clientX - camState.lastMouseX;
-        const dy = e.clientY - camState.lastMouseY;
+        // Fallback before pointer lock resolves or if blocked
+        const dx = e.movementX !== undefined && Math.abs(e.movementX) > 0 ? e.movementX : (e.clientX - camState.lastMouseX);
+        const dy = e.movementY !== undefined && Math.abs(e.movementY) > 0 ? e.movementY : (e.clientY - camState.lastMouseY);
         camState.lastMouseX = e.clientX;
         camState.lastMouseY = e.clientY;
-        camState.yaw -= dx * 0.0065;
-        camState.pitch = Math.max(0.08, Math.min(1.35, camState.pitch + dy * 0.0065));
+        camState.yaw -= dx * 0.0055;
+        camState.pitch = Math.max(0.08, Math.min(1.35, camState.pitch + dy * 0.0055));
     }
 });
 

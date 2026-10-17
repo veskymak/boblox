@@ -1380,7 +1380,50 @@ function getAllSearchablePlayers() {
         });
     }
 
-    // 3. Include cached added friends so they remain accessible even if offline
+    // 3. Include Cloud Accounts from Supabase profiles (Persistent Cross-Device Accounts)
+    if (typeof getCloudUsersCache === 'function') {
+        const cloudUsers = getCloudUsersCache();
+        const myProfile = getLocalRobloxPlayerProfile();
+        const myUName = (myProfile.username || myProfile.displayName || '').toLowerCase();
+        cloudUsers.forEach(u => {
+            if (!u || !u.username) return;
+            if (u.username.toLowerCase() === myUName) return;
+            const pid = `cloud_${u.username.toLowerCase()}`;
+            if (!map.has(pid)) {
+                const inv = (typeof u.inventory === 'object' && u.inventory !== null)
+                    ? u.inventory
+                    : (typeof u.inventory === 'string' ? (() => { try { return JSON.parse(u.inventory); } catch (e) { return {}; } })() : {});
+                const outfit = inv.outfit || null;
+                const torsoHex = inv.torsoHex || '#0D69AC';
+                map.set(pid, {
+                    id: pid,
+                    dbId: u.id,
+                    username: u.username,
+                    displayName: u.username,
+                    handle: `@${u.username}`,
+                    bio: u.bio || `Registrovaný Boblox hráč • ${u.coins ?? 250} B$`,
+                    status: 'online',
+                    friendsCount: 0,
+                    followers: 0,
+                    following: 0,
+                    rap: String(u.coins ?? 250),
+                    torsoHex: torsoHex,
+                    outfit: outfit,
+                    style: {
+                        skinColor: '#f5cd30',
+                        hairType: outfit?.hat || 'spiky_brown',
+                        hairColor: '#5c2c16',
+                        faceType: outfit?.face || 'classic',
+                        shirtColor: torsoHex,
+                        shirtPattern: outfit?.shirt || 'plain',
+                        pantsColor: outfit?.pants || '#4B974B'
+                    }
+                });
+            }
+        });
+    }
+
+    // 4. Include cached added friends so they remain accessible even if offline
     const cachedFriends = getCachedFriendsProfiles();
     cachedFriends.forEach(p => {
         if (!map.has(p.id) && friendsSet.has(p.id)) {
@@ -1396,7 +1439,14 @@ function getPlayerById(playerId) {
         return getLocalRobloxPlayerProfile();
     }
     const all = getAllSearchablePlayers();
-    return all.find(p => p.id === playerId) || getLocalRobloxPlayerProfile();
+    const pidLower = String(playerId).toLowerCase();
+    return all.find(p =>
+        p.id === playerId ||
+        (p.dbId && p.dbId === playerId) ||
+        (p.username && p.username.toLowerCase() === pidLower) ||
+        (p.displayName && p.displayName.toLowerCase() === pidLower) ||
+        (p.handle && p.handle.toLowerCase() === `@${pidLower}`)
+    ) || getLocalRobloxPlayerProfile();
 }
 
 /* ============================================================================
@@ -2552,6 +2602,15 @@ function handleTopSearchInput(rawVal) {
     }
 
     renderTopSearchDropdown(val);
+
+    if (typeof fetchCloudUsers === 'function' && val) {
+        fetchCloudUsers(val).then(() => {
+            if (activePortalSection === 'people') {
+                renderPeopleResultsGrid();
+            }
+            renderTopSearchDropdown(val);
+        });
+    }
 }
 
 function handleTopSearchFocus() {
@@ -2710,6 +2769,14 @@ function openPeopleSearchResults(query = '') {
     if (pageInp) pageInp.value = currentPeopleSearchQuery;
 
     renderPeopleResultsGrid();
+
+    if (typeof fetchCloudUsers === 'function') {
+        fetchCloudUsers(currentPeopleSearchQuery).then(() => {
+            if (activePortalSection === 'people') {
+                renderPeopleResultsGrid();
+            }
+        });
+    }
 }
 
 function handlePeoplePageSearchInput(val) {
@@ -2717,6 +2784,14 @@ function handlePeoplePageSearchInput(val) {
     const topInp = document.getElementById('game-search-input');
     if (topInp) topInp.value = currentPeopleSearchQuery;
     renderPeopleResultsGrid();
+
+    if (typeof fetchCloudUsers === 'function') {
+        fetchCloudUsers(currentPeopleSearchQuery).then(() => {
+            if (activePortalSection === 'people') {
+                renderPeopleResultsGrid();
+            }
+        });
+    }
 }
 
 function renderPeopleResultsGrid() {
