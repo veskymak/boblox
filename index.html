@@ -10,6 +10,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <!-- PeerJS WebRTC CDN pro 100% bezplatný P2P Multiplayer bez vlastního serveru -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <!-- Supabase Client pro cloudové účty a cross-device ukládání dat -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Google Fonts: Inter & Fredoka for authentic blocky headings -->
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
@@ -1210,6 +1212,7 @@
             user: null, // { id, username, coins, inventory, daily_claim_date, game_ratings, comments }
             mode: 'login',
             backendConnected: false,
+            isSupabase: false,
             lastCommentTime: 0
         };
 
@@ -1436,6 +1439,384 @@
             return 'fnv_' + (h >>> 0).toString(16);
         }
 
+        /* ============================================================================
+         * 2A-1. SUPABASE CLOUD DATABASE (PERSISTENT CROSS-DEVICE STORAGE)
+         * ============================================================================ */
+        const SUPABASE_URL = 'https://vfbdsclqvsjbzzhyaegw.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_lG31mqqwY-JFiSYbtkJqzg_-vR53iJh';
+        let supabaseClient = null;
+
+        function getSupabaseClient() {
+            if (!supabaseClient && window.supabase && typeof window.supabase.createClient === 'function') {
+                try {
+                    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                } catch (e) {
+                    console.warn('Nepodařilo se inicializovat Supabase klienta:', e);
+                }
+            }
+            return supabaseClient;
+        }
+
+        async function handleSupabaseApiRequest(sb, path, options = {}) {
+            const method = (options.method || 'GET').toUpperCase();
+            const body = options.body || {};
+            const now = Date.now();
+
+            async function getCurrentSupabaseProfile() {
+                if (!authState.token || !authState.token.startsWith('sb_jwt_')) return null;
+                const uid = authState.token.replace('sb_jwt_', '');
+                const { data, error } = await sb.from('profiles').select('*').eq('id', uid).maybeSingle();
+                if (error || !data) return null;
+                return data;
+            }
+
+            if (path === '/api/auth/register' && method === 'POST') {
+                const uname = (body.username || '').trim();
+                const pass = body.password || '';
+                if (!/^[a-zA-Z0-9_]{3,20}$/.test(uname)) {
+                    return { ok: false, status: 400, data: { error: 'Uživatelské jméno musí mít 3–20 znaků (písmena, čísla, _).' } };
+                }
+                if (pass.length < 6) {
+                    return { ok: false, status: 400, data: { error: 'Heslo musí mít alespoň 6 znaků.' } };
+                }
+
+                const { data: existing } = await sb.from('profiles')
+                    .select('id')
+                    .ilike('username', uname)
+                    .maybeSingle();
+
+                if (existing) {
+                    return { ok: false, status: 409, data: { error: 'Toto uživatelské jméno je již v cloudu obsazené.' } };
+                }
+
+                const password_hash = await hashPasswordClientFallback(pass);
+                const startCoins = Math.max(bobuxBalance, 250);
+                const adoptData = typeof loadAdoptMeSavedData === 'function' ? loadAdoptMeSavedData() : { bucks: 120, pets: [{ id: 'dog', tasksDone: 0, ageIdx: 0 }] };
+
+                const newProfile = {
+                    username: uname,
+                    password_hash,
+                    coins: startCoins,
+                    inventory: {
+                        owned: [...ownedShopItems],
+                        outfit: Object.assign({}, avatarOutfit),
+                        torsoHex: avatarTorsoHex,
+                        gamesPlayed: gamesPlayedCount
+                    },
+                    adoptme_pets: adoptData.pets,
+                    adoptme_bucks: adoptData.bucks,
+                    daily_claim_date: lastClaimTimestamp || 0
+                };
+
+                const { data: inserted, error: insErr } = await sb.from('profiles')
+                    .insert(newProfile)
+                    .select()
+                    .single();
+
+                if (insErr || !inserted) {
+                    if (insErr?.code === '42501' || String(insErr?.message).includes('row-level security')) {
+                        return { ok: false, status: 403, data: { error: 'Supabase RLS: V Supabase SQL Editoru spusťte: ALTER TABLE public.profiles DISABLE ROW LEVEL SECURITY;' } };
+                    }
+                    return { ok: false, status: 500, data: { error: insErr?.message || 'Chyba registrace v Supabase cloudu.' } };
+                }
+
+                const token = 'sb_jwt_' + inserted.id;
+                return { ok: true, status: 201, data: { token, user: inserted, serverTime: now } };
+            }
+
+            if (path === '/api/auth/login' && method === 'POST') {
+                const uname = (body.username || '').trim();
+                const pass = body.password || '';
+                if (!uname || !pass) {
+                    return { ok: false, status: 400, data: { error: 'Vyplň uživatelské jméno i heslo.' } };
+                }
+
+                const { data: userRow, error: fetchErr } = await sb.from('profiles')
+                    .select('*')
+                    .ilike('username', uname)
+                    .maybeSingle();
+
+                if (fetchErr || !userRow) {
+                    return { ok: false, status: 401, data: { error: 'Nesprávné uživatelské jméno nebo heslo.' } };
+                }
+
+                const hash = await hashPasswordClientFallback(pass);
+                if (userRow.password_hash !== hash) {
+                    return { ok: false, status: 401, data: { error: 'Nesprávné uživatelské jméno nebo heslo.' } };
+                }
+
+                const token = 'sb_jwt_' + userRow.id;
+                return { ok: true, status: 200, data: { token, user: userRow, serverTime: now } };
+            }
+
+            if (path === '/api/auth/logout' && method === 'POST') {
+                return { ok: true, status: 200, data: { ok: true, serverTime: now } };
+            }
+
+            if (path === '/api/auth/me' && method === 'GET') {
+                if (!authState.token || !authState.token.startsWith('sb_jwt_')) {
+                    return null;
+                }
+                const currentUser = await getCurrentSupabaseProfile();
+                if (!currentUser) {
+                    return { ok: false, status: 401, data: { error: 'Nepřihlášen' } };
+                }
+                return { ok: true, status: 200, data: { user: currentUser, serverTime: now } };
+            }
+
+            if (path === '/api/user/sync' && method === 'POST') {
+                if (!authState.token || !authState.token.startsWith('sb_jwt_')) {
+                    return null;
+                }
+                const currentUser = await getCurrentSupabaseProfile();
+                if (!currentUser) return { ok: false, status: 401, data: { error: 'Nepřihlášen' } };
+
+                const updatePayload = {};
+                if (typeof body.coins === 'number') {
+                    updatePayload.coins = Math.floor(body.coins);
+                    currentUser.coins = updatePayload.coins;
+                }
+
+                const currentInv = currentUser.inventory || {};
+                updatePayload.inventory = {
+                    owned: Array.isArray(body.owned) ? body.owned : (currentInv.owned || []),
+                    outfit: body.outfit || currentInv.outfit || {},
+                    torsoHex: body.torsoHex || currentInv.torsoHex || '#0D69AC',
+                    gamesPlayed: typeof body.gamesPlayed === 'number' ? body.gamesPlayed : (currentInv.gamesPlayed || 0)
+                };
+                currentUser.inventory = updatePayload.inventory;
+
+                if (Array.isArray(body.adoptme_pets)) {
+                    updatePayload.adoptme_pets = body.adoptme_pets;
+                    currentUser.adoptme_pets = body.adoptme_pets;
+                }
+                if (typeof body.adoptme_bucks === 'number') {
+                    updatePayload.adoptme_bucks = Math.floor(body.adoptme_bucks);
+                    currentUser.adoptme_bucks = updatePayload.adoptme_bucks;
+                }
+                if (typeof body.daily_claim_date === 'number') {
+                    updatePayload.daily_claim_date = body.daily_claim_date;
+                    currentUser.daily_claim_date = body.daily_claim_date;
+                }
+
+                const { error: updErr } = await sb.from('profiles').update(updatePayload).eq('id', currentUser.id);
+                if (updErr) {
+                    console.warn('Supabase sync upozornění:', updErr);
+                }
+                return { ok: true, status: 200, data: { user: currentUser, serverTime: now } };
+            }
+
+            if (path === '/api/daily-claim' && method === 'POST') {
+                if (!authState.token || !authState.token.startsWith('sb_jwt_')) {
+                    return null;
+                }
+                const currentUser = await getCurrentSupabaseProfile();
+                const lastTs = currentUser ? Number(currentUser.daily_claim_date || 0) : lastClaimTimestamp;
+                if (lastTs > 0 && (now - lastTs) < DAILY_COOLDOWN_MS) {
+                    return {
+                        ok: false,
+                        status: 400,
+                        data: {
+                            error: 'Denní bonus lze vyzvednout pouze 1x za 24 hodin!',
+                            lastClaimTimestamp: lastTs,
+                            nextClaimTimestamp: lastTs + DAILY_COOLDOWN_MS,
+                            serverTime: now
+                        }
+                    };
+                }
+                let updatedUser = currentUser;
+                if (currentUser) {
+                    const nextCoins = (currentUser.coins || 0) + 100;
+                    const { data: updated, error: updErr } = await sb.from('profiles')
+                        .update({ coins: nextCoins, daily_claim_date: now })
+                        .eq('id', currentUser.id)
+                        .select()
+                        .single();
+                    if (!updErr && updated) {
+                        updatedUser = updated;
+                    } else {
+                        currentUser.coins = nextCoins;
+                        currentUser.daily_claim_date = now;
+                    }
+                }
+                return {
+                    ok: true,
+                    status: 200,
+                    data: {
+                        ok: true,
+                        reward: 100,
+                        user: updatedUser,
+                        lastClaimTimestamp: now,
+                        nextClaimTimestamp: now + DAILY_COOLDOWN_MS,
+                        serverTime: now
+                    }
+                };
+            }
+
+            if (path === '/api/games/summary' && method === 'GET') {
+                const [ratingsRes, commentsRes] = await Promise.all([
+                    sb.from('game_ratings').select('game_id, vote'),
+                    sb.from('comments').select('id, game_id')
+                ]);
+
+                if (ratingsRes.error && (ratingsRes.error.code === '42501' || ratingsRes.error.message?.includes('row-level'))) {
+                    return null;
+                }
+
+                const ratings = ratingsRes.data || [];
+                const comments = commentsRes.data || [];
+
+                const summary = {};
+                GAMES_CATALOG.forEach(g => {
+                    const gVotes = ratings.filter(r => r.game_id === g.id);
+                    const likes = gVotes.filter(r => r.vote === 'like').length;
+                    const dislikes = gVotes.filter(r => r.vote === 'dislike').length;
+                    const total = likes + dislikes;
+                    const gComments = comments.filter(c => c.game_id === g.id);
+                    summary[g.id] = {
+                        likes,
+                        dislikes,
+                        ratingPct: total ? Math.round((likes / total) * 100) : null,
+                        commentCount: gComments.length,
+                        online: (liveSocialState.perGameOnline && liveSocialState.perGameOnline[g.id]) || 0
+                    };
+                });
+
+                return {
+                    ok: true,
+                    status: 200,
+                    data: {
+                        games: summary,
+                        totalOnline: liveSocialState.totalOnline || 1,
+                        serverTime: now
+                    }
+                };
+            }
+
+            const rateMatch = path.match(/^\/api\/games\/([a-z0-9_]+)\/rate$/);
+            if (rateMatch && method === 'POST') {
+                const currentUser = await getCurrentSupabaseProfile();
+                if (!currentUser) return { ok: false, status: 401, data: { error: 'Pro hodnocení hry se nejprve přihlas ke svému účtu!' } };
+                const gid = rateMatch[1];
+                const vote = body.vote;
+
+                const { error: upsertErr } = await sb.from('game_ratings').upsert({
+                    game_id: gid,
+                    username: currentUser.username,
+                    vote: vote,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'game_id,username' });
+
+                if (upsertErr) {
+                    console.error('Supabase rate error:', upsertErr);
+                    return { ok: false, status: 500, data: { error: 'Chyba při ukládání hodnocení.' } };
+                }
+
+                const { data: gVotes } = await sb.from('game_ratings').select('vote').eq('game_id', gid);
+                const votesArr = gVotes || [];
+                const likes = votesArr.filter(v => v.vote === 'like').length;
+                const dislikes = votesArr.filter(v => v.vote === 'dislike').length;
+                const total = likes + dislikes;
+
+                return {
+                    ok: true,
+                    status: 200,
+                    data: { ok: true, likes, dislikes, ratingPct: total ? Math.round((likes / total) * 100) : null, myVote: vote }
+                };
+            }
+
+            const commentMatch = path.match(/^\/api\/games\/([a-z0-9_]+)\/comments$/);
+            if (commentMatch && method === 'POST') {
+                const currentUser = await getCurrentSupabaseProfile();
+                if (!currentUser) return { ok: false, status: 401, data: { error: 'Pro psaní komentářů se musíš přihlásit!' } };
+                const gid = commentMatch[1];
+
+                if (now - (currentUser.last_comment_at || 0) < COMMENT_COOLDOWN_MS) {
+                    const retrySec = Math.ceil((COMMENT_COOLDOWN_MS - (now - (currentUser.last_comment_at || 0))) / 1000);
+                    return { ok: false, status: 429, data: { error: `Anti-spam: Další komentář za ${retrySec}s.`, retryAfterSec: retrySec } };
+                }
+
+                const clean = sanitizeTextClient(body.content, 250);
+                if (clean.length < 2) return { ok: false, status: 400, data: { error: 'Komentář musí mít 2–250 znaků.' } };
+
+                const { data: newComment, error: cErr } = await sb.from('comments').insert({
+                    game_id: gid,
+                    username: currentUser.username,
+                    content: clean
+                }).select().single();
+
+                if (cErr || !newComment) {
+                    console.error('Supabase comment insert error:', cErr);
+                    return { ok: false, status: 500, data: { error: 'Chyba při ukládání komentáře.' } };
+                }
+
+                currentUser.last_comment_at = now;
+                return {
+                    ok: true,
+                    status: 201,
+                    data: {
+                        ok: true,
+                        comment: {
+                            id: newComment.id,
+                            gameId: newComment.game_id,
+                            username: newComment.username,
+                            content: newComment.content,
+                            createdAt: new Date(newComment.created_at).getTime()
+                        }
+                    }
+                };
+            }
+
+            const socialGetMatch = path.match(/^\/api\/games\/([a-z0-9_]+)\/social$/);
+            if (socialGetMatch && method === 'GET') {
+                const gid = socialGetMatch[1];
+                const currentUser = await getCurrentSupabaseProfile();
+
+                const [ratingsRes, commentsRes] = await Promise.all([
+                    sb.from('game_ratings').select('username, vote').eq('game_id', gid),
+                    sb.from('comments').select('*').eq('game_id', gid).order('created_at', { ascending: false }).limit(50)
+                ]);
+
+                if (ratingsRes.error && (ratingsRes.error.code === '42501' || ratingsRes.error.message?.includes('row-level'))) {
+                    return null;
+                }
+
+                const votes = ratingsRes.data || [];
+                const likes = votes.filter(v => v.vote === 'like').length;
+                const dislikes = votes.filter(v => v.vote === 'dislike').length;
+                const total = likes + dislikes;
+
+                let myVote = null;
+                if (currentUser) {
+                    const found = votes.find(v => v.username.toLowerCase() === currentUser.username.toLowerCase());
+                    if (found) myVote = found.vote;
+                }
+
+                const comments = (commentsRes.data || []).map(c => ({
+                    id: c.id,
+                    gameId: c.game_id,
+                    username: c.username,
+                    content: c.content,
+                    createdAt: new Date(c.created_at).getTime()
+                }));
+
+                return {
+                    ok: true,
+                    status: 200,
+                    data: {
+                        gameId: gid,
+                        likes,
+                        dislikes,
+                        ratingPct: total ? Math.round((likes / total) * 100) : null,
+                        myVote,
+                        comments
+                    }
+                };
+            }
+
+            return null;
+        }
+
         const CUSTOM_API_BASE = (window.BOBLOX_API_BASE || localStorage.getItem('boblox_api_base') || '').replace(/\/+$/, '');
 
         function isStaticHostingWithoutBackend() {
@@ -1447,10 +1828,26 @@
         }
 
         async function apiRequest(path, options = {}) {
-            // If running on GitHub Pages (or static host) without an external backend URL configured,
+            // 1. Prioritize Supabase Cloud Database (Cross-device, works directly on GitHub Pages!)
+            const sb = getSupabaseClient();
+            if (sb) {
+                try {
+                    const sbRes = await handleSupabaseApiRequest(sb, path, options);
+                    if (sbRes) {
+                        authState.backendConnected = true;
+                        authState.isSupabase = true;
+                        return sbRes;
+                    }
+                } catch (sbErr) {
+                    console.warn('Supabase API error, falling back:', sbErr);
+                }
+            }
+
+            // 2. If running on GitHub Pages (or static host) without an external backend URL configured,
             // use the built-in cryptographic local database directly without triggering 404/405 browser errors.
             if (isStaticHostingWithoutBackend()) {
                 authState.backendConnected = false;
+                authState.isSupabase = false;
                 return handleOfflineApiFallback(path, options);
             }
 
@@ -1736,6 +2133,12 @@
                 }
                 saveShopState();
             }
+            if (typeof user.adoptme_bucks === 'number') {
+                localStorage.setItem(STORAGE_KEY_ADOPTME_BUCKS, String(Math.max(0, Math.floor(user.adoptme_bucks))));
+            }
+            if (Array.isArray(user.adoptme_pets) && user.adoptme_pets.length > 0) {
+                localStorage.setItem(STORAGE_KEY_ADOPTME_PETS, JSON.stringify(user.adoptme_pets));
+            }
             updateNickname(user.username);
             updateBobuxUI();
             updateAuthUI();
@@ -1744,6 +2147,7 @@
 
         async function syncAccountToServer() {
             if (!authState.user) return;
+            const adopt = typeof loadAdoptMeSavedData === 'function' ? loadAdoptMeSavedData() : null;
             await apiRequest('/api/user/sync', {
                 method: 'POST',
                 body: {
@@ -1751,7 +2155,10 @@
                     owned: [...ownedShopItems],
                     outfit: avatarOutfit,
                     torsoHex: avatarTorsoHex,
-                    gamesPlayed: gamesPlayedCount
+                    gamesPlayed: gamesPlayedCount,
+                    adoptme_pets: adopt ? adopt.pets : undefined,
+                    adoptme_bucks: adopt ? adopt.bucks : undefined,
+                    daily_claim_date: lastClaimTimestamp
                 }
             });
         }
@@ -1765,9 +2172,13 @@
             const badge = document.getElementById('auth-backend-badge');
 
             if (badge) {
-                badge.textContent = authState.backendConnected
-                    ? '🟢 Připojeno k SQLite serveru (JWT + Bcrypt)'
-                    : '🟡 Lokální Šifrovaná DB (Offline / P2P Režim)';
+                if (authState.isSupabase) {
+                    badge.textContent = '🟢 Připojeno k Supabase Cloudu (Cross-Device Uložení)';
+                } else if (authState.backendConnected) {
+                    badge.textContent = '🟢 Připojeno k hernímu serveru (JWT + Bcrypt)';
+                } else {
+                    badge.textContent = '🟡 Lokální Šifrovaná DB (Offline / P2P Režim)';
+                }
             }
 
             if (isLogged) {
@@ -1782,7 +2193,10 @@
                 const pCoins = document.getElementById('auth-profile-coins');
                 const pItems = document.getElementById('auth-profile-items');
                 if (pName) pName.textContent = authState.user.username;
-                if (pId) pId.textContent = '#' + authState.user.id;
+                if (pId) {
+                    const uid = String(authState.user.id || '');
+                    pId.textContent = '#' + (uid.length > 8 ? uid.slice(0, 8) : uid);
+                }
                 if (pCoins) pCoins.textContent = `${bobuxBalance.toLocaleString('cs-CZ')} B$`;
                 if (pItems) pItems.textContent = String(ownedShopItems.size);
             } else {
@@ -6228,6 +6642,9 @@
         function saveAdoptMeData(bucks, pets) {
             localStorage.setItem(STORAGE_KEY_ADOPTME_BUCKS, String(Math.max(0, Math.floor(bucks))));
             localStorage.setItem(STORAGE_KEY_ADOPTME_PETS, JSON.stringify(pets));
+            if (typeof authState !== 'undefined' && authState.user) {
+                syncAccountToServer();
+            }
         }
 
         function createAdoptMePetMesh(petId, isNeon = false) {
