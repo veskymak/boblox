@@ -973,6 +973,17 @@ function saveShopState() {
     syncAccountToServer();
 }
 
+function resetAvatarToGuestStarter() {
+    ownedShopItems = new Set([...STARTER_OWNED_IDS]);
+    avatarOutfit = sanitizeOutfit(DEFAULT_STARTER_OUTFIT);
+    avatarTorsoHex = '#0D69AC';
+    try { localStorage.setItem(STORAGE_KEY_OWNED, JSON.stringify([...STARTER_OWNED_IDS])); } catch (e) {}
+    try { localStorage.setItem(STORAGE_KEY_OUTFIT, JSON.stringify(DEFAULT_STARTER_OUTFIT)); } catch (e) {}
+    try { localStorage.setItem(STORAGE_KEY_TORSO, '#0D69AC'); } catch (e) {}
+    if (typeof rebuildShopPreviewAvatar === 'function') rebuildShopPreviewAvatar();
+    if (typeof renderShop === 'function') renderShop();
+}
+
 function createShirtTexture(item, baseHex) {
     const canvas = document.createElement('canvas');
     canvas.width = 256;

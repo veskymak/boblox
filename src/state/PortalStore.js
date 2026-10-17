@@ -17,6 +17,26 @@ let serverTimeOffsetMs = 0; // serverTime - Date.now()
 let activeFilterTag = 'ALL';
 let selectedGameId = null;
 
+function getGuestNickname(forceNew = false) {
+    let savedNum = !forceNew ? sessionStorage.getItem('boblox_guest_num') : null;
+    if (!savedNum || forceNew || savedNum === 'NaN' || !/^\d+$/.test(savedNum)) {
+        savedNum = String(Math.floor(1000 + Math.random() * 9000));
+        try { sessionStorage.setItem('boblox_guest_num', savedNum); } catch (e) {}
+        try { localStorage.setItem('boblox_guest_num', savedNum); } catch (e) {}
+    }
+    return `Guest ${savedNum}`;
+}
+
+function resetGuestEconomy() {
+    bobuxBalance = 250;
+    try { localStorage.setItem(STORAGE_KEY_BOBUX, '250'); } catch (e) {}
+    try { localStorage.removeItem('boblox_bobux_transactions_v2'); } catch (e) {}
+    if (typeof bobuxTransactions !== 'undefined') bobuxTransactions = [];
+    try { localStorage.removeItem('boblox_adoptme_bucks_v1'); } catch (e) {}
+    try { localStorage.removeItem('boblox_adoptme_pets_v1'); } catch (e) {}
+    if (typeof updateBobuxUI === 'function') updateBobuxUI();
+}
+
 // Current authenticated user state
 const authState = {
     token: localStorage.getItem(STORAGE_KEY_JWT) || null,
@@ -1313,7 +1333,7 @@ function updateAuthUI() {
         if (pLastActive) pLastActive.textContent = formatDateTimeUserFriendly(authState.user.last_active_at || Date.now(), true);
         if (typeof refreshPortalAvatarVisuals === 'function') refreshPortalAvatarVisuals();
     } else {
-        const guestName = 'Guest';
+        const guestName = (typeof getGuestNickname === 'function') ? getGuestNickname() : 'Guest';
         if (navName) navName.textContent = guestName;
         if (sideName) sideName.textContent = guestName;
         if (navLabel) navLabel.textContent = 'Přihlásit účet';
@@ -1409,13 +1429,28 @@ async function logoutAccount() {
     authState.token = null;
     authState.user = null;
     localStorage.removeItem(STORAGE_KEY_JWT);
-    localStorage.removeItem('boblox_mp_nick');
     localStorage.removeItem('boblox_auth_user_cache');
     document.cookie = 'boblox_token=; Max-Age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
 
-    // Reset guest nickname & form inputs
-    const fallbackName = 'Guest';
-    mpState.nickname = fallbackName;
+    // 1. Generate fresh guest nickname with unique random number
+    const fallbackName = getGuestNickname(true);
+    if (typeof mpState !== 'undefined') {
+        mpState.nickname = fallbackName;
+    }
+    localStorage.setItem('boblox_mp_nick', fallbackName);
+
+    // 2. Reset avatar skin/outfit/torso to guest starter defaults
+    if (typeof resetAvatarToGuestStarter === 'function') {
+        resetAvatarToGuestStarter();
+    } else {
+        avatarTorsoHex = '#0D69AC';
+        localStorage.setItem(STORAGE_KEY_TORSO, '#0D69AC');
+    }
+
+    // 3. Reset Bobux balance and economy to default guest values (250 B$)
+    resetGuestEconomy();
+
+    // 4. Reset form inputs
     const mpInput = document.getElementById('mp-nickname-input');
     if (mpInput) mpInput.value = fallbackName;
     const passInput = document.getElementById('auth-password-input');
@@ -1423,9 +1458,17 @@ async function logoutAccount() {
     const alertBox = document.getElementById('auth-alert');
     if (alertBox) alertBox.className = 'hidden';
 
+    // 5. Reset inspected profile so it doesn't show old user's profile
+    if (typeof currentInspectedProfile !== 'undefined') {
+        currentInspectedProfile = null;
+    }
+
+    // 6. Refresh all UI & avatars
     updateAuthUI();
+    if (typeof refreshPortalAvatarVisuals === 'function') refreshPortalAvatarVisuals();
     renderGameCatalog();
-    showHudToast(`Byl jsi odhlášen z účtu (režim ${fallbackName}).`, 'blue');
+
+    showHudToast(`Byl jsi odhlášen z účtu (nyní ${fallbackName}).`, 'blue');
 }
 
 async function initAuthSession() {
@@ -1445,10 +1488,12 @@ async function initAuthSession() {
         } catch (e) {}
     }
 
-    const fallbackName = 'Guest';
+    const fallbackName = getGuestNickname();
     if (!authState.token) {
-        mpState.nickname = fallbackName;
-        localStorage.removeItem('boblox_mp_nick');
+        if (typeof mpState !== 'undefined') {
+            mpState.nickname = fallbackName;
+        }
+        localStorage.setItem('boblox_mp_nick', fallbackName);
         localStorage.removeItem('boblox_auth_user_cache');
         updateAuthUI();
         fetchAllGamesSummary();
@@ -1464,9 +1509,11 @@ async function initAuthSession() {
         authState.token = null;
         authState.user = null;
         localStorage.removeItem(STORAGE_KEY_JWT);
-        localStorage.removeItem('boblox_mp_nick');
         localStorage.removeItem('boblox_auth_user_cache');
-        mpState.nickname = fallbackName;
+        if (typeof mpState !== 'undefined') {
+            mpState.nickname = fallbackName;
+        }
+        localStorage.setItem('boblox_mp_nick', fallbackName);
         updateAuthUI();
     }
     fetchAllGamesSummary();

@@ -725,16 +725,17 @@ const robloxUiState = {
 };
 
 function getLocalRobloxPlayerProfile() {
-    const username = (typeof authState !== 'undefined' && authState.user && authState.user.username)
+    const isLogged = typeof authState !== 'undefined' && authState.user && authState.user.username;
+    const username = isLogged
         ? authState.user.username
-        : 'Guest';
+        : (typeof mpState !== 'undefined' && mpState.nickname && mpState.nickname !== 'Guest' ? mpState.nickname : (typeof getGuestNickname === 'function' ? getGuestNickname() : 'Guest'));
     const savedBio = localStorage.getItem('boblox_custom_bio_v1');
 
     return {
         id: 'local',
         username: username,
         displayName: username,
-        handle: `@${username}`,
+        handle: `@${username.replace(/\s+/g, '')}`,
         bio: savedBio || 'No bio yet',
         torsoHex: (typeof avatarTorsoHex !== 'undefined') ? avatarTorsoHex : '#0D69AC',
         outfit: typeof avatarOutfit !== 'undefined' ? avatarOutfit : null,
@@ -1366,7 +1367,7 @@ function getMyUniqueSocialId() {
     if (typeof authState !== 'undefined' && authState.user && authState.user.id) {
         return authState.user.id;
     }
-    if (uName && uName !== 'guest') {
+    if (uName && !uName.startsWith('guest')) {
         return `cloud_${uName}`;
     }
     if (typeof mpState !== 'undefined' && mpState.myId && mpState.myId !== 'local') {
@@ -1386,6 +1387,7 @@ function handleIncomingSocialPacket(event, payload) {
     const myId = getMyUniqueSocialId();
     const myUName = (myProfile.username || myProfile.displayName || '').toLowerCase();
     const myPeerId = (typeof mpState !== 'undefined' && mpState.myId) ? mpState.myId : null;
+    const isRegistered = typeof authState !== 'undefined' && authState.user && !myUName.startsWith('guest');
 
     if (event === 'friend_request_send') {
         const toIdMatch = payload.toId && (
@@ -1395,11 +1397,11 @@ function handleIncomingSocialPacket(event, payload) {
             payload.toId === `user_${myUName}` ||
             (myPeerId && (payload.toId === myPeerId || payload.toId === `peer_${myPeerId}`))
         );
-        const toNameMatch = payload.toUsername && myUName !== 'guest' && payload.toUsername.toLowerCase() === myUName;
+        const toNameMatch = payload.toUsername && isRegistered && payload.toUsername.toLowerCase() === myUName;
         if (toIdMatch || toNameMatch) {
             const senderId = (payload.fromId && payload.fromId !== 'local') ? payload.fromId : (payload.fromUsername ? `user_${payload.fromUsername.toLowerCase()}` : null);
             if (!senderId || senderId === myId || (myPeerId && senderId === myPeerId)) return;
-            if (myUName !== 'guest' && payload.fromUsername && payload.fromUsername.toLowerCase() === myUName) return;
+            if (isRegistered && payload.fromUsername && payload.fromUsername.toLowerCase() === myUName) return;
 
             receivedFriendRequests[senderId] = {
                 id: senderId,
@@ -1424,7 +1426,7 @@ function handleIncomingSocialPacket(event, payload) {
             payload.toId === `user_${myUName}` ||
             (myPeerId && (payload.toId === myPeerId || payload.toId === `peer_${myPeerId}`))
         );
-        const toNameMatch = payload.toUsername && myUName !== 'guest' && payload.toUsername.toLowerCase() === myUName;
+        const toNameMatch = payload.toUsername && isRegistered && payload.toUsername.toLowerCase() === myUName;
         if (toIdMatch || toNameMatch) {
             delete sentFriendRequests[payload.fromId];
             if (payload.toId) delete sentFriendRequests[payload.toId];
@@ -1740,7 +1742,7 @@ function sanitizeStoredFriends() {
     const myProfile = getLocalRobloxPlayerProfile();
     const myUName = (myProfile.username || '').toLowerCase();
     const myId = getMyUniqueSocialId();
-    const isRegistered = typeof authState !== 'undefined' && authState.user && myUName !== 'guest';
+    const isRegistered = typeof authState !== 'undefined' && authState.user && !myUName.startsWith('guest');
 
     let changed = false;
     for (const fid of [...friendsSet]) {
@@ -2033,7 +2035,7 @@ function getPlayerById(playerId) {
     const myProfile = getLocalRobloxPlayerProfile();
     const myUName = (myProfile.username || '').toLowerCase();
     const myId = getMyUniqueSocialId();
-    const isRegistered = typeof authState !== 'undefined' && authState.user && myUName !== 'guest' && myUName !== '';
+    const isRegistered = typeof authState !== 'undefined' && authState.user && !myUName.startsWith('guest');
 
     if (!playerId || playerId === 'local' || playerId === myId || (isRegistered && typeof playerId === 'string' && playerId.toLowerCase() === myUName)) {
         return { ...myProfile, isLocal: true };
@@ -2745,7 +2747,7 @@ function openPlayerProfile(playerId) {
     const myProfile = getLocalRobloxPlayerProfile();
     const myUName = (myProfile.username || '').toLowerCase();
     const myId = getMyUniqueSocialId();
-    const isRegistered = typeof authState !== 'undefined' && authState.user && myUName !== 'guest' && myUName !== '';
+    const isRegistered = typeof authState !== 'undefined' && authState.user && !myUName.startsWith('guest');
     const isMe = !playerId || playerId === 'local' || playerId === myId || (isRegistered && typeof playerId === 'string' && playerId.toLowerCase() === myUName);
 
     if (isMe) {
@@ -2928,7 +2930,7 @@ function renderPortalProfileView() {
     const myProfile = getLocalRobloxPlayerProfile();
     const myUName = (myProfile.username || '').toLowerCase();
     const myId = getMyUniqueSocialId();
-    const isRegistered = typeof authState !== 'undefined' && authState.user && myUName !== 'guest' && myUName !== '';
+    const isRegistered = typeof authState !== 'undefined' && authState.user && !myUName.startsWith('guest');
     let profile = currentInspectedProfile || myProfile;
 
     const isMe = (profile.id === 'local') ||
@@ -3223,7 +3225,7 @@ function toggleFriendStatus(playerId) {
 
 function openEditProfileModal() {
     const my = getLocalRobloxPlayerProfile();
-    const currentName = my.username || my.displayName || 'Guest';
+    const currentName = my.username || my.displayName || (typeof getGuestNickname === 'function' ? getGuestNickname() : 'Guest');
     const valSpan = document.getElementById('edit-profile-username-val');
     const dInp = document.getElementById('edit-profile-displayname');
     const hInp = document.getElementById('edit-profile-handle');
@@ -3636,7 +3638,7 @@ function renderPeopleResultsGrid() {
     const myProfile = getLocalRobloxPlayerProfile();
     const myUName = (myProfile.username || '').toLowerCase();
     const myId = getMyUniqueSocialId();
-    const isRegistered = typeof authState !== 'undefined' && authState.user && myUName !== 'guest' && myUName !== '';
+    const isRegistered = typeof authState !== 'undefined' && authState.user && !myUName.startsWith('guest');
 
     // Filter out myself & deduplicate by username
     const seenUsernames = new Set();

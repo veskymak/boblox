@@ -10,7 +10,11 @@ const mpState = {
     supabaseSocialChannel: null,
     isHost: false,
     roomCode: '',
-    nickname: localStorage.getItem('boblox_mp_nick') || 'Guest',
+    nickname: (() => {
+        const saved = localStorage.getItem('boblox_mp_nick');
+        if (saved && saved !== 'Guest') return saved;
+        return typeof getGuestNickname === 'function' ? getGuestNickname() : 'Guest ' + Math.floor(1000 + Math.random() * 9000);
+    })(),
     myId: 'peer_' + Math.random().toString(36).slice(2, 10),
     connections: [], // Active PeerJS DataConnections
     remotePlayers: {}, // peerId -> { id, nickname, torsoHex, outfit, weaponId, disguiseId, gameMode, pos, targetPos, rotY, walkCycle, onGround, attackTimer, meshData, lastSeen }
@@ -97,7 +101,8 @@ function closeMultiplayerModal() {
 }
 
 function updateNickname(val) {
-    const clean = (val || '').trim().slice(0, 20) || 'Noob_CZ';
+    const fallback = typeof getGuestNickname === 'function' ? getGuestNickname() : 'Guest';
+    const clean = (val || '').trim().slice(0, 20) || fallback;
     mpState.nickname = clean;
     localStorage.setItem('boblox_mp_nick', clean);
     const navName = document.getElementById('nav-player-name');
@@ -153,9 +158,15 @@ function leaveGameNetwork() {
 
 function broadcastGameAnnounce() {
     if (!activeGameMode) return;
+    const isLogged = typeof authState !== 'undefined' && authState.user && authState.user.username;
+    const effectiveNick = isLogged
+        ? authState.user.username
+        : (mpState.nickname && mpState.nickname !== 'Guest' ? mpState.nickname : (typeof getGuestNickname === 'function' ? getGuestNickname() : 'Guest'));
+    mpState.nickname = effectiveNick;
+
     const payload = {
         id: mpState.myId,
-        nickname: mpState.nickname,
+        nickname: effectiveNick,
         torsoHex: typeof avatarTorsoHex !== 'undefined' ? avatarTorsoHex : '#0D69AC',
         outfit: typeof avatarOutfit !== 'undefined' ? avatarOutfit : {},
         weaponId: (typeof playerState !== 'undefined' && playerState.activeWeapon) ? playerState.activeWeapon.id : 'none',
@@ -526,9 +537,11 @@ function sendSocialBroadcast(event, payload) {
 async function updateSocialPresenceTrack() {
     if (mpState.supabaseSocialChannel) {
         try {
-            const myUName = (typeof authState !== 'undefined' && authState.user && authState.user.username)
+            const isLogged = typeof authState !== 'undefined' && authState.user && authState.user.username;
+            const myUName = isLogged
                 ? authState.user.username
-                : mpState.nickname;
+                : (mpState.nickname && mpState.nickname !== 'Guest' ? mpState.nickname : (typeof getGuestNickname === 'function' ? getGuestNickname() : 'Guest'));
+            mpState.nickname = myUName;
             const myUid = (typeof authState !== 'undefined' && authState.user && authState.user.id)
                 ? authState.user.id
                 : mpState.myId;
@@ -549,9 +562,11 @@ async function updateSocialPresenceTrack() {
 }
 
 function broadcastSocialPresence(inGame = false) {
-    const myUName = (typeof authState !== 'undefined' && authState.user && authState.user.username)
+    const isLogged = typeof authState !== 'undefined' && authState.user && authState.user.username;
+    const myUName = isLogged
         ? authState.user.username
-        : mpState.nickname;
+        : (mpState.nickname && mpState.nickname !== 'Guest' ? mpState.nickname : (typeof getGuestNickname === 'function' ? getGuestNickname() : 'Guest'));
+    mpState.nickname = myUName;
     const myUid = (typeof authState !== 'undefined' && authState.user && authState.user.id)
         ? authState.user.id
         : mpState.myId;
