@@ -839,6 +839,10 @@ function gameLoop(now) {
         playerAvatar.rightArmPivot.rotation.x = 0;
     }
 
+    if (typeof updateAvatarChatBubbles === 'function' && playerAvatar) {
+        updateAvatarChatBubbles(playerAvatar, dt);
+    }
+
     // 4. Run Game-Specific Frame Logic (All 11 Games)
     if (activeGameMode === 'adoptme') updateGame11AdoptMe(dt, elapsedSec);
     else if (activeGameMode === 'obby') updateGame1Obby(dt);

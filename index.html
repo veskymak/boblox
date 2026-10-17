@@ -272,215 +272,510 @@
 </head>
 <body class="min-h-screen flex flex-col">
 
-    <!-- TOP NAVIGATION BAR -->
-    <header class="sticky top-0 z-40 h-16 bg-[#232527]/95 backdrop-blur-md border-b border-[#393B3D] px-3 lg:px-8 flex items-center justify-between gap-3">
-        <!-- Left: Logo & Nav Links -->
-        <div class="flex items-center gap-4 lg:gap-6">
-            <a href="#" onclick="returnToLobby(); return false;" class="flex items-center gap-3 group shrink-0">
-                <div class="boblox-logo-sq">
-                    <div class="boblox-logo-hole"></div>
-                </div>
-                <span class="font-boblox text-xl sm:text-2xl font-bold tracking-wider text-white group-hover:text-[#00A2FF] transition-colors">BOBLOX</span>
+    <!-- TOP NAVIGATION BAR (BOBLOX Web Header) -->
+    <header class="sticky top-0 z-40 h-12 bg-[#191B1D] border-b border-[#2C2F33] px-3 lg:px-5 flex items-center justify-between gap-3 select-none">
+        <!-- Left: Hamburger (Mobile), BOBLOX Logo & Nav Links -->
+        <div class="flex items-center gap-3 lg:gap-7">
+            <button type="button" onclick="toggleMobileSidebar()" class="md:hidden p-1.5 rounded-lg text-gray-300 hover:text-white hover:bg-[#2C2F33]" title="Menu">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+                </svg>
+            </button>
+
+            <a href="#" onclick="switchPortalSection('home'); returnToLobby(); return false;" class="flex items-center gap-1.5 group shrink-0">
+                <span class="font-extrabold text-xl sm:text-2xl tracking-tight text-white flex items-center">
+                    <span>B</span>
+                    <span class="inline-flex items-center justify-center w-4 h-4 sm:w-[18px] sm:h-[18px] bg-white rotate-[14deg] mx-[1.5px] rounded-[1.5px]">
+                        <span class="w-1.5 h-1.5 bg-[#191B1D] rounded-[0.5px]"></span>
+                    </span>
+                    <span>BLOX</span>
+                </span>
             </a>
 
-            <nav class="hidden md:flex items-center gap-1 text-sm font-semibold">
-                <button onclick="filterCategory('all')" id="nav-all" class="px-3 py-2 rounded-lg bg-[#393B3D]/60 text-white transition">Objevovat</button>
-                <button onclick="openAvatarPreviewModal()" class="px-3 py-2 rounded-lg text-gray-300 hover:text-white hover:bg-[#393B3D]/40 transition flex items-center gap-1.5">
-                    <span>Avatar</span>
-                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-[#00A2FF]/20 text-[#00A2FF] font-bold">3D</span>
-                </button>
-                <button onclick="openShopModal()" class="px-3 py-2 rounded-lg text-gray-300 hover:text-white hover:bg-[#393B3D]/40 transition flex items-center gap-1.5">
-                    <span>Obchod</span>
-                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-[#FFE066]/20 text-[#FFE066] font-bold">NOVÉ</span>
-                </button>
-                <button id="btn-daily-bonus" onclick="giveDailyBonus()" class="px-3 py-2 rounded-lg text-gray-200 hover:text-white hover:bg-[#393B3D]/40 disabled:opacity-60 disabled:cursor-not-allowed transition flex items-center gap-1.5 border border-transparent">
-                    <span id="daily-bonus-label">🎁 Denní Bonus</span>
-                    <span id="daily-bonus-timer" class="font-mono text-[11px] text-[#FFE066] hidden">00:00:00</span>
-                    <span id="daily-bonus-dot" class="w-2 h-2 rounded-full bg-[#00B06F] animate-ping"></span>
+            <nav class="hidden md:flex items-center gap-5 lg:gap-7 text-xs sm:text-sm font-semibold text-gray-200">
+                <span id="nav-all" class="hidden"></span>
+                <button type="button" onclick="openShopModal('all')" class="hover:text-white py-1 transition">Marketplace</button>
+                <!-- Hidden Create daily bonus elements preserved for code compatibility -->
+                <span id="btn-daily-bonus" class="hidden"><span id="daily-bonus-label">Create</span><span id="daily-bonus-timer"></span><span id="daily-bonus-dot"></span></span>
+                <button type="button" onclick="openBobuxTransactionsModal()" class="hover:text-white py-1 transition flex items-center gap-1 text-[#FFE066]">
+                    <span>Bobux</span>
                 </button>
             </nav>
         </div>
 
-        <!-- Center: Search Input -->
-        <div class="flex-1 max-w-md relative hidden sm:block">
-            <input
-                id="game-search-input"
-                name="game_catalog_search"
-                type="search"
-                autocomplete="off"
-                autocorrect="off"
-                autocapitalize="off"
-                spellcheck="false"
-                placeholder="Hledat 10 her (Tower of Hell, Zombie, Bedwars, Speed Run...)"
-                oninput="renderGameCatalog()"
-                class="w-full bg-[#191B1D] text-sm text-white placeholder-gray-400 pl-10 pr-4 py-2 rounded-lg border border-[#393B3D] focus:outline-none focus:border-[#00A2FF] focus:ring-1 focus:ring-[#00A2FF] transition"
-            >
-            <svg class="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"/>
-            </svg>
+        <!-- Center: Search Input (Games & People Live Search) -->
+        <div class="flex-1 max-w-md relative">
+            <div class="relative flex items-center">
+                <svg class="w-4 h-4 text-gray-400 absolute left-3 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"/>
+                </svg>
+                <input
+                    id="game-search-input"
+                    name="game_catalog_search"
+                    type="search"
+                    autocomplete="off"
+                    autocorrect="off"
+                    autocapitalize="off"
+                    spellcheck="false"
+                    placeholder="Search"
+                    oninput="handleTopSearchInput(this.value)"
+                    onfocus="handleTopSearchFocus()"
+                    onkeydown="handleTopSearchKeydown(event)"
+                    class="w-full bg-[#111214] text-xs sm:text-sm text-white placeholder-gray-400 pl-9 pr-8 py-1.5 rounded-md border border-[#393B3D] focus:outline-none focus:border-white/60 transition"
+                >
+                <button type="button" id="top-search-clear-btn" onclick="clearTopSearchInput()" class="hidden absolute right-2.5 w-4 h-4 rounded-full bg-gray-400 hover:bg-white text-[#111214] text-[10px] font-bold items-center justify-center leading-none">
+                    ✕
+                </button>
+            </div>
+
+            <!-- Live Search Suggestions Dropdown (People & Experiences) -->
+            <div id="top-search-dropdown" class="hidden absolute left-0 right-0 top-full mt-1.5 bg-[#232527] border border-[#393B3D] rounded-xl shadow-2xl overflow-hidden z-50 divide-y divide-[#2C2F33]">
+                <!-- Populated dynamically via JS -->
+            </div>
         </div>
 
-        <!-- Right: Multiplayer, Audio Toggle, Bobux Currency & Account/Profile -->
-        <div class="flex items-center gap-2 sm:gap-2.5">
-            <!-- Mobile Daily Bonus Quick Button -->
-            <button id="btn-daily-bonus-mobile" onclick="giveDailyBonus()" class="md:hidden px-2.5 py-1.5 rounded-lg bg-[#191B1D] border border-[#393B3D] text-xs font-bold text-[#FFE066] flex items-center gap-1">
+        <!-- Right: User Profile Pill, Bobux, Multiplayer & Settings Gear -->
+        <div class="flex items-center gap-2 sm:gap-3">
+            <!-- Mobile Daily Bonus Quick Button (kept for compatibility) -->
+            <button id="btn-daily-bonus-mobile" onclick="giveDailyBonus()" class="hidden px-2 py-1 rounded bg-[#232527] border border-[#393B3D] text-[10px] font-bold text-[#FFE066] items-center gap-1">
                 <span>🎁</span>
-                <span id="daily-bonus-timer-mobile" class="font-mono text-[10px]">Bonus</span>
+                <span id="daily-bonus-timer-mobile" class="font-mono">Bonus</span>
             </button>
 
-            <!-- Matchmaking / Friends Multiplayer Button -->
-            <button onclick="openMultiplayerModal()" class="px-2.5 sm:px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#00B06F] to-[#009E63] hover:from-[#00D88A] hover:to-[#00B06F] text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-md transition">
-                <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span>
-                <span class="hidden lg:inline">🌐 Multiplayer</span>
-                <span id="mp-nav-count" class="px-1.5 py-0.5 rounded bg-black/30 text-[11px] font-mono">Globální</span>
+            <!-- User Mini Avatar + Name (Clicks to My Profile) -->
+            <button type="button" onclick="openPlayerProfile('local')" class="flex items-center gap-2 hover:bg-[#2C2F33] px-2 py-1 rounded-lg transition" title="Zobrazit tvůj profil">
+                <div class="w-6 h-6 rounded-full bg-[#2C2F33] border border-[#393B3D] overflow-hidden shrink-0">
+                    <canvas id="top-nav-avatar-canvas" width="48" height="48" class="w-full h-full block"></canvas>
+                </div>
+                <span id="nav-player-name" class="hidden sm:inline text-xs font-semibold text-gray-100">Guest</span>
+                <!-- Hidden status spans preserved for PortalStore compatibility -->
+                <span id="nav-auth-status" class="hidden"><span id="nav-auth-dot"></span><span id="nav-auth-label"></span></span>
+            </button>
+
+            <!-- Notification badge hidden element preserved for code compatibility -->
+            <span id="top-notif-badge" class="hidden">0</span>
+
+            <!-- Bobux Hex Icon + Balance (Clicks to Transaction History) -->
+            <button type="button" onclick="openBobuxTransactionsModal()" class="flex items-center gap-1.5 hover:bg-[#2C2F33] px-2 py-1 rounded-lg transition cursor-pointer" title="Historie Bobuxů & Transakce">
+                <svg class="w-4 h-4 text-[#FFE066] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="12 2 21 7 21 17 12 22 3 17 3 7"/>
+                    <rect x="9" y="9" width="6" height="6" rx="1"/>
+                </svg>
+                <span id="lobby-bobux-count" class="font-bold text-xs sm:text-sm text-white">250</span>
+            </button>
+
+            <!-- Multiplayer Quick Button -->
+            <button type="button" onclick="openMultiplayerModal()" class="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#232527] hover:bg-[#2C2F33] border border-[#393B3D] text-xs font-semibold text-gray-200 transition" title="Multiplayer & Párty">
+                <span class="w-2 h-2 rounded-full bg-[#00B06F] animate-pulse"></span>
+                <span id="mp-nav-count" class="text-[11px] font-mono">Globální</span>
             </button>
 
             <!-- Audio Synth Toggle -->
-            <button id="btn-audio-toggle" onclick="toggleAudioMute()" title="Přepnout zvukové efekty" class="p-2 rounded-lg bg-[#191B1D] border border-[#393B3D] hover:border-[#00A2FF] text-gray-200 transition">
-                <svg id="icon-sound-on" class="w-5 h-5 text-[#00A2FF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button id="btn-audio-toggle" type="button" onclick="toggleAudioMute()" title="Přepnout zvukové efekty" class="p-1.5 rounded-lg hover:bg-[#2C2F33] text-gray-300 hover:text-white transition">
+                <svg id="icon-sound-on" class="w-4 h-4 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
                 </svg>
-                <svg id="icon-sound-off" class="w-5 h-5 text-red-400 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg id="icon-sound-off" class="w-4 h-4 text-red-400 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/>
                 </svg>
             </button>
 
-            <!-- Bobux Pill -->
-            <div class="flex items-center gap-1.5 bg-[#191B1D] border border-[#393B3D] px-2.5 sm:px-3 py-1.5 rounded-lg" title="Zůstatek měny Bobux (synchronizováno s účtem)">
-                <span class="w-5 h-5 rounded-md bg-gradient-to-br from-[#FFE066] to-[#F59F00] text-[#191B1D] font-extrabold text-xs flex items-center justify-center shadow-sm">B$</span>
-                <span id="lobby-bobux-count" class="font-bold text-xs sm:text-sm text-[#FFE066] tracking-wide">250</span>
-            </div>
-
-            <!-- Player Profile & Auth Pill -->
-            <div onclick="openAuthModal()" class="cursor-pointer flex items-center gap-2 bg-[#191B1D] hover:bg-[#2C2F33] border border-[#393B3D] px-2.5 py-1.5 rounded-lg transition" title="Účet a přihlášení">
-                <div class="w-7 h-7 rounded bg-[#F5CD30] border border-yellow-600 flex flex-col items-center justify-center relative overflow-hidden shrink-0">
-                    <div class="flex gap-1.5 mt-0.5">
-                        <span class="w-1 h-1 rounded-full bg-black"></span>
-                        <span class="w-1 h-1 rounded-full bg-black"></span>
-                    </div>
-                    <div class="w-2.5 h-1 border-b-2 border-black rounded-full mt-0.5"></div>
-                    <div class="w-full h-1.5 bg-[#0D69AC] absolute bottom-0"></div>
-                </div>
-                <div class="hidden sm:block leading-tight">
-                    <div id="nav-player-name" class="text-xs font-bold text-white">Host_CZ</div>
-                    <div id="nav-auth-status" class="text-[10px] text-[#00A2FF] flex items-center gap-1 font-semibold">
-                        <span id="nav-auth-dot" class="w-1.5 h-1.5 rounded-full bg-[#00A2FF]"></span>
-                        <span id="nav-auth-label">Přihlásit účet</span>
-                    </div>
-                </div>
-            </div>
+            <!-- Settings Gear Icon (Opens Account / Auth Modal) -->
+            <button type="button" onclick="openAuthModal()" class="p-1.5 rounded-lg hover:bg-[#2C2F33] text-gray-200 hover:text-white transition" title="Účet a nastavení">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                </svg>
+            </button>
         </div>
     </header>
 
-    <!-- MAIN LOBBY CONTENT -->
-    <main id="lobby-view" class="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-6 space-y-8">
-        <!-- Welcome & Featured Banner -->
-        <section class="relative rounded-2xl overflow-hidden border border-[#393B3D] bg-gradient-to-r from-[#1E2530] via-[#232527] to-[#1A2936] p-6 lg:p-8 shadow-xl">
-            <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                <div class="space-y-2.5 max-w-2xl">
-                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#00A2FF]/15 border border-[#00A2FF]/40 text-[#00A2FF] text-xs font-bold uppercase tracking-wider">
-                        <span>★ Oficiální Boblox Engine v2.0 • Globální Matchmaking</span>
-                    </div>
-                    <h1 class="font-boblox text-3xl sm:text-4xl font-bold text-white">Vítej zpět, <span id="banner-player-name" class="text-[#F5CD30]">NoobMaster_CZ</span>!</h1>
-                    <p class="text-gray-300 text-sm sm:text-base leading-relaxed">
-                        Vyber si jeden z <strong class="text-white">10 plně hratelných 3D světů</strong>! Každý zážitek běží v reálném čase s automatickým globálním matchmakingem (nebo soukromou párty přes 6místný kód), zbraňovým arzenálem, mobilním dotykovým ovládáním a uloženým účtem.
-                    </p>
-                    <div class="flex flex-wrap items-center gap-2.5 pt-1">
-                        <button onclick="openShopModal()" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#FFE066] hover:bg-[#FFD43B] text-[#191B1D] text-sm font-bold shadow-md transition">
-                            🛍️ Avatar Obchod <span class="text-xs font-semibold opacity-75">oblečení · obličeje · čepice</span>
-                        </button>
-                        <button onclick="openAuthModal()" id="banner-auth-btn" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#00A2FF] hover:bg-[#008BDB] text-white text-sm font-bold shadow-md transition">
-                            🔐 Účet & Uložení postupu
-                        </button>
-                    </div>
-                </div>
+    <!-- MAIN PORTAL SHELL (LEFT SIDEBAR + SWITCHABLE VIEWS: HOME / PROFILE / PEOPLE SEARCH) -->
+    <main id="lobby-view" class="flex-1 flex min-h-[calc(100vh-3rem)] bg-[#191B1D] relative">
 
-                <!-- Quick Stats Cards (100% Real Live Data) -->
-                <div class="grid grid-cols-3 gap-3 sm:gap-4 shrink-0">
-                    <div class="bg-[#191B1D]/90 border border-[#393B3D] rounded-xl p-3.5 text-center">
-                        <div class="text-xs text-gray-400 flex items-center justify-center gap-1.5">
-                            <span class="w-2 h-2 rounded-full bg-[#00B06F] animate-pulse"></span>
-                            <span>Hráčů online</span>
+        <!-- 1. ROBLOX LEFT SIDEBAR -->
+        <aside id="portal-sidebar" class="hidden md:flex flex-col justify-between w-44 lg:w-48 bg-[#121315] border-r border-[#27292D] shrink-0 py-3 px-2 select-none z-30">
+            <div class="space-y-0.5 text-xs font-semibold text-gray-300">
+                <!-- User Row -->
+                <button type="button" onclick="openPlayerProfile('local')" class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-[#232527] text-white transition mb-1">
+                    <div class="w-6 h-6 rounded-full bg-[#232527] border border-[#393B3D] overflow-hidden shrink-0">
+                        <canvas id="sidebar-avatar-canvas" width="48" height="48" class="w-full h-full block"></canvas>
+                    </div>
+                    <span id="sidebar-player-name" class="truncate font-bold text-xs">Guest</span>
+                </button>
+
+                <!-- Home -->
+                <button type="button" data-sidebar-nav="home" onclick="switchPortalSection('home')" class="portal-nav-btn w-full flex items-center gap-3 px-2.5 py-2 rounded-lg bg-[#232527] text-white transition">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1v-9.5z"/>
+                    </svg>
+                    <span>Home</span>
+                </button>
+
+                <!-- Profile -->
+                <button type="button" data-sidebar-nav="profile" onclick="openPlayerProfile('local')" class="portal-nav-btn w-full flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-[#232527] text-gray-300 hover:text-white transition">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <circle cx="12" cy="8" r="4"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 20c0-3.5 3.6-6 8-6s8 2.5 8 6"/>
+                    </svg>
+                    <span>Profile</span>
+                </button>
+
+                <!-- Friends -->
+                <button type="button" data-sidebar-nav="friends" onclick="openPeopleSearchResults('')" class="portal-nav-btn w-full flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-[#232527] text-gray-300 hover:text-white transition">
+                    <span class="flex items-center gap-3">
+                        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <circle cx="9" cy="8" r="3.5"/>
+                            <path stroke-linecap="round" d="M3 19c0-3 2.7-5 6-5s6 2 6 5"/>
+                            <circle cx="17" cy="9" r="2.5"/>
+                            <path stroke-linecap="round" d="M15 19c0-2 1.5-3.8 4-4"/>
+                        </svg>
+                        <span>Friends</span>
+                    </span>
+                    <span id="sidebar-friends-badge" class="px-1.5 py-0.5 rounded-full bg-white text-[#121315] text-[10px] font-extrabold leading-none hidden">0</span>
+                </button>
+
+                <!-- Avatar -->
+                <button type="button" onclick="openAvatarPreviewModal()" class="w-full flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-[#232527] text-gray-300 hover:text-white transition">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <circle cx="12" cy="6" r="3"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 11h12M9 11v9m6-9v9"/>
+                    </svg>
+                    <span>Avatar</span>
+                </button>
+
+                <!-- Inventory -->
+                <button type="button" onclick="openShopModal('owned')" class="w-full flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-[#232527] text-gray-300 hover:text-white transition">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <rect x="5" y="7" width="14" height="13" rx="2"/>
+                        <path stroke-linecap="round" d="M9 7V5a3 3 0 016 0v2"/>
+                    </svg>
+                    <span>Inventory</span>
+                </button>
+
+                <!-- Transactions (Opens Bobux History) -->
+                <button type="button" onclick="openBobuxTransactionsModal()" class="w-full flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-[#232527] text-gray-300 hover:text-white transition">
+                    <svg class="w-4 h-4 shrink-0 text-[#FFE066]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <rect x="5" y="3" width="14" height="18" rx="2"/>
+                        <path stroke-linecap="round" d="M9 8h6M9 12h6M9 16h4"/>
+                    </svg>
+                    <span>Transactions</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- 2. MAIN CONTENT CONTAINER -->
+        <div class="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 py-5 space-y-7 pb-16">
+
+            <!-- ===================================================================
+                 VIEW A: HOME PAGE (Matches Screenshot 2)
+                 =================================================================== -->
+            <div id="portal-home-view" class="space-y-7">
+                <!-- Greeting Header (Large Circular Avatar + Afternoon, Vendeez) -->
+                <section class="flex items-center justify-between flex-wrap gap-4">
+                    <div onclick="openPlayerProfile('local')" class="flex items-center gap-4 sm:gap-5 cursor-pointer group">
+                        <div class="w-20 h-20 sm:w-28 sm:h-28 rounded-full bg-[#232527] border border-[#393B3D] overflow-hidden shrink-0 shadow-lg group-hover:border-white/40 transition">
+                            <canvas id="home-user-avatar-canvas" width="160" height="160" class="w-full h-full block"></canvas>
                         </div>
-                        <div id="banner-online-count" class="text-lg sm:text-xl font-extrabold text-[#00B06F] mt-0.5">1</div>
-                        <div class="text-[10px] text-gray-500 mt-0.5">Live server / P2P</div>
+                        <div>
+                            <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight">
+                                <span id="home-greeting-prefix">Afternoon</span>, <span id="banner-player-name">Guest</span>
+                            </h1>
+                        </div>
                     </div>
-                    <div class="bg-[#191B1D]/90 border border-[#393B3D] rounded-xl p-3.5 text-center">
-                        <div class="text-xs text-gray-400">Tvé Bobuxy</div>
-                        <div id="banner-bobux-count" class="text-lg sm:text-xl font-extrabold text-[#FFE066] mt-0.5">250 B$</div>
-                        <div class="text-[10px] text-gray-500 mt-0.5">Uloženo na účtu</div>
+
+                    <!-- Hidden / Compact Live Stats (keeps existing DOM IDs intact) -->
+                    <div class="hidden xl:flex items-center gap-2 text-xs">
+                        <div class="bg-[#232527] border border-[#393B3D] rounded-lg px-3 py-1.5 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-[#00B06F] animate-pulse"></span>
+                            <span class="text-gray-400">Online:</span>
+                            <span id="banner-online-count" class="font-bold text-white">1</span>
+                        </div>
+                        <div class="bg-[#232527] border border-[#393B3D] rounded-lg px-3 py-1.5 flex items-center gap-1.5">
+                            <span class="text-gray-400">Bobux:</span>
+                            <span id="banner-bobux-count" class="font-bold text-[#FFE066]">250 B$</span>
+                        </div>
+                        <div class="bg-[#232527] border border-[#393B3D] rounded-lg px-3 py-1.5 flex items-center gap-1.5">
+                            <span class="text-gray-400">Hry:</span>
+                            <span id="banner-games-played" class="font-bold text-[#00A2FF]">0</span>
+                        </div>
+                        <button type="button" id="banner-auth-btn" onclick="openAuthModal()" class="bg-[#232527] hover:bg-[#2C2F33] border border-[#393B3D] rounded-lg px-3 py-1.5 font-semibold text-gray-200 transition">
+                            Účet
+                        </button>
                     </div>
-                    <div class="bg-[#191B1D]/90 border border-[#393B3D] rounded-xl p-3.5 text-center">
-                        <div class="text-xs text-gray-400">Odehráno her</div>
-                        <div id="banner-games-played" class="text-lg sm:text-xl font-extrabold text-[#00A2FF] mt-0.5">0</div>
-                        <div class="text-[10px] text-gray-500 mt-0.5">Celkem zápasů</div>
+                </section>
+
+                <!-- Friends Horizontal Strip (Friends (0) + Add Friends + Circular Avatars) -->
+                <section class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-base sm:text-lg font-extrabold text-white">
+                            Friends (<span id="home-friends-count">0</span>)
+                        </h2>
+                        <button type="button" onclick="openPeopleSearchResults('')" class="text-xs sm:text-sm font-bold text-gray-200 hover:text-white flex items-center gap-1 transition">
+                            <span>See All</span>
+                            <span>→</span>
+                        </button>
+                    </div>
+
+                    <div id="home-friends-strip" class="flex items-start gap-3.5 sm:gap-4 overflow-x-auto pb-2 pt-0.5">
+                        <!-- Dynamically populated with "+ Add Friends" and Friend circular avatars -->
+                    </div>
+                </section>
+
+                <!-- Recommended For You (Games Catalog Grid) -->
+                <section class="space-y-3.5">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <h2 class="text-base sm:text-lg font-extrabold text-white">Recommended For You</h2>
+
+                        <div class="flex flex-wrap items-center gap-1.5 text-xs font-semibold">
+                            <button onclick="setFilterTag('ALL')" data-tag="ALL" class="tag-btn px-2.5 py-1 rounded-md bg-[#00A2FF] text-white transition">All (11)</button>
+                            <button onclick="setFilterTag('RP')" data-tag="RP" class="tag-btn px-2.5 py-1 rounded-md bg-[#232527] hover:bg-[#2C2F33] text-gray-300 border border-[#393B3D] transition">Adopt Me & RP</button>
+                            <button onclick="setFilterTag('OBBY')" data-tag="OBBY" class="tag-btn px-2.5 py-1 rounded-md bg-[#232527] hover:bg-[#2C2F33] text-gray-300 border border-[#393B3D] transition">Obby</button>
+                            <button onclick="setFilterTag('ACTION')" data-tag="ACTION" class="tag-btn px-2.5 py-1 rounded-md bg-[#232527] hover:bg-[#2C2F33] text-gray-300 border border-[#393B3D] transition">Action</button>
+                            <button onclick="setFilterTag('PARTY')" data-tag="PARTY" class="tag-btn px-2.5 py-1 rounded-md bg-[#232527] hover:bg-[#2C2F33] text-gray-300 border border-[#393B3D] transition">Party</button>
+                            <button onclick="setFilterTag('TYCOON')" data-tag="TYCOON" class="tag-btn px-2.5 py-1 rounded-md bg-[#232527] hover:bg-[#2C2F33] text-gray-300 border border-[#393B3D] transition">Tycoon</button>
+                        </div>
+                    </div>
+
+                    <!-- GAMES CATALOG GRID -->
+                    <div id="games-catalog-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+                        <!-- Populated dynamically via JS with procedural Canvas artwork -->
+                    </div>
+                </section>
+            </div>
+
+            <!-- ===================================================================
+                 VIEW B: USER PROFILE PAGE (MY PROFILE & OTHER PLAYERS - Screenshots 3 & 4)
+                 =================================================================== -->
+            <div id="portal-profile-view" class="hidden max-w-4xl mx-auto space-y-5">
+                <!-- 3D / 2D Avatar Showcase Banner -->
+                <div class="relative h-64 sm:h-72 rounded-xl bg-[#212327] border border-[#2C2F33] flex items-center justify-center overflow-hidden shadow-lg">
+                    <canvas id="profile-showcase-2d-canvas" width="380" height="280" class="h-full object-contain"></canvas>
+                    <canvas id="profile-showcase-3d-canvas" class="w-full h-full cursor-grab hidden"></canvas>
+
+                    <!-- Top-Right 3D & Hanger Buttons -->
+                    <div class="absolute top-3.5 right-3.5 flex flex-col gap-2">
+                        <button type="button" id="btn-profile-3d-toggle" onclick="toggleProfileShowcaseMode()" class="w-9 h-9 rounded-lg bg-[#2C2F33] hover:bg-[#393B3D] text-white text-xs font-extrabold flex items-center justify-center border border-white/10 shadow transition">
+                            3D
+                        </button>
+                        <button type="button" onclick="openShopModal('all')" title="Upravit oblečení v obchodě" class="w-9 h-9 rounded-lg bg-[#2C2F33] hover:bg-[#393B3D] text-gray-200 hover:text-white flex items-center justify-center border border-white/10 shadow transition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6a2 2 0 10-2-2m2 2v2L4 14a1 1 0 00.6 1.8h14.8a1 1 0 00.6-1.8L12 8z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Profile Avatar Circle, Name, @Handle & Action Buttons -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 -mt-8 sm:-mt-10 px-2 relative z-10">
+                    <div class="flex items-end sm:items-center gap-4">
+                        <div class="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-[#232527] border-4 border-[#191B1D] shadow-xl shrink-0">
+                            <canvas id="profile-headshot-canvas" width="140" height="140" class="w-full h-full rounded-full block"></canvas>
+                            <!-- Blue Friend/Online Status Badge -->
+                            <div id="profile-status-badge" class="absolute bottom-0.5 right-0.5 w-6 h-6 rounded-full bg-[#00A2FF] border-2 border-[#191B1D] flex items-center justify-center text-white">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                                    <circle cx="12" cy="8" r="3.5"/>
+                                    <path stroke-linecap="round" d="M5 19c0-3 3.1-5 7-5s7 2 7 5"/>
+                                </svg>
+                            </div>
+                        </div>
+
+                        <div class="pb-1">
+                            <h1 id="profile-display-name" class="text-2xl sm:text-3xl font-extrabold text-white leading-tight">Guest</h1>
+                            <div id="profile-handle" class="text-xs sm:text-sm text-gray-400 font-medium">@Guest</div>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic Action Buttons (Edit profile / Edit avatar OR Chat / Add friend) -->
+                    <div id="profile-action-buttons" class="flex items-center gap-2 flex-wrap">
+                        <!-- Populated via JS -->
+                    </div>
+                </div>
+
+                <!-- Stats Pills (Friends only per user request) -->
+                <div class="flex flex-wrap items-center gap-2 pt-1">
+                    <button type="button" onclick="openPeopleSearchResults('')" class="px-3.5 py-1.5 rounded-full bg-[#232527] hover:bg-[#2C2F33] text-xs font-bold text-white transition">
+                        <span id="profile-stat-friends">0</span> Friends
+                    </button>
+                    <!-- Kept hidden to preserve element IDs for JS references without layout display -->
+                    <span class="hidden">
+                        <span id="profile-stat-followers"></span>
+                        <span id="profile-stat-following"></span>
+                        <span id="profile-stat-rap"></span>
+                    </span>
+                </div>
+
+                <!-- Bio -->
+                <div class="text-xs text-gray-300 space-y-0.5">
+                    <p id="profile-bio-text" class="text-gray-300">No bio yet</p>
+                    <button type="button" onclick="if(currentInspectedProfile && currentInspectedProfile.isLocal) openEditProfileModal();" class="text-gray-300 underline hover:text-white">more</button>
+                </div>
+
+                <!-- Currently Wearing Grid -->
+                <div class="space-y-3 pt-2">
+                    <h3 class="text-base sm:text-lg font-extrabold text-white">Currently Wearing</h3>
+                    <div id="profile-wearing-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                        <!-- Populated via JS -->
                     </div>
                 </div>
             </div>
-        </section>
 
-        <!-- Category Filter Pills & Section Header -->
-        <section class="space-y-4">
-            <div class="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                    <h2 class="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
-                        <span>Herní Katalog Zážitků</span>
-                        <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#00A2FF]/20 text-[#00A2FF]">11 HER PŘIPRAVENO</span>
-                    </h2>
-                    <p class="text-xs sm:text-sm text-gray-400">Klikni na libovolnou kartu pro hodnocení, komentáře, výběr režimu a spuštění 3D světa</p>
+            <!-- ===================================================================
+                 VIEW C: PEOPLE SEARCH RESULTS PAGE (Matches Screenshot 5)
+                 =================================================================== -->
+            <div id="portal-people-results-view" class="hidden max-w-5xl mx-auto space-y-4">
+                <h2 class="text-sm sm:text-base font-bold text-gray-200">
+                    People Results for <span id="people-results-query-text" class="text-white font-extrabold">legion</span>
+                </h2>
+
+                <!-- In-Page Search Box -->
+                <div class="relative">
+                    <svg class="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"/>
+                    </svg>
+                    <input
+                        id="people-page-search-input"
+                        type="search"
+                        autocomplete="off"
+                        placeholder="Search players by name or @username..."
+                        oninput="handlePeoplePageSearchInput(this.value)"
+                        class="w-full bg-[#121315] text-sm text-white placeholder-gray-500 pl-10 pr-4 py-2.5 rounded-lg border border-[#393B3D] focus:outline-none focus:border-white/70 transition"
+                    >
                 </div>
 
-                <div class="flex flex-wrap items-center gap-2 text-xs font-semibold">
-                    <button onclick="setFilterTag('ALL')" data-tag="ALL" class="tag-btn px-3 py-1.5 rounded-lg bg-[#00A2FF] text-white transition">Všechny (11)</button>
-                    <button onclick="setFilterTag('RP')" data-tag="RP" class="tag-btn px-3 py-1.5 rounded-lg bg-[#232527] hover:bg-[#2C2F33] text-pink-300 border border-pink-500/40 transition">🐾 Adopt Me & RP</button>
-                    <button onclick="setFilterTag('OBBY')" data-tag="OBBY" class="tag-btn px-3 py-1.5 rounded-lg bg-[#232527] hover:bg-[#2C2F33] text-gray-300 border border-[#393B3D] transition">Parkour & Obby</button>
-                    <button onclick="setFilterTag('ACTION')" data-tag="ACTION" class="tag-btn px-3 py-1.5 rounded-lg bg-[#232527] hover:bg-[#2C2F33] text-gray-300 border border-[#393B3D] transition">Boj & Přežití</button>
-                    <button onclick="setFilterTag('PARTY')" data-tag="PARTY" class="tag-btn px-3 py-1.5 rounded-lg bg-[#232527] hover:bg-[#2C2F33] text-gray-300 border border-[#393B3D] transition">Party & PvP</button>
-                    <button onclick="setFilterTag('TYCOON')" data-tag="TYCOON" class="tag-btn px-3 py-1.5 rounded-lg bg-[#232527] hover:bg-[#2C2F33] text-gray-300 border border-[#393B3D] transition">Tycoon & Stavba</button>
+                <!-- 3-Column Player Results Grid -->
+                <div id="people-results-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 pt-1">
+                    <!-- Populated via JS -->
                 </div>
             </div>
 
-            <!-- 10 GAMES CATALOG GRID -->
-            <div id="games-catalog-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
-                <!-- Populated dynamically via JS with procedural Canvas artwork -->
-            </div>
-        </section>
+        </div>
 
-        <!-- Controls & Features Guide Footer Card -->
-        <section class="bg-[#232527] border border-[#393B3D] rounded-2xl p-5 lg:p-6">
-            <h3 class="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4">Ovládání 3D Enginu (PC & Roblox Mobile Touch)</h3>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-                <div class="bg-[#191B1D] p-3.5 rounded-xl border border-[#393B3D]/70 flex items-start gap-3">
-                    <span class="px-2.5 py-1 rounded bg-[#232527] border border-[#393B3D] font-mono text-xs font-bold text-[#00A2FF]">WASD / JOY</span>
-                    <div>
-                        <div class="font-semibold text-white">Pohyb & Virtuální Joystick</div>
-                        <div class="text-xs text-gray-400 mt-0.5">Na PC klávesy WASD, na mobilu plynulý virtuální joystick vlevo dole.</div>
-                    </div>
+        <!-- BOTTOM-RIGHT DOCKED ROBLOX CHAT WIDGET (Matches Screenshots 2, 3, 4, 5) -->
+        <div id="lobby-bottom-chat-widget" class="fixed bottom-0 right-4 z-40 w-72 select-none">
+            <div id="lobby-chat-drawer-body" class="hidden bg-[#191B1D] border border-b-0 border-[#393B3D] rounded-t-xl shadow-2xl flex-col h-72 overflow-hidden">
+                <div class="px-3.5 py-2 bg-[#232527] border-b border-[#393B3D] flex items-center justify-between text-xs font-bold text-white">
+                    <span id="lobby-chat-active-partner">Chat s přáteli</span>
+                    <button type="button" onclick="toggleLobbyChatDrawer(false)" class="text-gray-400 hover:text-white">✕</button>
                 </div>
-                <div class="bg-[#191B1D] p-3.5 rounded-xl border border-[#393B3D]/70 flex items-start gap-3">
-                    <span class="px-2.5 py-1 rounded bg-[#232527] border border-[#393B3D] font-mono text-xs font-bold text-[#00B06F]">1–9 / KOLEČKO</span>
-                    <div>
-                        <div class="font-semibold text-white">Přepínání zbraní a vybavení</div>
-                        <div class="text-xs text-gray-400 mt-0.5">Klávesy 1–9, kolečko myši nebo kliknutí na slot v hotbaru přepne zbraň v ruce.</div>
-                    </div>
+                <div id="lobby-chat-messages-list" class="flex-1 p-3 space-y-2 overflow-y-auto text-xs">
+                    <div class="text-gray-400 text-center py-4">Vyber přítele nebo napiš zprávu!</div>
                 </div>
-                <div class="bg-[#191B1D] p-3.5 rounded-xl border border-[#393B3D]/70 flex items-start gap-3">
-                    <span class="px-2.5 py-1 rounded bg-[#232527] border border-[#393B3D] font-mono text-xs font-bold text-[#FFE066]">MYŠ / SWIPE</span>
-                    <div>
-                        <div class="font-semibold text-white">3D Kamera & Útok</div>
-                        <div class="text-xs text-gray-400 mt-0.5">Tažení myší nebo swipe na pravé polovině obrazovky otáčí kameru.</div>
-                    </div>
-                </div>
-                <div class="bg-[#191B1D] p-3.5 rounded-xl border border-[#393B3D]/70 flex items-start gap-3">
-                    <span class="px-2.5 py-1 rounded bg-[#232527] border border-[#393B3D] font-mono text-xs font-bold text-red-400">F / R / ESC</span>
-                    <div>
-                        <div class="font-semibold text-white">Přebití [F], Respawn [R], Lobby [ESC]</div>
-                        <div class="text-xs text-gray-400 mt-0.5">Klávesa F přebije zbraň, R provede respawn, ESC návrat do lobby.</div>
-                    </div>
-                </div>
+                <form onsubmit="event.preventDefault(); sendLobbyDirectChatMessage();" class="p-2 bg-[#121315] border-t border-[#393B3D] flex items-center gap-1.5">
+                    <input id="lobby-chat-input" type="text" maxlength="160" placeholder="Napiš zprávu..."
+                        class="flex-1 bg-[#232527] text-xs text-white px-2.5 py-1.5 rounded-lg border border-[#393B3D] focus:outline-none focus:border-[#00A2FF]">
+                    <button type="submit" class="px-2.5 py-1.5 rounded-lg bg-[#00A2FF] hover:bg-[#008BDB] text-white text-xs font-bold">↵</button>
+                </form>
             </div>
-        </section>
+            <button type="button" onclick="toggleLobbyChatDrawer()" class="w-full bg-[#232527] hover:bg-[#2C2F33] border border-b-0 border-[#393B3D] rounded-t-lg px-3.5 py-2 flex items-center justify-between text-xs font-bold text-white shadow-lg transition">
+                <span>Chat</span>
+                <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+            </button>
+        </div>
     </main>
+
+    <!-- FRIEND ITEM INSPECT MODAL (Read-Only Inspection of Friend's Items) -->
+    <div id="friend-item-inspect-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div class="bg-[#232527] border border-[#393B3D] rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-[#393B3D] pb-3">
+                <h3 id="friend-inspect-modal-title" class="font-bold text-base text-white">Předmět hráče</h3>
+                <button type="button" onclick="closeFriendItemInspectModal()" class="w-8 h-8 rounded-full bg-[#191B1D] text-gray-300 hover:text-white flex items-center justify-center">✕</button>
+            </div>
+            <div class="flex flex-col items-center text-center space-y-3">
+                <div class="w-28 h-28 rounded-2xl bg-[#191B1D] border border-[#393B3D] p-2 flex items-center justify-center overflow-hidden shadow-inner">
+                    <canvas id="friend-inspect-canvas" width="160" height="160" class="w-full h-full object-contain"></canvas>
+                </div>
+                <div>
+                    <h4 id="friend-inspect-item-name" class="font-bold text-base text-white">Item Name</h4>
+                    <p class="text-xs text-gray-400 mt-1">Tento předmět nosí tvůj přítel <span id="friend-inspect-friend-name" class="text-white font-bold">Kamarad</span>.</p>
+                </div>
+                <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#191B1D] border border-[#393B3D] text-xs font-bold text-[#FFE066]">
+                    <svg class="w-3.5 h-3.5 text-[#FFE066] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="12 2 21 7 21 17 12 22 3 17 3 7"/>
+                        <rect x="9" y="9" width="6" height="6" rx="1"/>
+                    </svg>
+                    <span id="friend-inspect-item-price">50 B$</span>
+                </div>
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button type="button" onclick="closeFriendItemInspectModal(); openShopModal('all');" class="flex-1 py-2 px-3 rounded-lg bg-[#2C2F33] hover:bg-[#393B3D] text-xs font-bold text-white border border-white/10 transition">
+                    Marketplace
+                </button>
+                <button type="button" onclick="closeFriendItemInspectModal()" class="flex-1 py-2 px-3 rounded-lg bg-[#00A2FF] hover:bg-[#008BDB] text-xs font-bold text-white shadow transition">
+                    Zavřít
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOBUX TRANSACTIONS HISTORY MODAL -->
+    <div id="bobux-transactions-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm">
+        <div class="bg-[#232527] border border-[#393B3D] rounded-2xl max-w-lg w-full max-h-[85vh] flex flex-col overflow-hidden shadow-2xl">
+            <!-- Header -->
+            <div class="px-5 py-4 bg-[#191B1D] border-b border-[#393B3D] flex items-center justify-between shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-[#FFE066]/10 border border-[#FFE066]/30 flex items-center justify-center text-[#FFE066]">
+                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="12 2 21 7 21 17 12 22 3 17 3 7"/>
+                            <rect x="9" y="9" width="6" height="6" rx="1"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="font-extrabold text-base sm:text-lg text-white">Bobux Historie & Transakce</h3>
+                        <p class="text-[11px] text-gray-400">Přehled získaných Bobuxů a herních odměn</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeBobuxTransactionsModal()" class="w-8 h-8 rounded-full bg-[#232527] hover:bg-[#2C2F33] text-gray-300 hover:text-white flex items-center justify-center transition">✕</button>
+            </div>
+
+            <!-- Total Balance Pill -->
+            <div class="px-5 py-3 bg-[#232527] border-b border-[#393B3D] flex items-center justify-between text-xs">
+                <span class="text-gray-400 font-semibold">Aktuální Bobux zůstatek:</span>
+                <span id="bobux-transactions-balance" class="font-mono font-extrabold text-[#FFE066] text-sm sm:text-base">250 B$</span>
+            </div>
+
+            <!-- Scrollable Transaction List -->
+            <div id="bobux-transactions-list" class="p-4 space-y-2.5 overflow-y-auto flex-1">
+                <!-- Populated dynamically via JS -->
+            </div>
+
+            <!-- Footer -->
+            <div class="p-3 bg-[#191B1D] border-t border-[#393B3D] flex justify-end shrink-0">
+                <button type="button" onclick="closeBobuxTransactionsModal()" class="px-5 py-2 rounded-lg bg-[#393B3D] hover:bg-[#494B4D] text-xs font-bold text-white transition">Zavřít</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- EDIT PROFILE MODAL (Username & Bio) -->
+    <div id="edit-profile-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div class="bg-[#232527] border border-[#393B3D] rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-[#393B3D] pb-3">
+                <h3 class="font-bold text-lg text-white">Upravit Profil</h3>
+                <button type="button" onclick="closeEditProfileModal()" class="w-8 h-8 rounded-full bg-[#191B1D] text-gray-300 hover:text-white flex items-center justify-center">✕</button>
+            </div>
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="font-bold text-gray-400 block mb-1">Username (nelze měnit)</label>
+                    <div class="w-full bg-[#191B1D] text-gray-300 text-sm px-3.5 py-2 rounded-lg border border-[#393B3D] flex items-center justify-between select-none cursor-not-allowed">
+                        <span id="edit-profile-username-val">Guest</span>
+                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                    </div>
+                    <input id="edit-profile-displayname" type="hidden">
+                    <input id="edit-profile-handle" type="hidden">
+                </div>
+                <div>
+                    <label class="font-bold text-gray-300 block mb-1">Bio / O mně</label>
+                    <textarea id="edit-profile-bio" rows="3" maxlength="160" placeholder="No bio yet" class="w-full bg-[#191B1D] text-white text-sm px-3.5 py-2 rounded-lg border border-[#393B3D] focus:outline-none focus:border-[#00A2FF]"></textarea>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button type="button" onclick="closeEditProfileModal()" class="px-4 py-2 rounded-lg bg-[#393B3D] hover:bg-[#494B4D] text-xs font-bold text-white">Zrušit</button>
+                <button type="button" onclick="saveEditedProfile()" class="px-5 py-2 rounded-lg bg-[#00A2FF] hover:bg-[#008BDB] text-xs font-bold text-white">Uložit</button>
+            </div>
+        </div>
+    </div>
 
     <!-- GAME DETAIL MODAL (WITH MATCHMAKING SELECTOR, LIKE/DISLIKE & SECURE COMMENTS) -->
     <div id="game-detail-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm">
@@ -1397,14 +1692,14 @@
     </div>
 
     <!-- BOBLOX Modular Architecture (Core Engine, State, Network, Games & UI with Cache-Busting) -->
-    <script src="src/core/SoundEngine.js?v=2.3" defer></script>
-    <script src="src/state/PortalStore.js?v=2.3" defer></script>
-    <script src="src/network/NetworkManager.js?v=2.3" defer></script>
-    <script src="src/ui/PortalUI.js?v=2.3" defer></script>
-    <script src="src/core/AvatarAndShop.js?v=2.3" defer></script>
-    <script src="src/core/Engine.js?v=2.3" defer></script>
-    <script src="src/games/GameWorlds.js?v=2.3" defer></script>
-    <script src="src/core/PhysicsAndLoop.js?v=2.3" defer></script>
-    <script src="src/core/InputManager.js?v=2.3" defer></script>
+    <script src="src/core/SoundEngine.js?v=2.6" defer></script>
+    <script src="src/state/PortalStore.js?v=2.6" defer></script>
+    <script src="src/network/NetworkManager.js?v=2.6" defer></script>
+    <script src="src/ui/PortalUI.js?v=2.6" defer></script>
+    <script src="src/core/AvatarAndShop.js?v=2.6" defer></script>
+    <script src="src/core/Engine.js?v=2.6" defer></script>
+    <script src="src/games/GameWorlds.js?v=2.6" defer></script>
+    <script src="src/core/PhysicsAndLoop.js?v=2.6" defer></script>
+    <script src="src/core/InputManager.js?v=2.6" defer></script>
 </body>
 </html>

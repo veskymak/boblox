@@ -8,7 +8,7 @@ const mpState = {
     bc: typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('boblox_live_presence_v2') : null,
     isHost: false,
     roomCode: '',
-    nickname: localStorage.getItem('boblox_mp_nick') || 'Vendeez',
+    nickname: localStorage.getItem('boblox_mp_nick') || 'Guest',
     myId: 'peer_' + Math.random().toString(36).slice(2, 10),
     connections: [], // Active PeerJS DataConnections
     remotePlayers: {}, // peerId -> { id, nickname, torsoHex, outfit, weaponId, disguiseId, gameMode, pos, targetPos, rotY, walkCycle, onGround, attackTimer, meshData, lastSeen }
@@ -496,8 +496,19 @@ function handleMultiplayerPacket(packet, sourceConn) {
     }
 
     if (packet.type === 'chatMessage' && packet.id !== mpState.myId && packet.text) {
+        const cleanSender = sanitizeTextClient(packet.nickname || 'Hráč', 16);
+        const cleanMsg = sanitizeTextClient(packet.text, 160);
         if (typeof appendRobloxChatMessage === 'function') {
-            appendRobloxChatMessage(sanitizeTextClient(packet.nickname || 'Hráč', 16), sanitizeTextClient(packet.text, 160));
+            appendRobloxChatMessage(cleanSender, cleanMsg);
+        }
+        const rp = mpState.remotePlayers[packet.id];
+        if (rp) {
+            if (rp.meshData && typeof spawnChatBubbleOnAvatar === 'function') {
+                spawnChatBubbleOnAvatar(rp.meshData, cleanMsg, false);
+            } else {
+                if (!Array.isArray(rp.pendingBubbles)) rp.pendingBubbles = [];
+                rp.pendingBubbles.push(cleanMsg);
+            }
         }
         return;
     }
@@ -634,10 +645,20 @@ function updateRemotePlayersInScene(dt) {
                 outfit: rp.outfit || sanitizeOutfit(null),
                 weaponId: rp.weaponId || (activeGameMode === 'sfoth' ? 'sword' : 'none')
             });
+            rp.meshData.isRemoteAvatar = true;
             const badge = createNameplateSprite(rp.nickname);
             rp.meshData.root.add(badge);
             rp.meshData.root.position.copy(rp.targetPos);
             scene.add(rp.meshData.root);
+
+            if (Array.isArray(rp.pendingBubbles) && rp.pendingBubbles.length > 0 && typeof spawnChatBubbleOnAvatar === 'function') {
+                rp.pendingBubbles.forEach(txt => spawnChatBubbleOnAvatar(rp.meshData, txt, false));
+                rp.pendingBubbles = [];
+            }
+        }
+
+        if (typeof updateAvatarChatBubbles === 'function') {
+            updateAvatarChatBubbles(rp.meshData, dt);
         }
 
         rp.pos.lerp(rp.targetPos, Math.min(1, dt * 15));

@@ -1210,8 +1210,11 @@ function updateAuthUI() {
         }
     }
 
+    const sideName = document.getElementById('sidebar-player-name');
+
     if (isLogged) {
         if (navName) navName.textContent = authState.user.username;
+        if (sideName) sideName.textContent = authState.user.username;
         if (navLabel) navLabel.textContent = 'Účet aktivní';
         if (navDot) navDot.className = 'w-1.5 h-1.5 rounded-full bg-[#00B06F]';
         if (bannerName) bannerName.textContent = authState.user.username;
@@ -1233,15 +1236,18 @@ function updateAuthUI() {
         if (pItems) pItems.textContent = String(ownedShopItems.size);
         if (pLastLogin) pLastLogin.textContent = formatDateTimeUserFriendly(authState.user.last_login_at);
         if (pLastActive) pLastActive.textContent = formatDateTimeUserFriendly(authState.user.last_active_at || Date.now(), true);
+        if (typeof refreshPortalAvatarVisuals === 'function') refreshPortalAvatarVisuals();
     } else {
-        const guestName = 'Host_CZ';
+        const guestName = 'Guest';
         if (navName) navName.textContent = guestName;
+        if (sideName) sideName.textContent = guestName;
         if (navLabel) navLabel.textContent = 'Přihlásit účet';
         if (navDot) navDot.className = 'w-1.5 h-1.5 rounded-full bg-[#00A2FF]';
         if (bannerName) bannerName.textContent = guestName;
         if (bannerBtn) bannerBtn.textContent = '🔐 Přihlásit / Registrovat účet';
         document.getElementById('auth-logged-in-view')?.classList.add('hidden');
         document.getElementById('auth-form-view')?.classList.remove('hidden');
+        if (typeof refreshPortalAvatarVisuals === 'function') refreshPortalAvatarVisuals();
     }
 }
 
@@ -1333,9 +1339,10 @@ async function logoutAccount() {
     document.cookie = 'boblox_token=; Max-Age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
 
     // Reset guest nickname & form inputs
-    mpState.nickname = 'Host_CZ';
+    const fallbackName = 'Guest';
+    mpState.nickname = fallbackName;
     const mpInput = document.getElementById('mp-nickname-input');
-    if (mpInput) mpInput.value = 'Host_CZ';
+    if (mpInput) mpInput.value = fallbackName;
     const passInput = document.getElementById('auth-password-input');
     if (passInput) passInput.value = '';
     const alertBox = document.getElementById('auth-alert');
@@ -1343,7 +1350,7 @@ async function logoutAccount() {
 
     updateAuthUI();
     renderGameCatalog();
-    showHudToast('Byl jsi odhlášen z účtu (režim Host_CZ).', 'blue');
+    showHudToast(`Byl jsi odhlášen z účtu (režim ${fallbackName}).`, 'blue');
 }
 
 async function initAuthSession() {
@@ -1358,8 +1365,9 @@ async function initAuthSession() {
         } catch (e) {}
     }
 
+    const fallbackName = 'Guest';
     if (!authState.token) {
-        mpState.nickname = 'Host_CZ';
+        mpState.nickname = fallbackName;
         localStorage.removeItem('boblox_mp_nick');
         localStorage.removeItem('boblox_auth_user_cache');
         updateAuthUI();
@@ -1378,15 +1386,55 @@ async function initAuthSession() {
         localStorage.removeItem(STORAGE_KEY_JWT);
         localStorage.removeItem('boblox_mp_nick');
         localStorage.removeItem('boblox_auth_user_cache');
-        mpState.nickname = 'Host_CZ';
+        mpState.nickname = fallbackName;
         updateAuthUI();
     }
     fetchAllGamesSummary();
 }
 
+const STORAGE_KEY_TRANSACTIONS = 'boblox_bobux_transactions_v2';
+let bobuxTransactions = (() => {
+    try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY_TRANSACTIONS));
+        if (Array.isArray(saved) && saved.length > 0) return saved;
+    } catch (e) {}
+    return [
+        {
+            id: 'tx_init',
+            amount: 250,
+            game: 'Uvítací Boblox Bonus',
+            timestamp: Date.now() - 3600 * 1000 * 2
+        }
+    ];
+})();
+
+function recordBobuxTransaction(amount, reasonText = '') {
+    let sourceGame = reasonText;
+    if (!sourceGame) {
+        if (typeof activeGameId !== 'undefined' && activeGameId) {
+            const g = (typeof GAMES_CATALOG !== 'undefined') ? GAMES_CATALOG.find(x => x.id === activeGameId) : null;
+            sourceGame = g ? g.title : 'Boblox Minihra';
+        } else {
+            sourceGame = 'Herní odměna';
+        }
+    }
+    const tx = {
+        id: 'tx_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        amount,
+        game: sourceGame,
+        timestamp: Date.now()
+    };
+    bobuxTransactions.unshift(tx);
+    if (bobuxTransactions.length > 60) bobuxTransactions.pop();
+    try {
+        localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(bobuxTransactions));
+    } catch (e) {}
+}
+
 function addBobux(amount, reasonText = '') {
     bobuxBalance += amount;
     localStorage.setItem(STORAGE_KEY_BOBUX, String(bobuxBalance));
+    recordBobuxTransaction(amount, reasonText);
     updateBobuxUI();
     sfx.playCoin();
     if (reasonText) {
@@ -1434,8 +1482,8 @@ function updateDailyBonusUI() {
 
     if (rem > 0) {
         const formatted = formatHMS(rem);
-        if (btn) btn.disabled = true;
-        if (label) label.textContent = '⏳ Další bonus za';
+        if (btn) btn.disabled = false;
+        if (label) label.textContent = 'Create';
         if (timerEl) {
             timerEl.textContent = formatted;
             timerEl.classList.remove('hidden');
@@ -1445,7 +1493,7 @@ function updateDailyBonusUI() {
         if (mobTimer) mobTimer.textContent = formatted;
     } else {
         if (btn) btn.disabled = false;
-        if (label) label.textContent = '🎁 Denní Bonus (+50 B$)';
+        if (label) label.textContent = 'Create';
         if (timerEl) timerEl.classList.add('hidden');
         if (dotEl) dotEl.classList.remove('hidden');
         if (mobBtn) mobBtn.disabled = false;

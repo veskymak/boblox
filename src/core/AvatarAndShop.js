@@ -877,6 +877,61 @@ const SHOP_ITEMS = [
             g.add(halo);
             return g;
         }
+    },
+    {
+        id: 'hat_brown_hair', slot: 'hat', category: 'hat', name: 'Beautiful Brown Hair', price: 58,
+        desc: 'Ikonické rozcuchané hnědé vlasy z Robloxu.',
+        build() {
+            const g = new THREE.Group();
+            const brown = hatMat(0x5A2711, { roughness: 0.55 });
+            const base = hatMesh(new THREE.BoxGeometry(1.18, 0.34, 1.18), brown, 0, -0.02, 0);
+            g.add(base);
+            const spikes = [
+                { x: -0.28, y: 0.22, z: -0.25, rx: -0.35, rz: 0.35, s: 0.42 },
+                { x: 0.0,   y: 0.28, z: -0.28, rx: -0.45, rz: -0.1, s: 0.46 },
+                { x: 0.32,  y: 0.20, z: -0.22, rx: -0.30, rz: -0.45, s: 0.40 },
+                { x: -0.35, y: 0.16, z: 0.15,  rx: 0.25,  rz: 0.40, s: 0.38 },
+                { x: 0.28,  y: 0.22, z: 0.18,  rx: 0.28,  rz: -0.38, s: 0.42 },
+                { x: 0.0,   y: 0.24, z: 0.28,  rx: 0.40,  rz: 0.08, s: 0.40 }
+            ];
+            spikes.forEach(sp => {
+                const cone = hatMesh(new THREE.ConeGeometry(sp.s * 0.65, sp.s * 1.35, 6), brown, sp.x, sp.y, sp.z);
+                cone.rotation.set(sp.rx, 0, sp.rz);
+                g.add(cone);
+            });
+            return g;
+        }
+    },
+    {
+        id: 'hat_ponytail', slot: 'hat', category: 'hat', name: 'Voluminous Ponytail', price: 40,
+        desc: 'Dlouhý tmavý culík v anime stylu.',
+        build() {
+            const g = new THREE.Group();
+            const dark = hatMat(0x1E222D, { roughness: 0.45 });
+            g.add(hatMesh(new THREE.BoxGeometry(1.18, 0.32, 1.18), dark, 0, -0.02, 0));
+            const tail = hatMesh(new THREE.ConeGeometry(0.36, 1.15, 10), dark, 0, -0.35, 0.68);
+            tail.rotation.x = -2.4;
+            g.add(tail);
+            return g;
+        }
+    },
+    {
+        id: 'shirt_black_flannel', slot: 'shirt', category: 'clothing', name: 'Black Plaid Flannel', price: 50, color: '#181A1E',
+        desc: 'Černo-šedá kostkovaná flanelová košile.',
+        draw(ctx) {
+            ctx.fillStyle = '#111317';
+            ctx.fillRect(0, 0, 256, 256);
+            ctx.fillStyle = 'rgba(55, 62, 72, 0.65)';
+            for (let i = 0; i < 256; i += 44) {
+                ctx.fillRect(i, 0, 18, 256);
+                ctx.fillRect(0, i, 256, 18);
+            }
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+            for (let i = 22; i < 256; i += 44) {
+                ctx.fillRect(i, 0, 3, 256);
+                ctx.fillRect(0, i, 256, 3);
+            }
+        }
     }
 ];
 const SHOP_ITEM_MAP = Object.fromEntries(SHOP_ITEMS.map(it => [it.id, it]));
@@ -899,8 +954,16 @@ function loadJSON(key, fallback) {
     try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch (e) { return fallback; }
 }
 
-let ownedShopItems = new Set([DEFAULT_FACE_ID, ...(Array.isArray(loadJSON(STORAGE_KEY_OWNED, [])) ? loadJSON(STORAGE_KEY_OWNED, []) : [])].filter(id => SHOP_ITEM_MAP[id]));
-let avatarOutfit = sanitizeOutfit(loadJSON(STORAGE_KEY_OUTFIT, null));
+const STARTER_OWNED_IDS = [DEFAULT_FACE_ID, 'face_cool', 'hat_brown_hair', 'shirt_black_flannel', 'pants_black'];
+const DEFAULT_STARTER_OUTFIT = {
+    shirt: null,
+    pants: null,
+    face: DEFAULT_FACE_ID,
+    hat: null
+};
+
+let ownedShopItems = new Set([...STARTER_OWNED_IDS, ...(Array.isArray(loadJSON(STORAGE_KEY_OWNED, [])) ? loadJSON(STORAGE_KEY_OWNED, []) : [])].filter(id => SHOP_ITEM_MAP[id]));
+let avatarOutfit = sanitizeOutfit(loadJSON(STORAGE_KEY_OUTFIT, DEFAULT_STARTER_OUTFIT));
 // Never wear something that isn't owned (e.g. after a manual localStorage edit)
 SHOP_SLOTS.forEach(slot => { if (avatarOutfit[slot] && !ownedShopItems.has(avatarOutfit[slot])) avatarOutfit[slot] = slot === 'face' ? DEFAULT_FACE_ID : null; });
 
@@ -1109,6 +1172,7 @@ function closeShopModal() {
     }
     shopState.selectedId = null;
     renderGameCatalog();
+    if (typeof renderPortalProfileView === 'function') renderPortalProfileView();
 }
 
 function setShopCategory(cat) {
@@ -1139,6 +1203,7 @@ function buyShopItem(id) {
     showShopToast(`Koupeno a nasazeno: ${item.name}!`, 'success');
     rebuildShopPreviewAvatar();
     renderShop();
+    if (typeof refreshPortalAvatarVisuals === 'function') refreshPortalAvatarVisuals();
 }
 
 function equipShopItem(id) {
@@ -1149,6 +1214,7 @@ function equipShopItem(id) {
     sfx.playCoin();
     rebuildShopPreviewAvatar();
     renderShop();
+    if (typeof refreshPortalAvatarVisuals === 'function') refreshPortalAvatarVisuals();
 }
 
 function unequipShopSlot(slot) {
@@ -1158,6 +1224,7 @@ function unequipShopSlot(slot) {
     saveShopState();
     rebuildShopPreviewAvatar();
     renderShop();
+    if (typeof refreshPortalAvatarVisuals === 'function') refreshPortalAvatarVisuals();
 }
 
 let shopToastTimer = null;
@@ -1260,4 +1327,292 @@ function renderShop() {
             </div>`;
     }).join('');
 }
+
+/* ============================================================================
+ * 5c. ROBLOX 3D IN-GAME BUBBLE CHAT (SPEECH BUBBLES OVER AVATAR HEAD)
+ * ============================================================================ */
+const ROBLOX_MAX_CHAT_BUBBLES = 3;
+
+function computeRobloxBubbleLifetime(msg, isSelf) {
+    const cleanLen = Math.max(1, (msg || '').trim().length);
+    const t = Math.min(1, (cleanLen - 1) / 75);
+    if (isSelf) {
+        return 8 + (15 - 8) * t; // 8s to 15s for local player
+    }
+    return 12 + (20 - 12) * t; // 12s to 20s for remote players
+}
+
+function wrapBubbleTextLines(ctx, text, maxWidthPx, maxLines = 3) {
+    const words = String(text || '').trim().split(/\s+/);
+    const lines = [];
+    let current = '';
+
+    for (let i = 0; i < words.length; i++) {
+        let word = words[i];
+        // Break single ultra-long word if needed
+        while (ctx.measureText(word).width > maxWidthPx && word.length > 4) {
+            let cut = word.length - 1;
+            while (cut > 2 && ctx.measureText(word.slice(0, cut)).width > maxWidthPx) {
+                cut--;
+            }
+            if (current) {
+                lines.push(current);
+                current = '';
+            }
+            lines.push(word.slice(0, cut));
+            word = word.slice(cut);
+        }
+        const testLine = current ? `${current} ${word}` : word;
+        if (ctx.measureText(testLine).width <= maxWidthPx || !current) {
+            current = testLine;
+        } else {
+            lines.push(current);
+            current = word;
+        }
+    }
+    if (current) lines.push(current);
+
+    if (lines.length > maxLines) {
+        const sliced = lines.slice(0, maxLines);
+        sliced[maxLines - 1] = sliced[maxLines - 1].replace(/\.*$/, '') + '...';
+        return sliced;
+    }
+    return lines.length ? lines : ['...'];
+}
+
+function createRobloxBubbleSprite(text, showTail = true) {
+    const measureCanvas = document.createElement('canvas');
+    const mCtx = measureCanvas.getContext('2d');
+    const fontStr = '500 32px Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    mCtx.font = fontStr;
+
+    const maxTextWidth = 420;
+    const lines = wrapBubbleTextLines(mCtx, text, maxTextWidth, 3);
+
+    let maxMeasuredW = 0;
+    for (let i = 0; i < lines.length; i++) {
+        const w = mCtx.measureText(lines[i]).width;
+        if (w > maxMeasuredW) maxMeasuredW = w;
+    }
+
+    const padX = 34;
+    const padY = 20;
+    const lineHeight = 38;
+    const tailH = 14;
+    const tailW = 20;
+    const shadowMargin = 10;
+
+    const boxW = Math.max(96, Math.ceil(maxMeasuredW + padX * 2));
+    const boxH = Math.ceil(lines.length * lineHeight + padY * 2 - 6);
+
+    const canvasW = boxW + shadowMargin * 2;
+    const canvasH = boxH + tailH + shadowMargin * 2;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = canvasW;
+    canvas.height = canvasH;
+    const ctx = canvas.getContext('2d');
+
+    const bx = shadowMargin;
+    const by = shadowMargin;
+    const radius = Math.min(22, boxH * 0.44);
+
+    // Draw speech bubble shape with optional downward tail at bottom center
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.22)';
+    ctx.shadowBlur = 7;
+    ctx.shadowOffsetY = 2;
+
+    ctx.beginPath();
+    ctx.moveTo(bx + radius, by);
+    ctx.lineTo(bx + boxW - radius, by);
+    ctx.quadraticCurveTo(bx + boxW, by, bx + boxW, by + radius);
+    ctx.lineTo(bx + boxW, by + boxH - radius);
+    ctx.quadraticCurveTo(bx + boxW, by + boxH, bx + boxW - radius, by + boxH);
+
+    if (showTail) {
+        const cx = bx + boxW * 0.5;
+        ctx.lineTo(cx + tailW * 0.5, by + boxH);
+        ctx.lineTo(cx, by + boxH + tailH);
+        ctx.lineTo(cx - tailW * 0.5, by + boxH);
+    }
+
+    ctx.lineTo(bx + radius, by + boxH);
+    ctx.quadraticCurveTo(bx, by + boxH, bx, by + boxH - radius);
+    ctx.lineTo(bx, by + radius);
+    ctx.quadraticCurveTo(bx, by, bx + radius, by);
+    ctx.closePath();
+
+    // Soft off-white Roblox speech bubble fill
+    ctx.fillStyle = 'rgba(241, 243, 245, 0.96)';
+    ctx.fill();
+    ctx.restore();
+
+    // Subtle crisp border
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
+    ctx.stroke();
+
+    // Draw centered text lines
+    ctx.font = fontStr;
+    ctx.fillStyle = '#393B3D';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const startY = by + (boxH - (lines.length - 1) * lineHeight) * 0.5 + 1;
+    const centerX = bx + boxW * 0.5;
+    for (let i = 0; i < lines.length; i++) {
+        ctx.fillText(lines[i], centerX, startY + i * lineHeight);
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    const mat = new THREE.SpriteMaterial({
+        map: tex,
+        transparent: true,
+        depthWrite: false
+    });
+    const sprite = new THREE.Sprite(mat);
+    sprite.renderOrder = 950;
+
+    // Convert canvas pixel dimensions into proportional 3D world units
+    const worldPerPx = 0.0085;
+    const worldW = canvasW * worldPerPx;
+    const worldH = canvasH * worldPerPx;
+
+    return { sprite, worldW, worldH, text };
+}
+
+function disposeChatBubbleEntry(avatarObj, entry) {
+    if (!entry || !entry.sprite) return;
+    if (avatarObj && avatarObj.root) {
+        avatarObj.root.remove(entry.sprite);
+    }
+    if (entry.sprite.material) {
+        if (entry.sprite.material.map) entry.sprite.material.map.dispose();
+        entry.sprite.material.dispose();
+    }
+}
+
+function recomputeAvatarBubbleStackTargets(avatarObj) {
+    if (!avatarObj || !Array.isArray(avatarObj.chatBubbles)) return;
+    const bubbles = avatarObj.chatBubbles;
+    // Remote players have nameplate at Y=4.55, local player has head top around Y=3.85
+    const baseY = avatarObj.isRemoteAvatar ? 5.15 : 4.25;
+    let cursorY = baseY;
+
+    // Newest bubble is at the end of the array (closest to head)
+    for (let i = bubbles.length - 1; i >= 0; i--) {
+        const b = bubbles[i];
+        b.targetY = cursorY + b.worldH * 0.5;
+        cursorY += b.worldH + 0.10;
+    }
+}
+
+function spawnChatBubbleOnAvatar(avatarObj, rawText, isSelf = true) {
+    if (!avatarObj || !avatarObj.root) return;
+    const clean = typeof sanitizeTextClient === 'function'
+        ? sanitizeTextClient(rawText, 160)
+        : String(rawText || '').trim().slice(0, 160);
+    if (!clean) return;
+
+    if (!Array.isArray(avatarObj.chatBubbles)) {
+        avatarObj.chatBubbles = [];
+    }
+
+    // Enforce MaxBubbles = 3 (remove oldest bubble at index 0 if full)
+    while (avatarObj.chatBubbles.length >= ROBLOX_MAX_CHAT_BUBBLES) {
+        const oldest = avatarObj.chatBubbles.shift();
+        disposeChatBubbleEntry(avatarObj, oldest);
+    }
+
+    // Rebuild older bubbles without tail so only the bottom-most bubble has the pointer tail
+    for (let i = 0; i < avatarObj.chatBubbles.length; i++) {
+        const oldEntry = avatarObj.chatBubbles[i];
+        if (oldEntry.hasTail) {
+            const prevY = oldEntry.currentY;
+            disposeChatBubbleEntry(avatarObj, oldEntry);
+            const rebuilt = createRobloxBubbleSprite(oldEntry.text, false);
+            oldEntry.sprite = rebuilt.sprite;
+            oldEntry.worldW = rebuilt.worldW;
+            oldEntry.worldH = rebuilt.worldH;
+            oldEntry.hasTail = false;
+            oldEntry.sprite.position.set(0, prevY, 0);
+            oldEntry.sprite.scale.set(oldEntry.worldW, oldEntry.worldH, 1);
+            avatarObj.root.add(oldEntry.sprite);
+        }
+    }
+
+    const built = createRobloxBubbleSprite(clean, true);
+    const duration = computeRobloxBubbleLifetime(clean, isSelf);
+    const baseY = avatarObj.isRemoteAvatar ? 5.15 : 4.25;
+    const initialY = baseY + built.worldH * 0.5;
+
+    built.sprite.position.set(0, initialY, 0);
+    built.sprite.scale.set(0.01, 0.01, 1);
+    avatarObj.root.add(built.sprite);
+
+    avatarObj.chatBubbles.push({
+        sprite: built.sprite,
+        worldW: built.worldW,
+        worldH: built.worldH,
+        text: clean,
+        hasTail: true,
+        age: 0,
+        duration,
+        currentY: initialY,
+        targetY: initialY
+    });
+
+    recomputeAvatarBubbleStackTargets(avatarObj);
+}
+
+function updateAvatarChatBubbles(avatarObj, dt) {
+    if (!avatarObj || !Array.isArray(avatarObj.chatBubbles) || avatarObj.chatBubbles.length === 0) return;
+
+    let removedAny = false;
+    for (let i = avatarObj.chatBubbles.length - 1; i >= 0; i--) {
+        const b = avatarObj.chatBubbles[i];
+        b.age += dt;
+
+        if (b.age >= b.duration) {
+            disposeChatBubbleEntry(avatarObj, b);
+            avatarObj.chatBubbles.splice(i, 1);
+            removedAny = true;
+            continue;
+        }
+
+        // Smoothly interpolate vertical position when stacking
+        b.currentY += (b.targetY - b.currentY) * Math.min(1, dt * 14);
+        b.sprite.position.y = b.currentY;
+
+        // 1. Pop-in animation (0 -> 0.24s) with elastic overshoot
+        let scaleMul = 1.0;
+        let alpha = 1.0;
+        if (b.age < 0.24) {
+            const p = Math.min(1, b.age / 0.24);
+            const c1 = 1.70158;
+            const c3 = c1 + 1;
+            scaleMul = Math.max(0.05, 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2));
+            alpha = Math.min(1, p * 2.2);
+        }
+
+        // 2. Fade-out animation during last 1.2s of lifetime
+        const rem = b.duration - b.age;
+        if (rem < 1.2) {
+            const fade = Math.max(0, rem / 1.2);
+            alpha = Math.min(alpha, fade);
+            scaleMul *= (0.86 + 0.14 * fade);
+        }
+
+        b.sprite.material.opacity = alpha;
+        b.sprite.scale.set(b.worldW * scaleMul, b.worldH * scaleMul, 1);
+    }
+
+    if (removedAny) {
+        recomputeAvatarBubbleStackTargets(avatarObj);
+    }
+}
+
 

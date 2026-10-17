@@ -358,8 +358,8 @@ function setFilterTag(tag) {
     document.querySelectorAll('.tag-btn').forEach(btn => {
         const isMatch = btn.getAttribute('data-tag') === tag;
         btn.className = isMatch
-            ? 'tag-btn px-3 py-1.5 rounded-lg bg-[#00A2FF] text-white transition font-semibold'
-            : 'tag-btn px-3 py-1.5 rounded-lg bg-[#232527] hover:bg-[#2C2F33] text-gray-300 border border-[#393B3D] transition font-semibold';
+            ? 'tag-btn px-2.5 py-1 rounded-md bg-[#00A2FF] text-white transition text-xs font-semibold'
+            : 'tag-btn px-2.5 py-1 rounded-md bg-[#232527] hover:bg-[#2C2F33] text-gray-300 border border-[#393B3D] transition text-xs font-semibold';
     });
     renderGameCatalog();
 }
@@ -367,6 +367,20 @@ function setFilterTag(tag) {
 function filterCategory() {
     setFilterTag('ALL');
 }
+
+const DEFAULT_GAME_RATINGS_PCT = {
+    adoptme: 97,
+    obby: 93,
+    lava: 88,
+    sfoth: 91,
+    tycoon: 86,
+    disasters: 94,
+    toh: 83,
+    zombies: 89,
+    speedrun: 92,
+    hideandseek: 85,
+    bedwars: 95
+};
 
 function renderGameCatalog() {
     const grid = document.getElementById('games-catalog-grid');
@@ -380,41 +394,45 @@ function renderGameCatalog() {
         return matchesTag && matchesSearch;
     });
 
-    filtered.forEach(game => {
+    const listToRender = filtered.length > 0 ? filtered : GAMES_CATALOG;
+
+    listToRender.forEach(game => {
         const rInfo = liveSocialState.ratingsByGame[game.id] || {};
-        const ratingText = rInfo.ratingPct !== null && rInfo.ratingPct !== undefined
-            ? `${rInfo.ratingPct}% (${rInfo.likes || 0})`
-            : 'Nové';
+        const pct = (rInfo.ratingPct !== null && rInfo.ratingPct !== undefined)
+            ? rInfo.ratingPct
+            : (DEFAULT_GAME_RATINGS_PCT[game.id] || 90);
+        const ratingText = `${pct}% Rating`;
         const liveOnline = liveSocialState.perGameOnline[game.id] || 0;
 
         const card = document.createElement('div');
-        card.className = 'game-card rounded-2xl overflow-hidden cursor-pointer flex flex-col justify-between';
+        card.className = 'group cursor-pointer flex flex-col justify-between transition transform hover:-translate-y-1';
         card.onclick = () => openGameModal(game.id);
 
         card.innerHTML = `
             <div>
-                <div class="relative h-40 bg-[#191B1D] overflow-hidden">
+                <div class="relative aspect-video rounded-xl bg-[#232527] border border-[#2C2F33] group-hover:border-white/40 overflow-hidden shadow-md transition">
                     <canvas id="thumb-${game.id}" width="320" height="180" class="w-full h-full object-cover thumb-zoom"></canvas>
-                    <span class="absolute top-2.5 left-2.5 text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-black/75 text-[#00A2FF] border border-[#00A2FF]/40 backdrop-blur-sm">
+                    <span class="absolute top-2 left-2 text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded bg-black/75 text-white border border-white/15 backdrop-blur-sm">
                         ${escapeHtml(game.badgeText)}
                     </span>
-                    <span class="absolute bottom-2.5 right-2.5 text-[11px] font-bold px-2 py-0.5 rounded bg-[#00B06F] text-white shadow">
+                    <span class="absolute bottom-2 right-2 text-[10px] font-bold px-1.5 py-0.5 rounded bg-black/75 text-[#FFE066]">
                         ${escapeHtml(game.reward)}
                     </span>
                 </div>
-                <div class="p-4">
-                    <h3 class="font-bold text-base text-white truncate">${escapeHtml(game.title)}</h3>
-                    <p class="text-xs text-gray-400 mt-0.5 truncate">Autor: <span class="text-gray-300">${escapeHtml(game.author)}</span></p>
-                    <p class="text-xs text-gray-300 mt-2 line-clamp-2 leading-relaxed">${escapeHtml(game.description)}</p>
+                <div class="pt-2 px-0.5">
+                    <h3 class="font-bold text-sm text-white truncate group-hover:text-[#00A2FF] transition">${escapeHtml(game.title)}</h3>
                 </div>
             </div>
-            <div class="px-4 pb-3.5 pt-2 border-t border-[#393B3D]/60 flex items-center justify-between text-xs text-gray-300">
-                <span class="flex items-center gap-1 font-semibold text-[#00B06F]">
-                    👍 ${escapeHtml(ratingText)}
+            <div class="px-0.5 pt-1 flex items-center justify-between text-[11px] text-gray-400">
+                <span class="flex items-center gap-1 font-medium text-gray-300">
+                    <svg class="w-3.5 h-3.5 text-gray-300 fill-current" viewBox="0 0 20 20">
+                        <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008.943 18h5.416a2 2 0 001.962-1.608l1.2-6A2 2 0 0015.56 8H12V4a2 2 0 00-2-2 1 1 0 00-1 1v.667a4 4 0 01-.8 2.4L6.8 7.933a4 4 0 00-.8 2.4z"/>
+                    </svg>
+                    <span>${escapeHtml(ratingText)}</span>
                 </span>
-                <span class="flex items-center gap-1.5 font-semibold">
-                    <span class="w-2 h-2 rounded-full ${liveOnline > 0 ? 'bg-[#00B06F] animate-pulse' : 'bg-gray-500'}"></span>
-                    <span id="card-online-${game.id}">${liveOnline} ve hře</span>
+                <span class="flex items-center gap-1 font-medium text-gray-400">
+                    <span class="w-1.5 h-1.5 rounded-full ${liveOnline > 0 ? 'bg-[#00B06F] animate-pulse' : 'bg-gray-500'}"></span>
+                    <span id="card-online-${game.id}">${liveOnline}</span>
                 </span>
             </div>
         `;
@@ -686,6 +704,7 @@ function setAvatarTorsoColor(hex) {
     localStorage.setItem(STORAGE_KEY_TORSO, hex);
     sfx.playCoin();
     renderGameCatalog();
+    if (typeof refreshPortalAvatarVisuals === 'function') refreshPortalAvatarVisuals();
     syncAccountToServer();
 }
 
@@ -706,19 +725,23 @@ const robloxUiState = {
 };
 
 function getLocalRobloxPlayerProfile() {
-    const rawName = (authState && authState.user && authState.user.username)
+    const username = (typeof authState !== 'undefined' && authState.user && authState.user.username)
         ? authState.user.username
-        : (typeof mpState !== 'undefined' && mpState.nickname ? mpState.nickname : 'Vendeez');
-    const displayName = rawName;
-    const handle = authState && authState.user && authState.user.username
-        ? `@${authState.user.username}`
-        : '@RusticOdpadlik';
+        : 'Guest';
+    const savedBio = localStorage.getItem('boblox_custom_bio_v1');
+
     return {
         id: 'local',
-        displayName,
-        handle,
-        torsoHex: avatarTorsoHex || '#1e293b',
+        username: username,
+        displayName: username,
+        handle: `@${username}`,
+        bio: savedBio || 'No bio yet',
+        torsoHex: (typeof avatarTorsoHex !== 'undefined') ? avatarTorsoHex : '#0D69AC',
         outfit: typeof avatarOutfit !== 'undefined' ? avatarOutfit : null,
+        followers: 0,
+        following: 0,
+        rap: (typeof bobuxBalance !== 'undefined') ? bobuxBalance : 250,
+        status: 'online',
         isLocal: true
     };
 }
@@ -1125,6 +1148,11 @@ function sendRobloxChatMessage() {
     const myProfile = getLocalRobloxPlayerProfile();
     appendRobloxChatMessage(myProfile.displayName, clean);
 
+    // Spawn 3D Roblox Chat Bubble over local player's head
+    if (typeof spawnChatBubbleOnAvatar === 'function' && typeof playerAvatar !== 'undefined' && playerAvatar) {
+        spawnChatBubbleOnAvatar(playerAvatar, clean, true);
+    }
+
     if (typeof sendMultiplayerPacket === 'function') {
         sendMultiplayerPacket({
             type: 'chatMessage',
@@ -1224,5 +1252,1685 @@ function captureRobloxScreenshot() {
         showHudToast('📸 Screenshot uložen do záložky Gallery!', 'blue');
     } catch (e) {}
 }
+
+/* ============================================================================
+ * 4C. ROBLOX MODERN WEB PORTAL: HOME, PROFILE, FRIENDS SYSTEM & PEOPLE SEARCH
+ * ============================================================================ */
+const STORAGE_KEY_FRIENDS = 'boblox_friends_list_v1';
+
+const ROBLOX_DIRECTORY_PLAYERS = [];
+
+const DEMO_FRIEND_ID_PREFIXES = ['p_volvo', 'p_vanessik', 'p_wizardmax', 'p_legion_main', 'p_vojta', 'p_elsa', 'p_dylinkaa', 'p_roboctak', 'p_addarian', 'p_holymoly', 'p_mesty', 'p_swayy', 'p_nahoda'];
+const STORAGE_KEY_FRIENDS_CACHE = 'boblox_friends_profiles_cache_v1';
+
+function getCachedFriendsProfiles() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY_FRIENDS_CACHE);
+        if (raw) {
+            const list = JSON.parse(raw);
+            if (Array.isArray(list)) {
+                return list.filter(p => p && p.id && !DEMO_FRIEND_ID_PREFIXES.includes(p.id) && !String(p.id).startsWith('p_'));
+            }
+        }
+    } catch (e) {}
+    return [];
+}
+
+function saveCachedFriendProfile(profile) {
+    if (!profile || !profile.id || String(profile.id).startsWith('p_') || DEMO_FRIEND_ID_PREFIXES.includes(profile.id)) return;
+    const list = getCachedFriendsProfiles().filter(p => p.id !== profile.id);
+    list.push(profile);
+    localStorage.setItem(STORAGE_KEY_FRIENDS_CACHE, JSON.stringify(list));
+}
+
+function removeCachedFriendProfile(playerId) {
+    const list = getCachedFriendsProfiles().filter(p => p.id !== playerId);
+    localStorage.setItem(STORAGE_KEY_FRIENDS_CACHE, JSON.stringify(list));
+}
+
+let friendsSet = new Set((() => {
+    try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY_FRIENDS));
+        if (Array.isArray(saved)) {
+            return saved.filter(id => !DEMO_FRIEND_ID_PREFIXES.includes(id) && !String(id).startsWith('p_'));
+        }
+    } catch (e) {}
+    return [];
+})());
+
+function saveFriendsList() {
+    localStorage.setItem(STORAGE_KEY_FRIENDS, JSON.stringify([...friendsSet]));
+}
+
+function isPlayerFriend(playerId) {
+    return friendsSet.has(playerId);
+}
+
+function getAllSearchablePlayers() {
+    const map = new Map();
+
+    // 1. Include registered local accounts
+    if (typeof getLocalUsersDB === 'function') {
+        const localUsers = getLocalUsersDB();
+        const myProfile = getLocalRobloxPlayerProfile();
+        const myUName = (myProfile.username || myProfile.displayName || '').toLowerCase();
+        localUsers.forEach(u => {
+            if (!u || !u.username) return;
+            if (u.username.toLowerCase() === myUName) return;
+            const pid = `db_${u.username.toLowerCase()}`;
+            if (!map.has(pid)) {
+                map.set(pid, {
+                    id: pid,
+                    username: u.username,
+                    displayName: u.username,
+                    handle: `@${u.username}`,
+                    bio: u.bio || 'Registered Boblox Player.',
+                    status: 'online',
+                    friendsCount: 0,
+                    followers: 0,
+                    following: 0,
+                    rap: String(u.coins || 250),
+                    torsoHex: u.inventory?.torsoHex || '#0D69AC',
+                    outfit: u.inventory?.outfit || null,
+                    style: {
+                        skinColor: '#f5cd30',
+                        hairType: 'spiky_brown',
+                        hairColor: '#5c2c16',
+                        faceType: 'classic',
+                        shirtColor: u.inventory?.torsoHex || '#0D69AC',
+                        shirtPattern: 'plain',
+                        pantsColor: '#4B974B'
+                    }
+                });
+            }
+        });
+    }
+
+    // 2. Include live connected multiplayer peers
+    if (typeof mpState !== 'undefined' && mpState.remotePlayers) {
+        Object.values(mpState.remotePlayers).forEach(rp => {
+            if (!rp || !rp.id) return;
+            const pid = `peer_${rp.id}`;
+            const nick = rp.nickname || 'Player';
+            if (!map.has(pid)) {
+                map.set(pid, {
+                    id: pid,
+                    username: nick,
+                    displayName: nick,
+                    handle: `@${nick.replace(/\s+/g, '')}`,
+                    bio: 'Live multiplayer player in Boblox.',
+                    status: 'online',
+                    friendsCount: 0,
+                    followers: 0,
+                    following: 0,
+                    rap: '250',
+                    torsoHex: rp.torsoHex || '#0D69AC',
+                    outfit: rp.outfit || null,
+                    style: {
+                        skinColor: '#f5cd30',
+                        hairType: 'spiky_brown',
+                        hairColor: '#5c2c16',
+                        faceType: 'classic',
+                        shirtColor: rp.torsoHex || '#0D69AC',
+                        shirtPattern: 'plain',
+                        pantsColor: '#4B974B'
+                    }
+                });
+            }
+        });
+    }
+
+    // 3. Include cached added friends so they remain accessible even if offline
+    const cachedFriends = getCachedFriendsProfiles();
+    cachedFriends.forEach(p => {
+        if (!map.has(p.id) && friendsSet.has(p.id)) {
+            map.set(p.id, p);
+        }
+    });
+
+    return Array.from(map.values());
+}
+
+function getPlayerById(playerId) {
+    if (!playerId || playerId === 'local') {
+        return getLocalRobloxPlayerProfile();
+    }
+    const all = getAllSearchablePlayers();
+    return all.find(p => p.id === playerId) || getLocalRobloxPlayerProfile();
+}
+
+/* ============================================================================
+ * 2D PROCEDURAL AVATAR PORTRAITS (HEADSHOTS & FULL-BODY POSES)
+ * ============================================================================ */
+function resolvePlayerVisualStyle(player) {
+    if (player.isLocal) {
+        const outfit = (typeof avatarOutfit !== 'undefined' ? avatarOutfit : player.outfit) || {};
+        const torsoColor = (typeof avatarTorsoHex !== 'undefined' ? avatarTorsoHex : player.torsoHex) || '#0D69AC';
+
+        const shirtIt = outfit.shirt && typeof SHOP_ITEM_MAP !== 'undefined' ? SHOP_ITEM_MAP[outfit.shirt] : null;
+        const pantsIt = outfit.pants && typeof SHOP_ITEM_MAP !== 'undefined' ? SHOP_ITEM_MAP[outfit.pants] : null;
+
+        // Base classic Boblox avatar: Yellow skin, torso color, green pants, smile, no hair
+        let skinColor = '#F5CD30';
+        let hairType = 'none';
+        let hairColor = '#5c2c16';
+        let faceType = 'classic';
+        let shirtColor = torsoColor;
+        let shirtPattern = 'plain';
+        let pantsColor = '#4B974B';
+        let shoesColor = '#4B974B';
+
+        if (shirtIt) {
+            shirtColor = shirtIt.color || torsoColor;
+            if (shirtIt.id === 'shirt_black_flannel' || shirtIt.id === 'shirt_flannel') shirtPattern = 'flannel_dark';
+            else if (shirtIt.id === 'shirt_tux') shirtPattern = 'suit';
+            else if (shirtIt.id === 'shirt_hoodie') shirtPattern = 'hoodie';
+            else if (shirtIt.id === 'shirt_stripes') shirtPattern = 'stripes';
+            else shirtPattern = 'plain';
+        }
+
+        if (pantsIt && pantsIt.color) {
+            pantsColor = pantsIt.color;
+            shoesColor = pantsIt.color;
+        }
+
+        if (outfit.face === 'face_cool') faceType = 'sunglasses_smirk';
+        else if (outfit.face === 'face_kawaii') faceType = 'kawaii';
+        else if (outfit.face === 'face_grin') faceType = 'creepy_grin';
+        else if (outfit.face === 'face_robot') faceType = 'cyber_mask';
+        else faceType = 'classic';
+
+        if (outfit.hat === 'hat_brown_hair') { hairType = 'spiky_brown'; hairColor = '#5c2c16'; }
+        else if (outfit.hat === 'hat_ponytail') { hairType = 'ponytail_dark'; hairColor = '#18181b'; }
+        else if (outfit.hat === 'hat_cowboy') { hairType = 'cowboy'; hairColor = '#78350f'; }
+        else if (outfit.hat === 'hat_cap') { hairType = 'blue_cap'; hairColor = '#1d4ed8'; }
+        else if (outfit.hat === 'hat_crown') { hairType = 'crimson_halo'; hairColor = '#eab308'; }
+        else { hairType = 'none'; }
+
+        return {
+            skinColor,
+            hairType,
+            hairColor,
+            faceType,
+            shirtColor,
+            shirtPattern,
+            pantsColor,
+            shoesColor
+        };
+    }
+
+    return Object.assign({
+        skinColor: '#f5d0a9',
+        hairType: 'none',
+        hairColor: '#5c2c16',
+        faceType: 'classic',
+        shirtColor: player.torsoHex || '#0D69AC',
+        shirtPattern: 'plain',
+        pantsColor: '#1f2937',
+        shoesColor: '#111827'
+    }, player.style || {});
+}
+
+function drawAvatarHeadAndHair2D(ctx, style) {
+    // Neck & Shoulders (Torso upper)
+    ctx.fillStyle = style.shirtColor || '#181A1E';
+    ctx.beginPath();
+    ctx.roundRect(-30, 8, 60, 38, 8);
+    ctx.fill();
+
+    // Shirt pattern details
+    if (style.shirtPattern === 'flannel_dark') {
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+        ctx.lineWidth = 2;
+        for (let x = -22; x <= 22; x += 8) {
+            ctx.beginPath(); ctx.moveTo(x, 8); ctx.lineTo(x, 44); ctx.stroke();
+        }
+        for (let y = 14; y <= 40; y += 8) {
+            ctx.beginPath(); ctx.moveTo(-28, y); ctx.lineTo(28, y); ctx.stroke();
+        }
+    } else if (style.shirtPattern === 'limbus_coat' || style.shirtPattern === 'suit') {
+        ctx.fillStyle = '#f8fafc';
+        ctx.beginPath();
+        ctx.moveTo(-8, 8); ctx.lineTo(8, 8); ctx.lineTo(0, 26); ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#dc2626';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-24, 12, 48, 30);
+    }
+
+    // Back Hair (for long hair / ponytails)
+    if (style.hairType === 'ponytail_dark' || style.hairType === 'long_dark' || style.hairType === 'long_blonde' || style.hairType === 'pastel_fluff') {
+        ctx.fillStyle = style.hairColor || '#1e2230';
+        ctx.beginPath();
+        ctx.ellipse(0, -8, 25, 26, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillRect(-23, -8, 46, 28);
+    }
+
+    // Head Block
+    ctx.fillStyle = style.skinColor || '#eac086';
+    ctx.beginPath();
+    ctx.roundRect(-18, -26, 36, 34, 7);
+    ctx.fill();
+
+    // Face Details
+    const ft = style.faceType;
+    if (ft === 'sunglasses_smirk') {
+        // Classic Black Sunglasses
+        ctx.fillStyle = '#090a0f';
+        ctx.fillRect(-16, -15, 32, 3);
+        ctx.beginPath();
+        ctx.roundRect(-15, -15, 13, 9, 2);
+        ctx.roundRect(2, -15, 13, 9, 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.fillRect(-12, -13, 4, 2.5);
+        ctx.fillRect(5, -13, 4, 2.5);
+        // Confident smirk
+        ctx.strokeStyle = '#1f2937';
+        ctx.lineWidth = 2.2;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(0, -3, 6, 0.15 * Math.PI, 0.82 * Math.PI);
+        ctx.stroke();
+    } else if (ft === 'joy_mask') {
+        // Joy Eyes Happy Blushing Mask (matches Legion Screenshot 4)
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 2.4;
+        ctx.lineCap = 'round';
+        // Happy curved closed eyes
+        ctx.beginPath();
+        ctx.arc(-7, -11, 4.5, 1.15 * Math.PI, 1.85 * Math.PI);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(7, -11, 4.5, 1.15 * Math.PI, 1.85 * Math.PI);
+        ctx.stroke();
+        // Soft pink blush cheeks
+        ctx.fillStyle = 'rgba(244, 114, 182, 0.45)';
+        ctx.beginPath();
+        ctx.ellipse(-10, -5, 4, 2.2, 0, 0, Math.PI * 2);
+        ctx.ellipse(10, -5, 4, 2.2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Gentle cute smile
+        ctx.beginPath();
+        ctx.arc(0, -4, 5, 0.18 * Math.PI, 0.82 * Math.PI);
+        ctx.stroke();
+    } else if (ft === 'kawaii') {
+        ctx.fillStyle = '#111827';
+        ctx.beginPath();
+        ctx.arc(-7, -11, 3.2, 0, Math.PI * 2);
+        ctx.arc(7, -11, 3.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(-8, -12, 1.2, 0, Math.PI * 2);
+        ctx.arc(6, -12, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(244, 114, 182, 0.55)';
+        ctx.beginPath();
+        ctx.ellipse(-10, -5, 3.8, 2, 0, 0, Math.PI * 2);
+        ctx.ellipse(10, -5, 3.8, 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#111827';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, -4, 4.5, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.stroke();
+    } else if (ft === 'creepy_grin') {
+        ctx.fillStyle = '#090a0f';
+        ctx.beginPath();
+        ctx.arc(-7, -12, 2.8, 0, Math.PI * 2);
+        ctx.arc(7, -12, 2.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(0, -5, 9, 0.1 * Math.PI, 0.9 * Math.PI);
+        ctx.fill();
+        ctx.strokeStyle = '#f8fafc';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+    } else if (ft === 'cyber_mask' || ft === 'tactical_goggles' || ft === 'crimson_visor') {
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(-15, -16, 30, 10);
+        ctx.fillStyle = ft === 'crimson_visor' ? '#ef4444' : '#38bdf8';
+        ctx.fillRect(-11, -13, 8, 4);
+        ctx.fillRect(3, -13, 8, 4);
+    } else if (ft === 'purple_shades') {
+        ctx.fillStyle = '#a855f7';
+        ctx.fillRect(-14, -15, 12, 8);
+        ctx.fillRect(2, -15, 12, 8);
+        ctx.strokeStyle = '#f8fafc';
+        ctx.lineWidth = 1.8;
+        ctx.strokeRect(-14, -15, 12, 8);
+        ctx.strokeRect(2, -15, 12, 8);
+    } else if (ft === 'red_bandana') {
+        ctx.fillStyle = '#dc2626';
+        ctx.fillRect(-18, -16, 36, 8);
+        ctx.strokeStyle = '#111827';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, -3, 5, 0.2 * Math.PI, 0.8 * Math.PI);
+        ctx.stroke();
+    } else {
+        // Classic smile
+        ctx.fillStyle = '#111827';
+        ctx.beginPath();
+        ctx.arc(-6.5, -11, 2.6, 0, Math.PI * 2);
+        ctx.arc(6.5, -11, 2.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#111827';
+        ctx.lineWidth = 2.2;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(0, -4, 5.5, 0.18 * Math.PI, 0.82 * Math.PI);
+        ctx.stroke();
+    }
+
+    // Hair / Hat on Top
+    const ht = style.hairType;
+    ctx.fillStyle = style.hairColor || '#5c2c16';
+    if (ht === 'spiky_brown' || ht === 'messy_brown' || ht === 'messy_black' || ht === 'spiky_red') {
+        ctx.beginPath();
+        ctx.moveTo(-20, -18);
+        ctx.lineTo(-22, -28);
+        ctx.lineTo(-14, -26);
+        ctx.lineTo(-15, -36);
+        ctx.lineTo(-5, -30);
+        ctx.lineTo(1, -39);
+        ctx.lineTo(7, -31);
+        ctx.lineTo(16, -36);
+        ctx.lineTo(14, -26);
+        ctx.lineTo(22, -27);
+        ctx.lineTo(19, -17);
+        ctx.quadraticCurveTo(0, -22, -20, -18);
+        ctx.closePath();
+        ctx.fill();
+    } else if (ht === 'ponytail_dark' || ht === 'long_dark' || ht === ' anime_blonde' || ht === 'long_blonde') {
+        ctx.beginPath();
+        ctx.arc(0, -20, 20, Math.PI, 0);
+        ctx.lineTo(20, -10);
+        ctx.quadraticCurveTo(10, -20, 0, -16);
+        ctx.quadraticCurveTo(-10, -20, -20, -10);
+        ctx.closePath();
+        ctx.fill();
+        // High ponytail puff on side
+        if (ht === 'ponytail_dark') {
+            ctx.beginPath();
+            ctx.ellipse(14, -26, 9, 13, 0.4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    } else if (ht === 'anime_blonde') {
+        ctx.fillStyle = '#eab308';
+        ctx.beginPath();
+        ctx.arc(0, -19, 20, Math.PI * 0.95, Math.PI * 0.05);
+        ctx.lineTo(18, -8);
+        ctx.lineTo(8, -17);
+        ctx.lineTo(0, -10);
+        ctx.lineTo(-8, -17);
+        ctx.lineTo(-18, -8);
+        ctx.closePath();
+        ctx.fill();
+    } else if (ht === 'cowboy') {
+        ctx.fillStyle = '#78350f';
+        ctx.beginPath();
+        ctx.ellipse(0, -24, 28, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.roundRect(-14, -38, 28, 15, 5);
+        ctx.fill();
+    } else if (ht === 'blue_cap' || ht === 'white_cap' || ht === 'helmet_specops') {
+        ctx.fillStyle = style.hairColor || '#1d4ed8';
+        ctx.beginPath();
+        ctx.arc(0, -21, 19, Math.PI, 0);
+        ctx.fill();
+        ctx.fillRect(-20, -23, 40, 5);
+    } else if (ht === 'crimson_halo') {
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.ellipse(0, -34, 16, 4.5, 0, 0, Math.PI * 2);
+        ctx.stroke();
+    } else if (ht === 'pastel_fluff') {
+        ctx.fillStyle = '#f472b6';
+        ctx.beginPath();
+        ctx.arc(-10, -24, 11, 0, Math.PI * 2);
+        ctx.arc(10, -24, 11, 0, Math.PI * 2);
+        ctx.arc(0, -28, 12, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+function drawPlayerHeadshotCanvas(canvas, player) {
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    // Circular gradient backdrop
+    const grad = ctx.createRadialGradient(w * 0.5, h * 0.45, w * 0.05, w * 0.5, h * 0.5, w * 0.55);
+    grad.addColorStop(0, '#32353b');
+    grad.addColorStop(1, '#1e2024');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+
+    const style = resolvePlayerVisualStyle(player);
+    ctx.save();
+    ctx.translate(w * 0.5, h * 0.64);
+    const scale = (w / 92);
+    ctx.scale(scale, scale);
+    drawAvatarHeadAndHair2D(ctx, style);
+    ctx.restore();
+}
+
+function drawPlayerFullBodyCanvas(canvas, player) {
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    const style = resolvePlayerVisualStyle(player);
+    ctx.save();
+    ctx.translate(w * 0.5, h * 0.52);
+    const s = Math.min(w, h) / 145;
+    ctx.scale(s, s);
+
+    // Floor shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+    ctx.beginPath();
+    ctx.ellipse(0, 56, 30, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Legs
+    ctx.fillStyle = style.pantsColor || '#111827';
+    ctx.beginPath();
+    ctx.roundRect(-16, 20, 14, 30, 3);
+    ctx.roundRect(2, 20, 14, 30, 3);
+    ctx.fill();
+
+    // Shoes
+    ctx.fillStyle = style.shoesColor || '#f8fafc';
+    ctx.beginPath();
+    ctx.roundRect(-17, 46, 16, 8, 3);
+    ctx.roundRect(1, 46, 16, 8, 3);
+    ctx.fill();
+
+    // Left & Right Arms
+    ctx.save();
+    ctx.translate(-18, -10);
+    ctx.rotate(0.14);
+    ctx.fillStyle = style.shirtColor || '#181A1E';
+    ctx.beginPath(); ctx.roundRect(-10, 0, 11, 26, 3); ctx.fill();
+    ctx.fillStyle = style.skinColor || '#eac086';
+    ctx.beginPath(); ctx.roundRect(-9, 25, 9, 6, 2); ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(18, -10);
+    ctx.rotate(-0.14);
+    ctx.fillStyle = style.shirtColor || '#181A1E';
+    ctx.beginPath(); ctx.roundRect(-1, 0, 11, 26, 3); ctx.fill();
+    ctx.fillStyle = style.skinColor || '#eac086';
+    ctx.beginPath(); ctx.roundRect(0, 25, 9, 6, 2); ctx.fill();
+    ctx.restore();
+
+    // Torso
+    ctx.fillStyle = style.shirtColor || '#181A1E';
+    ctx.beginPath();
+    ctx.roundRect(-17, -12, 34, 34, 4);
+    ctx.fill();
+
+    if (style.shirtPattern === 'flannel_dark') {
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+        ctx.lineWidth = 2;
+        for (let x = -12; x <= 12; x += 8) {
+            ctx.beginPath(); ctx.moveTo(x, -12); ctx.lineTo(x, 22); ctx.stroke();
+        }
+        for (let y = -6; y <= 18; y += 8) {
+            ctx.beginPath(); ctx.moveTo(-16, y); ctx.lineTo(16, y); ctx.stroke();
+        }
+    } else if (style.shirtPattern === 'limbus_coat' || style.shirtPattern === 'suit') {
+        ctx.fillStyle = '#f8fafc';
+        ctx.beginPath();
+        ctx.moveTo(-6, -12); ctx.lineTo(6, -12); ctx.lineTo(0, 6); ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#dc2626';
+        ctx.lineWidth = 1.8;
+        ctx.strokeRect(-14, -9, 28, 28);
+    }
+
+    // Head & Hair positioned at top of torso
+    ctx.save();
+    ctx.translate(0, -16);
+    // Clip out shoulder part of drawAvatarHeadAndHair2D by drawing just head & hair
+    ctx.beginPath();
+    ctx.rect(-45, -55, 90, 64);
+    ctx.clip();
+    drawAvatarHeadAndHair2D(ctx, style);
+    ctx.restore();
+
+    ctx.restore();
+}
+
+/* ============================================================================
+ * PORTAL NAVIGATION, HOME FRIENDS STRIP, PROFILE & PEOPLE SEARCH
+ * ============================================================================ */
+let activePortalSection = 'home'; // 'home' | 'profile' | 'people'
+let currentInspectedProfile = null;
+let currentPeopleSearchQuery = '';
+let profileShowcase3DState = {
+    is3D: false,
+    renderer: null,
+    scene: null,
+    camera: null,
+    avatar: null,
+    rotY: 0.35,
+    dragging: false,
+    lastX: 0,
+    rafId: null,
+    lastTime: 0
+};
+
+function updateGreetingByTimeOfDay() {
+    const el = document.getElementById('home-greeting-prefix');
+    if (!el) return;
+    const hr = new Date().getHours();
+    if (hr >= 5 && hr < 12) el.textContent = 'Morning';
+    else if (hr >= 12 && hr < 18) el.textContent = 'Afternoon';
+    else el.textContent = 'Evening';
+}
+
+function toggleMobileSidebar() {
+    const sb = document.getElementById('portal-sidebar');
+    if (!sb) return;
+    const isHidden = sb.classList.contains('hidden');
+    if (isHidden) {
+        sb.classList.remove('hidden');
+        sb.classList.add('flex', 'fixed', 'top-12', 'bottom-0', 'left-0', 'shadow-2xl');
+    } else {
+        sb.classList.add('hidden');
+        sb.classList.remove('flex', 'fixed', 'top-12', 'bottom-0', 'left-0', 'shadow-2xl');
+    }
+}
+
+function switchPortalSection(sectionName) {
+    activePortalSection = sectionName;
+    const homeEl = document.getElementById('portal-home-view');
+    const profEl = document.getElementById('portal-profile-view');
+    const peopEl = document.getElementById('portal-people-results-view');
+
+    if (homeEl) homeEl.classList.toggle('hidden', sectionName !== 'home');
+    if (profEl) profEl.classList.toggle('hidden', sectionName !== 'profile');
+    if (peopEl) peopEl.classList.toggle('hidden', sectionName !== 'people');
+
+    // Stop 3D profile showcase RAF when leaving profile
+    if (sectionName !== 'profile' && profileShowcase3DState.rafId) {
+        cancelAnimationFrame(profileShowcase3DState.rafId);
+        profileShowcase3DState.rafId = null;
+    }
+
+    // Highlight sidebar item
+    document.querySelectorAll('.portal-nav-btn').forEach(btn => {
+        const navKey = btn.getAttribute('data-sidebar-nav');
+        const active = (navKey === sectionName) || (navKey === 'friends' && sectionName === 'people');
+        btn.className = active
+            ? 'portal-nav-btn w-full flex items-center justify-between px-2.5 py-2 rounded-lg bg-[#232527] text-white font-bold transition'
+            : 'portal-nav-btn w-full flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-[#232527] text-gray-300 hover:text-white transition';
+    });
+
+    // Close mobile sidebar if open
+    const sb = document.getElementById('portal-sidebar');
+    if (sb && sb.classList.contains('fixed')) {
+        sb.classList.add('hidden');
+        sb.classList.remove('flex', 'fixed', 'top-12', 'bottom-0', 'left-0', 'shadow-2xl');
+    }
+
+    if (sectionName === 'home') {
+        refreshPortalAvatarVisuals();
+        renderHomeFriendsStrip();
+        renderGameCatalog();
+    }
+}
+
+function renderHomeFriendsStrip() {
+    const strip = document.getElementById('home-friends-strip');
+    const countEl = document.getElementById('home-friends-count');
+    const badgeEl = document.getElementById('sidebar-friends-badge');
+    if (!strip) return;
+
+    const allPlayers = getAllSearchablePlayers();
+    const friendList = allPlayers.filter(p => friendsSet.has(p.id));
+
+    if (countEl) countEl.textContent = String(friendList.length);
+    if (badgeEl) {
+        badgeEl.textContent = String(friendList.length);
+        badgeEl.classList.toggle('hidden', friendList.length === 0);
+    }
+
+    strip.innerHTML = '';
+
+    // 1. "+ Add Friends" Circle Button (Matches Screenshot 2)
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.onclick = () => openPeopleSearchResults('');
+    addBtn.className = 'flex flex-col items-center gap-1.5 w-20 shrink-0 group text-center focus:outline-none';
+    addBtn.innerHTML = `
+        <div class="w-20 h-20 rounded-full bg-[#232527] group-hover:bg-[#2C2F33] border border-[#393B3D] group-hover:border-white/40 flex items-center justify-center text-gray-200 group-hover:text-white transition shadow-md">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/>
+            </svg>
+        </div>
+        <span class="text-[11px] font-semibold text-gray-200 group-hover:text-white truncate w-full">Add Friends</span>
+    `;
+    strip.appendChild(addBtn);
+
+    if (friendList.length === 0) {
+        const emptyMsg = document.createElement('div');
+        emptyMsg.className = 'flex items-center text-xs text-gray-400 py-6 px-3 select-none';
+        emptyMsg.textContent = 'Zatím nemáš žádné přátele. Přidej si kamarády přes vyhledávání nahoře!';
+        strip.appendChild(emptyMsg);
+    } else {
+        // 2. Friend Avatar Circles
+        friendList.forEach((friend, idx) => {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.onclick = () => openPlayerProfile(friend.id);
+            item.className = 'flex flex-col items-center gap-1 w-20 shrink-0 group text-center focus:outline-none';
+
+            const canvasId = `home-friend-canvas-${idx}`;
+            let statusDotHtml = '';
+            if (friend.status === 'ingame') {
+                statusDotHtml = `
+                    <span class="absolute bottom-0.5 right-0.5 w-5 h-5 rounded-full bg-[#00B06F] border-2 border-[#191B1D] flex items-center justify-center text-white shadow" title="Ve hře">
+                        <svg class="w-3 h-3 fill-current" viewBox="0 0 20 20"><path d="M4 8h12l2 6-3 2-3-3H8l-3 3-3-2 2-6z"/></svg>
+                    </span>`;
+            } else if (friend.status === 'online') {
+                statusDotHtml = `<span class="absolute bottom-0.5 right-0.5 w-4 h-4 rounded-full bg-[#00A2FF] border-2 border-[#191B1D]" title="Online"></span>`;
+            }
+
+            const friendName = friend.username || friend.displayName;
+            item.innerHTML = `
+                <div class="relative w-20 h-20 rounded-full bg-[#232527] border border-[#393B3D] group-hover:border-white/50 overflow-visible transition shadow-md">
+                    <canvas id="${canvasId}" width="96" height="96" class="w-full h-full rounded-full block"></canvas>
+                    ${statusDotHtml}
+                </div>
+                <span class="text-[11px] font-semibold text-gray-200 group-hover:text-white truncate w-full mt-0.5">${escapeHtml(friendName)}</span>
+                ${friend.playingGame ? `<span class="text-[9px] text-gray-400 truncate w-full -mt-1">${escapeHtml(friend.playingGame)}</span>` : ''}
+            `;
+            strip.appendChild(item);
+
+            const c = document.getElementById(canvasId);
+            drawPlayerHeadshotCanvas(c, friend);
+        });
+    }
+}
+
+function refreshPortalAvatarVisuals() {
+    updateGreetingByTimeOfDay();
+    const myProfile = getLocalRobloxPlayerProfile();
+    const myName = myProfile.username || myProfile.displayName;
+
+    const navName = document.getElementById('nav-player-name');
+    const sideName = document.getElementById('sidebar-player-name');
+    const bannerName = document.getElementById('banner-player-name');
+
+    if (navName) navName.textContent = myName;
+    if (sideName) sideName.textContent = myName;
+    if (bannerName) bannerName.textContent = myName;
+
+    drawPlayerHeadshotCanvas(document.getElementById('top-nav-avatar-canvas'), myProfile);
+    drawPlayerHeadshotCanvas(document.getElementById('sidebar-avatar-canvas'), myProfile);
+    drawPlayerHeadshotCanvas(document.getElementById('home-user-avatar-canvas'), myProfile);
+
+    renderHomeFriendsStrip();
+    if (activePortalSection === 'profile' && currentInspectedProfile && currentInspectedProfile.isLocal) {
+        currentInspectedProfile = myProfile;
+        renderPortalProfileView();
+    }
+}
+
+/* ============================================================================
+ * PROFILE VIEW (MY PROFILE & OTHER PLAYERS + 3D/2D SHOWCASE + WEARING)
+ * ============================================================================ */
+function openPlayerProfile(playerId) {
+    hideTopSearchDropdown();
+    currentInspectedProfile = getPlayerById(playerId);
+    switchPortalSection('profile');
+    renderPortalProfileView();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function drawWearingItemCardCanvas(canvas, itemDesc) {
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    ctx.save();
+    ctx.translate(w * 0.5, h * 0.5);
+
+    const t = itemDesc.type || '';
+    if (t === 'sunglasses') {
+        ctx.fillStyle = '#090a0f';
+        ctx.rotate(-0.15);
+        ctx.fillRect(-38, -10, 76, 5);
+        ctx.beginPath();
+        ctx.roundRect(-36, -8, 30, 20, 4);
+        ctx.roundRect(6, -8, 30, 20, 4);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.28)';
+        ctx.fillRect(-30, -4, 9, 5);
+        ctx.fillRect(12, -4, 9, 5);
+    } else if (t === 'hair_brown') {
+        ctx.fillStyle = '#5c2c16';
+        ctx.beginPath();
+        ctx.moveTo(-30, 15);
+        ctx.lineTo(-34, -10);
+        ctx.lineTo(-18, -28);
+        ctx.lineTo(0, -35);
+        ctx.lineTo(22, -26);
+        ctx.lineTo(35, -8);
+        ctx.lineTo(26, 22);
+        ctx.quadraticCurveTo(0, -5, -30, 15);
+        ctx.closePath();
+        ctx.fill();
+    } else if (t === 'hair_ponytail' || t === 'hair_long_tail') {
+        ctx.fillStyle = '#333947';
+        ctx.beginPath();
+        ctx.arc(-4, -8, 24, Math.PI, 0);
+        ctx.lineTo(24, 26);
+        ctx.quadraticCurveTo(4, 10, -24, 24);
+        ctx.closePath();
+        ctx.fill();
+    } else if (t === 'joy_mask') {
+        ctx.fillStyle = '#f1f5f9';
+        ctx.beginPath();
+        ctx.roundRect(-28, -32, 56, 64, 16);
+        ctx.fill();
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(-11, -6, 7, 1.15 * Math.PI, 1.85 * Math.PI);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(11, -6, 7, 1.15 * Math.PI, 1.85 * Math.PI);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(244, 114, 182, 0.45)';
+        ctx.beginPath();
+        ctx.ellipse(-15, 4, 6, 3, 0, 0, Math.PI * 2);
+        ctx.ellipse(15, 4, 6, 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+    } else if (t === 'pose_v' || t === 'pose_monkey' || t === 'pose_pogo') {
+        // Silhouette emote figure (like Screenshots 3 & 4)
+        ctx.fillStyle = '#d1d5db';
+        if (t === 'pose_v') {
+            ctx.rotate(-0.45);
+        }
+        ctx.beginPath();
+        ctx.arc(0, -28, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillRect(-7, -18, 14, 24);
+        ctx.save();
+        ctx.rotate(t === 'pose_pogo' ? -1.1 : -0.6);
+        ctx.fillRect(-24, -16, 18, 6);
+        ctx.restore();
+        ctx.save();
+        ctx.rotate(t === 'pose_pogo' ? 1.1 : 0.6);
+        ctx.fillRect(6, -16, 18, 6);
+        ctx.restore();
+        ctx.fillRect(-7, 6, 6, 22);
+        ctx.fillRect(1, 6, 6, 22);
+    } else if (t === 'tornado') {
+        ctx.fillStyle = '#9ca3af';
+        for (let i = 0; i < 14; i++) {
+            const a = i * 1.1;
+            const r = 8 + (i % 4) * 7;
+            ctx.save();
+            ctx.translate(Math.cos(a) * r, Math.sin(a) * r);
+            ctx.rotate(a);
+            ctx.fillRect(-4, -2, 8, 5);
+            ctx.restore();
+        }
+    } else {
+        // Outfit mannequin (like Ripped Black Jeans or Limbus Company suit)
+        ctx.fillStyle = '#e5e7eb';
+        ctx.fillRect(-12, -26, 24, 24);
+        ctx.fillStyle = t === 'shirt_limbus' ? '#1f242d' : '#f3f4f6';
+        ctx.fillRect(-16, -2, 32, 22);
+        if (t === 'shirt_limbus') {
+            ctx.strokeStyle = '#dc2626';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(-14, 0, 28, 18);
+        }
+        ctx.fillStyle = '#111827';
+        ctx.fillRect(-15, 20, 13, 18);
+        ctx.fillRect(2, 20, 13, 18);
+    }
+
+    ctx.restore();
+}
+
+function getProfileWearingItems(profile) {
+    if (profile.isLocal) {
+        const items = [];
+        const outfit = (typeof avatarOutfit !== 'undefined') ? avatarOutfit : {};
+        if (outfit.hat && typeof SHOP_ITEM_MAP !== 'undefined' && SHOP_ITEM_MAP[outfit.hat]) {
+            const h = SHOP_ITEM_MAP[outfit.hat];
+            items.push({ name: h.name, price: `${h.price} B$`, type: h.id, shopId: h.id });
+        }
+        if (outfit.face && typeof SHOP_ITEM_MAP !== 'undefined' && SHOP_ITEM_MAP[outfit.face]) {
+            const f = SHOP_ITEM_MAP[outfit.face];
+            items.push({ name: f.name, price: `${f.price} B$`, type: f.id, shopId: f.id });
+        }
+        if (outfit.shirt && typeof SHOP_ITEM_MAP !== 'undefined' && SHOP_ITEM_MAP[outfit.shirt]) {
+            const s = SHOP_ITEM_MAP[outfit.shirt];
+            items.push({ name: s.name, price: `${s.price} B$`, type: s.id, shopId: s.id });
+        }
+        if (outfit.pants && typeof SHOP_ITEM_MAP !== 'undefined' && SHOP_ITEM_MAP[outfit.pants]) {
+            const p = SHOP_ITEM_MAP[outfit.pants];
+            items.push({ name: p.name, price: `${p.price} B$`, type: p.id, shopId: p.id });
+        }
+        if (items.length === 0) {
+            items.push({ name: 'Základní Noob Styl', price: '0 B$', type: 'classic_noob' });
+        }
+        return items;
+    }
+
+    if (profile.customWearing) return profile.customWearing;
+
+    const items = [];
+    if (profile.outfit && typeof SHOP_ITEM_MAP !== 'undefined') {
+        if (profile.outfit.hat && SHOP_ITEM_MAP[profile.outfit.hat]) {
+            const h = SHOP_ITEM_MAP[profile.outfit.hat];
+            items.push({ name: h.name, price: `${h.price} B$`, type: h.id, shopId: h.id });
+        }
+        if (profile.outfit.face && SHOP_ITEM_MAP[profile.outfit.face]) {
+            const f = SHOP_ITEM_MAP[profile.outfit.face];
+            items.push({ name: f.name, price: `${f.price} B$`, type: f.id, shopId: f.id });
+        }
+        if (profile.outfit.shirt && SHOP_ITEM_MAP[profile.outfit.shirt]) {
+            const s = SHOP_ITEM_MAP[profile.outfit.shirt];
+            items.push({ name: s.name, price: `${s.price} B$`, type: s.id, shopId: s.id });
+        }
+        if (profile.outfit.pants && SHOP_ITEM_MAP[profile.outfit.pants]) {
+            const p = SHOP_ITEM_MAP[profile.outfit.pants];
+            items.push({ name: p.name, price: `${p.price} B$`, type: p.id, shopId: p.id });
+        }
+    }
+    if (items.length === 0) {
+        items.push({ name: `${profile.username || profile.displayName}'s Signature Outfit`, price: '50 B$', type: 'jeans_outfit' });
+    }
+    return items;
+}
+
+function renderPortalProfileView() {
+    const profile = currentInspectedProfile || getLocalRobloxPlayerProfile();
+    currentInspectedProfile = profile;
+
+    const nameEl = document.getElementById('profile-display-name');
+    const handleEl = document.getElementById('profile-handle');
+    const bioEl = document.getElementById('profile-bio-text');
+    const friendsStat = document.getElementById('profile-stat-friends');
+    const followersStat = document.getElementById('profile-stat-followers');
+    const followingStat = document.getElementById('profile-stat-following');
+    const rapStat = document.getElementById('profile-stat-rap');
+    const actionsEl = document.getElementById('profile-action-buttons');
+
+    const uName = profile.username || profile.displayName;
+    if (nameEl) nameEl.textContent = uName;
+    if (handleEl) handleEl.textContent = `@${uName}`;
+    if (bioEl) bioEl.textContent = profile.bio || 'No bio yet';
+
+    const fCount = profile.isLocal ? friendsSet.size : (profile.friendsCount || 0);
+    if (friendsStat) friendsStat.textContent = String(fCount);
+    if (followersStat) followersStat.textContent = String(profile.followers ?? 0);
+    if (followingStat) followingStat.textContent = String(profile.following ?? 0);
+    if (rapStat) rapStat.textContent = profile.rap ? `${profile.rap} RAP` : '250 RAP';
+
+    // Draw circular headshot & 2D full-body pose
+    drawPlayerHeadshotCanvas(document.getElementById('profile-headshot-canvas'), profile);
+    drawPlayerFullBodyCanvas(document.getElementById('profile-showcase-2d-canvas'), profile);
+
+    if (profileShowcase3DState.is3D) {
+        rebuildProfile3DAvatar(profile);
+    }
+
+    // Render Action Buttons (Self vs Other Player - Matches Screenshots 3 & 4)
+    if (actionsEl) {
+        if (profile.isLocal) {
+            actionsEl.innerHTML = `
+                <button type="button" onclick="openEditProfileModal()" class="px-4 py-2 rounded-lg bg-[#2C2F33] hover:bg-[#393B3D] text-xs sm:text-sm font-bold text-white border border-white/10 transition">
+                    Edit profile
+                </button>
+                <button type="button" onclick="openShopModal('all')" class="px-4 py-2 rounded-lg bg-[#2C2F33] hover:bg-[#393B3D] text-xs sm:text-sm font-bold text-white border border-white/10 transition">
+                    Edit avatar
+                </button>
+                <button type="button" onclick="openAuthModal()" class="w-9 h-9 rounded-lg bg-[#2C2F33] hover:bg-[#393B3D] text-white font-bold flex items-center justify-center border border-white/10 transition" title="Účet a přihlášení">
+                    •••
+                </button>
+            `;
+        } else {
+            const isFriend = isPlayerFriend(profile.id);
+            const friendBtnLabel = isFriend ? 'Unfriend' : 'Add friend';
+            const friendBtnClass = isFriend
+                ? 'px-4 py-2 rounded-lg bg-[#2C2F33] hover:bg-red-600/80 text-xs sm:text-sm font-bold text-white border border-white/10 transition'
+                : 'px-4 py-2 rounded-lg bg-[#00A2FF] hover:bg-[#008BDB] text-xs sm:text-sm font-bold text-white shadow transition';
+
+            actionsEl.innerHTML = `
+                <button type="button" onclick="openBottomChatWithPlayer('${profile.id}')" class="px-5 py-2 rounded-lg bg-[#2C2F33] hover:bg-[#393B3D] text-xs sm:text-sm font-bold text-white border border-white/10 transition">
+                    Chat
+                </button>
+                <button type="button" onclick="toggleFriendStatus('${profile.id}')" class="${friendBtnClass}">
+                    ${friendBtnLabel}
+                </button>
+                <button type="button" class="w-9 h-9 rounded-lg bg-[#2C2F33] hover:bg-[#393B3D] text-white font-bold flex items-center justify-center border border-white/10 transition">
+                    •••
+                </button>
+            `;
+        }
+    }
+
+    // Render Currently Wearing Grid
+    const wearGrid = document.getElementById('profile-wearing-grid');
+    if (wearGrid) {
+        wearGrid.innerHTML = '';
+        const items = getProfileWearingItems(profile);
+        items.forEach((it, idx) => {
+            const card = document.createElement('div');
+            if (profile.isLocal) {
+                card.onclick = () => openShopModal('all');
+            } else {
+                card.onclick = () => openFriendItemInspectModal(profile, it);
+            }
+            card.className = 'group cursor-pointer flex flex-col justify-between';
+            const cid = `profile-wear-canvas-${idx}`;
+
+            card.innerHTML = `
+                <div>
+                    <div class="aspect-square rounded-xl bg-[#2C2F33] group-hover:bg-[#35383D] border border-white/5 flex items-center justify-center overflow-hidden transition">
+                        <canvas id="${cid}" width="120" height="120" class="w-full h-full object-contain"></canvas>
+                    </div>
+                    <div class="mt-2 text-xs font-bold text-white line-clamp-2 leading-snug group-hover:text-[#00A2FF] transition">${escapeHtml(it.name)}</div>
+                </div>
+                <div class="mt-1 flex items-center gap-1 text-[11px] text-gray-400">
+                    <svg class="w-3 h-3 text-gray-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="12 2 21 7 21 17 12 22 3 17 3 7"/>
+                    </svg>
+                    <span class="truncate">${escapeHtml(it.price)}</span>
+                </div>
+            `;
+            wearGrid.appendChild(card);
+
+            const c = document.getElementById(cid);
+            drawWearingItemCardCanvas(c, it);
+        });
+    }
+}
+
+/* ============================================================================
+ * 3D INTERACTIVE SHOWCASE ON PROFILE BANNER
+ * ============================================================================ */
+function initProfile3DShowcase() {
+    if (profileShowcase3DState.renderer) return true;
+    const canvas = document.getElementById('profile-showcase-3d-canvas');
+    if (!canvas) return false;
+    try {
+        profileShowcase3DState.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    } catch (e) {
+        return false;
+    }
+    profileShowcase3DState.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    profileShowcase3DState.scene = new THREE.Scene();
+    if (typeof addPreviewLights === 'function') {
+        addPreviewLights(profileShowcase3DState.scene);
+    } else {
+        profileShowcase3DState.scene.add(new THREE.AmbientLight(0xffffff, 0.85));
+    }
+    profileShowcase3DState.camera = new THREE.PerspectiveCamera(32, 1, 0.1, 60);
+    profileShowcase3DState.camera.position.set(0, 2.5, -10.5);
+    profileShowcase3DState.camera.lookAt(0, 1.9, 0);
+
+    canvas.addEventListener('pointerdown', e => {
+        profileShowcase3DState.dragging = true;
+        profileShowcase3DState.lastX = e.clientX;
+        canvas.setPointerCapture(e.pointerId);
+    });
+    canvas.addEventListener('pointermove', e => {
+        if (!profileShowcase3DState.dragging) return;
+        profileShowcase3DState.rotY += (e.clientX - profileShowcase3DState.lastX) * 0.012;
+        profileShowcase3DState.lastX = e.clientX;
+    });
+    const stop = () => { profileShowcase3DState.dragging = false; };
+    canvas.addEventListener('pointerup', stop);
+    canvas.addEventListener('pointercancel', stop);
+    return true;
+}
+
+function rebuildProfile3DAvatar(profile) {
+    if (!profileShowcase3DState.scene || typeof createBlockyCharacterMesh !== 'function') return;
+    if (profileShowcase3DState.avatar) {
+        profileShowcase3DState.scene.remove(profileShowcase3DState.avatar.root);
+        if (typeof disposeObject3D === 'function') disposeObject3D(profileShowcase3DState.avatar.root);
+    }
+    const outfitToUse = profile.isLocal ? avatarOutfit : (profile.outfit || null);
+    const torsoHexToUse = profile.isLocal ? avatarTorsoHex : (profile.torsoHex || '#181A1E');
+    profileShowcase3DState.avatar = createBlockyCharacterMesh({
+        outfit: outfitToUse,
+        torsoColor: new THREE.Color(torsoHexToUse).getHex()
+    });
+    profileShowcase3DState.avatar.root.position.y = -0.5;
+    profileShowcase3DState.avatar.leftArmPivot.rotation.z = -0.14;
+    profileShowcase3DState.avatar.rightArmPivot.rotation.z = 0.14;
+    profileShowcase3DState.scene.add(profileShowcase3DState.avatar.root);
+}
+
+function profileShowcase3DLoop(now) {
+    if (!profileShowcase3DState.is3D || activePortalSection !== 'profile') {
+        profileShowcase3DState.rafId = null;
+        return;
+    }
+    profileShowcase3DState.rafId = requestAnimationFrame(profileShowcase3DLoop);
+    const dt = Math.min(0.05, (now - (profileShowcase3DState.lastTime || now)) / 1000);
+    profileShowcase3DState.lastTime = now;
+
+    const canvas = profileShowcase3DState.renderer.domElement;
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    if (w && h && (canvas.width !== Math.floor(w * profileShowcase3DState.renderer.getPixelRatio()) || canvas.height !== Math.floor(h * profileShowcase3DState.renderer.getPixelRatio()))) {
+        profileShowcase3DState.renderer.setSize(w, h, false);
+        profileShowcase3DState.camera.aspect = w / h;
+        profileShowcase3DState.camera.updateProjectionMatrix();
+    }
+    if (!profileShowcase3DState.dragging) {
+        profileShowcase3DState.rotY += dt * 0.55;
+    }
+    if (profileShowcase3DState.avatar) {
+        profileShowcase3DState.avatar.root.rotation.y = profileShowcase3DState.rotY;
+        profileShowcase3DState.avatar.root.position.y = -0.5 + Math.sin(now / 550) * 0.04;
+    }
+    profileShowcase3DState.renderer.render(profileShowcase3DState.scene, profileShowcase3DState.camera);
+}
+
+function toggleProfileShowcaseMode() {
+    profileShowcase3DState.is3D = !profileShowcase3DState.is3D;
+    const c2d = document.getElementById('profile-showcase-2d-canvas');
+    const c3d = document.getElementById('profile-showcase-3d-canvas');
+    const btn = document.getElementById('btn-profile-3d-toggle');
+
+    if (btn) btn.textContent = profileShowcase3DState.is3D ? '2D' : '3D';
+    if (c2d) c2d.classList.toggle('hidden', profileShowcase3DState.is3D);
+    if (c3d) c3d.classList.toggle('hidden', !profileShowcase3DState.is3D);
+
+    if (profileShowcase3DState.is3D) {
+        if (initProfile3DShowcase()) {
+            rebuildProfile3DAvatar(currentInspectedProfile || getLocalRobloxPlayerProfile());
+            if (!profileShowcase3DState.rafId) {
+                profileShowcase3DState.lastTime = 0;
+                profileShowcase3DState.rafId = requestAnimationFrame(profileShowcase3DLoop);
+            }
+        }
+    } else if (profileShowcase3DState.rafId) {
+        cancelAnimationFrame(profileShowcase3DState.rafId);
+        profileShowcase3DState.rafId = null;
+    }
+}
+
+/* ============================================================================
+ * FRIENDS ADD / REMOVE & EDIT PROFILE MODAL
+ * ============================================================================ */
+function toggleFriendStatus(playerId) {
+    if (!playerId || playerId === 'local') return;
+    const player = getPlayerById(playerId);
+    const pName = player.username || player.displayName || 'Hráč';
+    if (friendsSet.has(playerId)) {
+        friendsSet.delete(playerId);
+        removeCachedFriendProfile(playerId);
+        if (typeof showHudToast === 'function') {
+            showHudToast(`${pName} byl odebrán z přátel.`, 'blue');
+        }
+    } else {
+        friendsSet.add(playerId);
+        saveCachedFriendProfile(player);
+        if (typeof sfx !== 'undefined' && sfx.playCoin) sfx.playCoin();
+        if (typeof showHudToast === 'function') {
+            showHudToast(`👥 ${pName} byl přidán do přátel!`, 'green');
+        }
+    }
+    saveFriendsList();
+    renderHomeFriendsStrip();
+    if (activePortalSection === 'profile') renderPortalProfileView();
+    if (activePortalSection === 'people') renderPeopleResultsGrid();
+}
+
+function openEditProfileModal() {
+    const my = getLocalRobloxPlayerProfile();
+    const currentName = my.username || my.displayName || 'Guest';
+    const valSpan = document.getElementById('edit-profile-username-val');
+    const dInp = document.getElementById('edit-profile-displayname');
+    const hInp = document.getElementById('edit-profile-handle');
+    const bInp = document.getElementById('edit-profile-bio');
+    if (valSpan) valSpan.textContent = currentName;
+    if (dInp) dInp.value = currentName;
+    if (hInp) hInp.value = currentName;
+    if (bInp) bInp.value = my.bio === 'No bio yet' ? '' : my.bio;
+
+    const modal = document.getElementById('edit-profile-modal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+}
+
+function closeEditProfileModal() {
+    const modal = document.getElementById('edit-profile-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+function saveEditedProfile() {
+    const bVal = sanitizeTextClient(document.getElementById('edit-profile-bio')?.value || '', 160);
+    localStorage.setItem('boblox_custom_bio_v1', bVal || 'No bio yet');
+
+    if (typeof sfx !== 'undefined' && sfx.playCoin) sfx.playCoin();
+    closeEditProfileModal();
+    refreshPortalAvatarVisuals();
+    currentInspectedProfile = getLocalRobloxPlayerProfile();
+    renderPortalProfileView();
+}
+
+function openFriendItemInspectModal(profile, item) {
+    const modal = document.getElementById('friend-item-inspect-modal');
+    if (!modal) return;
+    const pName = profile.username || profile.displayName || 'Přítel';
+    const titleEl = document.getElementById('friend-inspect-modal-title');
+    const friendNameEl = document.getElementById('friend-inspect-friend-name');
+    const itemNameEl = document.getElementById('friend-inspect-item-name');
+    const itemPriceEl = document.getElementById('friend-inspect-item-price');
+    const canvas = document.getElementById('friend-inspect-canvas');
+
+    if (titleEl) titleEl.textContent = `Předmět hráče ${pName}`;
+    if (friendNameEl) friendNameEl.textContent = pName;
+    if (itemNameEl) itemNameEl.textContent = item.name;
+    if (itemPriceEl) itemPriceEl.textContent = item.price;
+
+    if (canvas) {
+        drawWearingItemCardCanvas(canvas, item);
+    }
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closeFriendItemInspectModal() {
+    const modal = document.getElementById('friend-item-inspect-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+function openBobuxTransactionsModal() {
+    const modal = document.getElementById('bobux-transactions-modal');
+    if (!modal) return;
+    const listEl = document.getElementById('bobux-transactions-list');
+    const balEl = document.getElementById('bobux-transactions-balance');
+
+    if (balEl && typeof bobuxBalance !== 'undefined') {
+        balEl.textContent = `${bobuxBalance.toLocaleString('cs-CZ')} B$`;
+    }
+
+    if (listEl) {
+        listEl.innerHTML = '';
+        const txList = (typeof bobuxTransactions !== 'undefined' && Array.isArray(bobuxTransactions))
+            ? bobuxTransactions
+            : [];
+
+        if (txList.length === 0) {
+            listEl.innerHTML = '<div class="text-center text-gray-400 py-8 text-xs">Zatím žádné zaznamenané transakce. Hraj minihry a získej Bobuxy!</div>';
+        } else {
+            txList.forEach(tx => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between p-3 rounded-xl bg-[#191B1D] border border-[#2C2F33] hover:border-[#393B3D] transition';
+                const d = new Date(tx.timestamp || Date.now());
+                const dateStr = d.toLocaleDateString('cs-CZ', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + d.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' });
+
+                row.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-[#232527] border border-[#393B3D] flex items-center justify-center shrink-0">
+                            <svg class="w-5 h-5 text-[#FFE066]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="12 2 21 7 21 17 12 22 3 17 3 7"/>
+                                <rect x="9" y="9" width="6" height="6" rx="1"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="text-xs sm:text-sm font-bold text-white leading-tight">${escapeHtml(tx.game || 'Boblox Minihra')}</div>
+                            <div class="text-[10px] sm:text-xs text-gray-400 font-mono mt-0.5">${dateStr}</div>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs sm:text-sm font-extrabold text-[#00B06F] font-mono">+${Number(tx.amount || 0).toLocaleString('cs-CZ')} B$</div>
+                        <div class="text-[10px] text-gray-400 font-semibold">Získáno</div>
+                    </div>
+                `;
+                listEl.appendChild(row);
+            });
+        }
+    }
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closeBobuxTransactionsModal() {
+    const modal = document.getElementById('bobux-transactions-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+/* ============================================================================
+ * TOP SEARCH DROPDOWN & PEOPLE RESULTS PAGE (Matches Screenshot 5)
+ * ============================================================================ */
+function handleTopSearchInput(rawVal) {
+    const val = (rawVal || '').trim();
+    const clearBtn = document.getElementById('top-search-clear-btn');
+    if (clearBtn) {
+        clearBtn.classList.toggle('hidden', val.length === 0);
+        clearBtn.classList.toggle('flex', val.length > 0);
+    }
+
+    if (activePortalSection === 'home') {
+        renderGameCatalog();
+    } else if (activePortalSection === 'people') {
+        currentPeopleSearchQuery = val;
+        const pageInp = document.getElementById('people-page-search-input');
+        if (pageInp && pageInp.value !== rawVal) pageInp.value = rawVal;
+        renderPeopleResultsGrid();
+    }
+
+    renderTopSearchDropdown(val);
+}
+
+function handleTopSearchFocus() {
+    const val = (document.getElementById('game-search-input')?.value || '').trim();
+    if (val.length > 0) {
+        renderTopSearchDropdown(val);
+    }
+}
+
+function handleTopSearchKeydown(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        const val = (document.getElementById('game-search-input')?.value || '').trim();
+        hideTopSearchDropdown();
+        openPeopleSearchResults(val);
+    } else if (event.key === 'Escape') {
+        hideTopSearchDropdown();
+    }
+}
+
+function clearTopSearchInput() {
+    const inp = document.getElementById('game-search-input');
+    if (inp) inp.value = '';
+    const clearBtn = document.getElementById('top-search-clear-btn');
+    if (clearBtn) {
+        clearBtn.classList.add('hidden');
+        clearBtn.classList.remove('flex');
+    }
+    hideTopSearchDropdown();
+    renderGameCatalog();
+    if (activePortalSection === 'people') {
+        currentPeopleSearchQuery = '';
+        const pageInp = document.getElementById('people-page-search-input');
+        if (pageInp) pageInp.value = '';
+        renderPeopleResultsGrid();
+    }
+}
+
+function hideTopSearchDropdown() {
+    const dd = document.getElementById('top-search-dropdown');
+    if (dd) dd.classList.add('hidden');
+}
+
+function renderTopSearchDropdown(query) {
+    const dd = document.getElementById('top-search-dropdown');
+    if (!dd) return;
+    if (!query) {
+        dd.classList.add('hidden');
+        return;
+    }
+
+    const qLower = query.toLowerCase();
+    const allPlayers = getAllSearchablePlayers();
+    const matchingPlayers = allPlayers.filter(p =>
+        p.displayName.toLowerCase().includes(qLower) ||
+        p.handle.toLowerCase().includes(qLower)
+    ).slice(0, 4);
+
+    const matchingGames = GAMES_CATALOG.filter(g =>
+        g.title.toLowerCase().includes(qLower) ||
+        g.badgeText.toLowerCase().includes(qLower)
+    ).slice(0, 3);
+
+    dd.innerHTML = '';
+
+    // 1. Search in People option
+    const peopleOpt = document.createElement('button');
+    peopleOpt.type = 'button';
+    peopleOpt.onclick = () => {
+        hideTopSearchDropdown();
+        openPeopleSearchResults(query);
+    };
+    peopleOpt.className = 'w-full px-3.5 py-2.5 flex items-center justify-between text-xs text-gray-200 hover:bg-[#2C2F33] transition text-left';
+    peopleOpt.innerHTML = `
+        <span class="flex items-center gap-2.5">
+            <svg class="w-4 h-4 text-[#00A2FF]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <circle cx="12" cy="8" r="4"/><path stroke-linecap="round" d="M4 20c0-3.5 3.6-6 8-6s8 2.5 8 6"/>
+            </svg>
+            <span>Search <strong class="text-white">"${escapeHtml(query)}"</strong> in <strong>People</strong></span>
+        </span>
+        <span class="text-[10px] text-gray-400">Enter ↵</span>
+    `;
+    dd.appendChild(peopleOpt);
+
+    // 2. Search in Experiences option
+    const gamesOpt = document.createElement('button');
+    gamesOpt.type = 'button';
+    gamesOpt.onclick = () => {
+        hideTopSearchDropdown();
+        switchPortalSection('home');
+        renderGameCatalog();
+    };
+    gamesOpt.className = 'w-full px-3.5 py-2.5 flex items-center justify-between text-xs text-gray-200 hover:bg-[#2C2F33] transition text-left';
+    gamesOpt.innerHTML = `
+        <span class="flex items-center gap-2.5">
+            <svg class="w-4 h-4 text-[#00B06F]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+            <span>Search <strong class="text-white">"${escapeHtml(query)}"</strong> in <strong>Experiences</strong></span>
+        </span>
+    `;
+    dd.appendChild(gamesOpt);
+
+    // 3. Direct Player Previews
+    matchingPlayers.forEach((p, idx) => {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.onclick = () => openPlayerProfile(p.id);
+        row.className = 'w-full px-3.5 py-2 flex items-center justify-between hover:bg-[#2C2F33] transition text-left';
+        const cid = `dd-player-canvas-${idx}`;
+        const isFriend = isPlayerFriend(p.id);
+        const pName = p.username || p.displayName;
+        row.innerHTML = `
+            <div class="flex items-center gap-2.5 min-w-0">
+                <canvas id="${cid}" width="40" height="40" class="w-8 h-8 rounded-full bg-[#191B1D] shrink-0"></canvas>
+                <div class="min-w-0">
+                    <div class="text-xs font-bold text-white truncate">${escapeHtml(pName)}</div>
+                    <div class="text-[10px] text-gray-400 truncate">@${escapeHtml(pName)}</div>
+                </div>
+            </div>
+            <span class="text-[10px] font-semibold ${isFriend ? 'text-[#00A2FF]' : 'text-gray-400'}">${isFriend ? 'Friend ✓' : 'View Profile'}</span>
+        `;
+        dd.appendChild(row);
+        drawPlayerHeadshotCanvas(document.getElementById(cid), p);
+    });
+
+    // 4. Direct Game Previews
+    matchingGames.forEach(g => {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.onclick = () => {
+            hideTopSearchDropdown();
+            openGameModal(g.id);
+        };
+        row.className = 'w-full px-3.5 py-2 flex items-center justify-between hover:bg-[#2C2F33] transition text-left';
+        row.innerHTML = `
+            <div class="flex items-center gap-2.5 min-w-0">
+                <span class="text-xs">🎮</span>
+                <div class="text-xs font-bold text-white truncate">${escapeHtml(g.title)}</div>
+            </div>
+            <span class="text-[10px] text-[#00B06F] font-semibold">Play</span>
+        `;
+        dd.appendChild(row);
+    });
+
+    dd.classList.remove('hidden');
+}
+
+function openPeopleSearchResults(query = '') {
+    currentPeopleSearchQuery = (query || '').trim();
+    switchPortalSection('people');
+
+    const topInp = document.getElementById('game-search-input');
+    const pageInp = document.getElementById('people-page-search-input');
+    if (topInp && query !== undefined) topInp.value = currentPeopleSearchQuery;
+    if (pageInp) pageInp.value = currentPeopleSearchQuery;
+
+    renderPeopleResultsGrid();
+}
+
+function handlePeoplePageSearchInput(val) {
+    currentPeopleSearchQuery = (val || '').trim();
+    const topInp = document.getElementById('game-search-input');
+    if (topInp) topInp.value = currentPeopleSearchQuery;
+    renderPeopleResultsGrid();
+}
+
+function renderPeopleResultsGrid() {
+    const grid = document.getElementById('people-results-grid');
+    const labelEl = document.getElementById('people-results-query-text');
+    if (!grid) return;
+
+    const q = currentPeopleSearchQuery.trim();
+    const qLower = q.toLowerCase();
+    const allPlayers = getAllSearchablePlayers();
+    const results = qLower
+        ? allPlayers.filter(p => (p.username || p.displayName).toLowerCase().includes(qLower) || p.handle.toLowerCase().includes(qLower))
+        : allPlayers.filter(p => isPlayerFriend(p.id));
+
+    if (labelEl) {
+        labelEl.textContent = q ? `Výsledky pro "${q}"` : `Přátelé (${results.length})`;
+    }
+
+    grid.innerHTML = '';
+
+    if (results.length === 0) {
+        if (!q) {
+            grid.innerHTML = `
+                <div class="col-span-full py-12 text-center text-sm text-gray-400 bg-[#232527] rounded-xl border border-[#2C2F33] space-y-2">
+                    <div class="text-3xl">👥</div>
+                    <div class="text-white font-bold text-base">Zatím nemáš přidané žádné přátele</div>
+                    <p class="text-xs text-gray-400 max-w-sm mx-auto">Můžeš si přidat hráče z multiplayeru nebo je vyhledat v horním vyhledávacím panelu!</p>
+                </div>
+            `;
+        } else {
+            grid.innerHTML = `
+                <div class="col-span-full py-12 text-center text-sm text-gray-400 bg-[#232527] rounded-xl border border-[#2C2F33]">
+                    Nenalezen žádný hráč odpovídající dotazu "${escapeHtml(q)}".
+                </div>
+            `;
+        }
+        return;
+    }
+
+    results.forEach((p, idx) => {
+        const isFriend = isPlayerFriend(p.id);
+        const card = document.createElement('div');
+        card.className = 'bg-[#232527] border border-[#2C2F33] hover:border-[#393B3D] rounded-xl p-4 flex flex-col justify-between gap-4 shadow transition';
+        const cid = `people-res-canvas-${idx}`;
+
+        const badgeHtml = isFriend
+            ? `<div class="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-[#00A2FF] border-2 border-[#232527] flex items-center justify-center text-white">
+                   <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                       <circle cx="12" cy="8" r="3.5"/><path stroke-linecap="round" d="M5 19c0-3 3.1-5 7-5s7 2 7 5"/>
+                   </svg>
+               </div>`
+            : '';
+
+        const statusLine = isFriend
+            ? `<div class="text-[11px] text-gray-300 flex items-center gap-1 mt-0.5">
+                   <span>👥</span>
+                   <span>Přítel</span>
+               </div>`
+            : `<div class="text-[11px] text-gray-400 mt-0.5">${p.status === 'online' ? 'Online' : (p.status === 'ingame' ? `Playing ${escapeHtml(p.playingGame || 'Boblox')}` : 'Offline')}</div>`;
+
+        const actionBtnHtml = isFriend
+            ? `<div class="flex items-center gap-2">
+                   <button type="button" onclick="openBottomChatWithPlayer('${p.id}')" class="flex-1 py-2 rounded-lg bg-[#393B3D] hover:bg-[#494B4D] text-xs font-bold text-white transition">
+                       Chat
+                   </button>
+                   <button type="button" onclick="toggleFriendStatus('${p.id}')" title="Odebrat z přátel" class="px-3 py-2 rounded-lg bg-[#2C2F33] hover:bg-red-600/80 text-xs font-bold text-gray-300 hover:text-white transition">
+                       ✓
+                   </button>
+               </div>`
+            : `<button type="button" onclick="toggleFriendStatus('${p.id}')" class="w-full py-2 rounded-lg bg-[#393B3D] hover:bg-[#494B4D] text-xs font-bold text-white transition">
+                   Add friend
+               </button>`;
+
+        const pName = p.username || p.displayName;
+        card.innerHTML = `
+            <div onclick="openPlayerProfile('${p.id}')" class="flex items-center gap-3.5 cursor-pointer group min-w-0">
+                <div class="relative w-16 h-16 rounded-full bg-[#191B1D] shrink-0">
+                    <canvas id="${cid}" width="96" height="96" class="w-full h-full rounded-full block"></canvas>
+                    ${badgeHtml}
+                </div>
+                <div class="min-w-0">
+                    <div class="text-sm font-bold text-white group-hover:text-[#00A2FF] truncate transition">${escapeHtml(pName)}</div>
+                    <div class="text-xs text-gray-400 truncate">@${escapeHtml(pName)}</div>
+                    ${statusLine}
+                </div>
+            </div>
+            ${actionBtnHtml}
+        `;
+        grid.appendChild(card);
+
+        drawPlayerHeadshotCanvas(document.getElementById(cid), p);
+    });
+}
+
+/* ============================================================================
+ * BOTTOM-RIGHT LOBBY DIRECT CHAT WIDGET
+ * ============================================================================ */
+let activeLobbyChatPartnerId = '';
+const lobbyDirectMessages = {};
+
+function toggleLobbyChatDrawer(forceState) {
+    const body = document.getElementById('lobby-chat-drawer-body');
+    if (!body) return;
+    const isHidden = body.classList.contains('hidden');
+    const nextOpen = typeof forceState === 'boolean' ? forceState : isHidden;
+    body.classList.toggle('hidden', !nextOpen);
+    body.classList.toggle('flex', nextOpen);
+    if (nextOpen) {
+        renderLobbyDirectChatMessages();
+        setTimeout(() => document.getElementById('lobby-chat-input')?.focus(), 30);
+    }
+}
+
+function openBottomChatWithPlayer(playerId) {
+    activeLobbyChatPartnerId = playerId;
+    toggleLobbyChatDrawer(true);
+}
+
+function renderLobbyDirectChatMessages() {
+    const partner = getPlayerById(activeLobbyChatPartnerId);
+    const titleEl = document.getElementById('lobby-chat-active-partner');
+    const listEl = document.getElementById('lobby-chat-messages-list');
+    if (titleEl) titleEl.textContent = `Chat • ${partner.displayName}`;
+    if (!listEl) return;
+
+    const msgs = lobbyDirectMessages[activeLobbyChatPartnerId] || [];
+    listEl.innerHTML = '';
+
+    if (msgs.length === 0) {
+        listEl.innerHTML = `<div class="text-gray-400 text-center py-4">Napiš první zprávu hráči <strong>${escapeHtml(partner.displayName)}</strong>!</div>`;
+        return;
+    }
+
+    msgs.forEach(m => {
+        const row = document.createElement('div');
+        row.className = m.isMe ? 'flex flex-col items-end' : 'flex flex-col items-start';
+        const bubble = document.createElement('div');
+        bubble.className = m.isMe
+            ? 'px-3 py-1.5 rounded-xl bg-[#00A2FF] text-white max-w-[85%] break-words'
+            : 'px-3 py-1.5 rounded-xl bg-[#2C2F33] text-gray-100 max-w-[85%] break-words';
+        bubble.textContent = m.text;
+        row.appendChild(bubble);
+        listEl.appendChild(row);
+    });
+    listEl.scrollTop = listEl.scrollHeight;
+}
+
+function sendLobbyDirectChatMessage() {
+    const inp = document.getElementById('lobby-chat-input');
+    if (!inp) return;
+    const clean = sanitizeTextClient(inp.value, 160);
+    inp.value = '';
+    if (!clean) return;
+
+    if (!lobbyDirectMessages[activeLobbyChatPartnerId]) {
+        lobbyDirectMessages[activeLobbyChatPartnerId] = [];
+    }
+    lobbyDirectMessages[activeLobbyChatPartnerId].push({
+        from: getLocalRobloxPlayerProfile().displayName,
+        text: clean,
+        isMe: true
+    });
+    renderLobbyDirectChatMessages();
+
+    // Also broadcast over P2P if connected
+    const myProfile = getLocalRobloxPlayerProfile();
+    if (typeof sendMultiplayerPacket === 'function') {
+        sendMultiplayerPacket({
+            type: 'chatMessage',
+            id: mpState.myId,
+            nickname: myProfile.displayName,
+            text: clean,
+            gameMode: activeGameMode
+        });
+    }
+
+    // Friendly simulated reply from preset friend
+    const partner = getPlayerById(activeLobbyChatPartnerId);
+    setTimeout(() => {
+        const replies = [
+            'Super, pojďme do hry! 🎮',
+            'Jasně, připoj se ke mně přes veřejný matchmaking!',
+            'Dobrý nápad! 👍',
+            'Haha, přesně tak! 😄'
+        ];
+        const reply = replies[Math.floor(Math.random() * replies.length)];
+        lobbyDirectMessages[activeLobbyChatPartnerId].push({
+            from: partner.displayName,
+            text: reply,
+            isMe: false
+        });
+        renderLobbyDirectChatMessages();
+    }, 900);
+}
+
+// Close search dropdown when clicking outside
+document.addEventListener('pointerdown', e => {
+    const dd = document.getElementById('top-search-dropdown');
+    const inp = document.getElementById('game-search-input');
+    if (dd && !dd.classList.contains('hidden')) {
+        if (!dd.contains(e.target) && e.target !== inp) {
+            dd.classList.add('hidden');
+        }
+    }
+});
+
+// Initialize Portal Visuals & Friends Strip
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        refreshPortalAvatarVisuals();
+    });
+} else {
+    setTimeout(refreshPortalAvatarVisuals, 0);
+}
+
 
 
