@@ -383,13 +383,14 @@
                 <div>
                     <h2 class="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
                         <span>Herní Katalog Zážitků</span>
-                        <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#00A2FF]/20 text-[#00A2FF]">10 HER PŘIPRAVENO</span>
+                        <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#00A2FF]/20 text-[#00A2FF]">11 HER PŘIPRAVENO</span>
                     </h2>
                     <p class="text-xs sm:text-sm text-gray-400">Klikni na libovolnou kartu pro hodnocení, komentáře, výběr režimu a spuštění 3D světa</p>
                 </div>
 
                 <div class="flex flex-wrap items-center gap-2 text-xs font-semibold">
-                    <button onclick="setFilterTag('ALL')" data-tag="ALL" class="tag-btn px-3 py-1.5 rounded-lg bg-[#00A2FF] text-white transition">Všechny (10)</button>
+                    <button onclick="setFilterTag('ALL')" data-tag="ALL" class="tag-btn px-3 py-1.5 rounded-lg bg-[#00A2FF] text-white transition">Všechny (11)</button>
+                    <button onclick="setFilterTag('RP')" data-tag="RP" class="tag-btn px-3 py-1.5 rounded-lg bg-[#232527] hover:bg-[#2C2F33] text-pink-300 border border-pink-500/40 transition">🐾 Adopt Me & RP</button>
                     <button onclick="setFilterTag('OBBY')" data-tag="OBBY" class="tag-btn px-3 py-1.5 rounded-lg bg-[#232527] hover:bg-[#2C2F33] text-gray-300 border border-[#393B3D] transition">Parkour & Obby</button>
                     <button onclick="setFilterTag('ACTION')" data-tag="ACTION" class="tag-btn px-3 py-1.5 rounded-lg bg-[#232527] hover:bg-[#2C2F33] text-gray-300 border border-[#393B3D] transition">Boj & Přežití</button>
                     <button onclick="setFilterTag('PARTY')" data-tag="PARTY" class="tag-btn px-3 py-1.5 rounded-lg bg-[#232527] hover:bg-[#2C2F33] text-gray-300 border border-[#393B3D] transition">Party & PvP</button>
@@ -1221,6 +1222,21 @@
         };
 
         const GAMES_CATALOG = [
+            {
+                id: 'adoptme',
+                title: 'Adopt Me! – Adoption Island',
+                author: 'UpliftGames_Boblox',
+                tag: 'RP',
+                badgeText: '🐾 ADOPT ME! PETS',
+                reward: '+180 B$ / Mazlíček',
+                description: 'Vítej na ikonickém Adoption Islandu z playadopt.me! Navštiv Nursery (Adopční centrum), vylíhni vajíčka (Cracked Egg, Pet Egg, Royal Legendary Egg), adoptuj 3D mazlíčky od Štěňátka až po Neonového Jednorožce a Shadow Dragona, plň jejich potřeby (Hlad, Žízeň, Spánek, Koupel, Nemocnice, Hřiště), létej na nich (Fly & Ride) a obchoduj na Trade stanovišti!',
+                mechanics: [
+                    '🥚 Nursery (Adopční centrum): Vylíhni Cracked Egg ($35), Pet Egg ($65) nebo Royal Legendary Egg ($120)',
+                    '🦄 8 3D Mazlíčků: Dog, Cat, Penguin, Snow Bunny, Red Panda, Kitsune, Neon Unicorn i létající Shadow Dragon!',
+                    '🍎 Potřeby mazlíčků (Ailments): Krmení (Slot 1), Nápoj (Slot 2), Postýlka, Hot Springs, Nemocnice a Trampolíny',
+                    '🪽 Slot 3 (Fly & Ride Potion): Nasedni na mazlíčka a létej nad ostrovem + Slot 4: Přepínání sbírky!'
+                ]
+            },
             {
                 id: 'obby',
                 title: 'Classic Mega Obby',
@@ -2851,6 +2867,94 @@
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(42, h - 73, 14, 18);
                 drawMiniNoob2D(ctx, w - 80, h - 92, 0.8);
+            } else if (gameId === 'adoptme') {
+                // Iconic playadopt.me pastel sky + rainbow + Nursery + Egg + Unicorn & Dog
+                const grad = ctx.createLinearGradient(0, 0, 0, h);
+                grad.addColorStop(0, '#38bdf8');
+                grad.addColorStop(0.55, '#bae6fd');
+                grad.addColorStop(1, '#4ade80');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, w, h);
+
+                // Rainbow arch
+                const rainbowColors = ['#f43f5e', '#fb923c', '#facc15', '#4ade80', '#38bdf8', '#a855f7'];
+                rainbowColors.forEach((col, i) => {
+                    ctx.strokeStyle = col;
+                    ctx.lineWidth = 4;
+                    ctx.beginPath();
+                    ctx.arc(w * 0.5, h * 0.82, 115 - i * 4, Math.PI * 1.08, Math.PI * 1.92);
+                    ctx.stroke();
+                });
+
+                // Turquoise river & green island grass
+                ctx.fillStyle = '#06b6d4';
+                ctx.fillRect(0, h - 46, w, 46);
+                ctx.fillStyle = '#22c55e';
+                ctx.beginPath();
+                ctx.ellipse(w * 0.5, h - 18, w * 0.48, 34, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Nursery Castle in background (pastel cream walls + pink roof)
+                ctx.fillStyle = '#fef3c7';
+                ctx.fillRect(w * 0.34, h - 105, w * 0.32, 62);
+                ctx.fillStyle = '#ec4899';
+                ctx.beginPath();
+                ctx.moveTo(w * 0.31, h - 105);
+                ctx.lineTo(w * 0.50, h - 142);
+                ctx.lineTo(w * 0.69, h - 105);
+                ctx.closePath();
+                ctx.fill();
+                // Nursery door & heart sign
+                ctx.fillStyle = '#db2777';
+                ctx.fillRect(w * 0.46, h - 72, w * 0.08, 29);
+                ctx.fillStyle = '#fde047';
+                ctx.beginPath();
+                ctx.arc(w * 0.50, h - 118, 9, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Royal Spotted Egg on left
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.ellipse(w * 0.21, h - 62, 19, 25, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#facc15';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                ctx.fillStyle = '#ec4899';
+                ctx.beginPath();
+                ctx.arc(w * 0.19, h - 68, 4.5, 0, Math.PI * 2);
+                ctx.arc(w * 0.24, h - 55, 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#38bdf8';
+                ctx.beginPath();
+                ctx.arc(w * 0.23, h - 70, 3.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Cute Neon Unicorn on right
+                const ux = w * 0.77, uy = h - 56;
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(ux - 16, uy - 12, 28, 16); // body
+                ctx.fillRect(ux - 22, uy - 26, 16, 16); // head
+                ctx.fillRect(ux - 14, uy + 4, 5, 10);
+                ctx.fillRect(ux + 4, uy + 4, 5, 10);
+                // Neon pink mane & tail
+                ctx.fillStyle = '#f472b6';
+                ctx.fillRect(ux - 9, uy - 24, 5, 14);
+                ctx.fillRect(ux + 12, uy - 10, 7, 12);
+                // Golden unicorn horn
+                ctx.fillStyle = '#facc15';
+                ctx.beginPath();
+                ctx.moveTo(ux - 18, uy - 26);
+                ctx.lineTo(ux - 23, uy - 40);
+                ctx.lineTo(ux - 12, uy - 26);
+                ctx.closePath();
+                ctx.fill();
+                // Unicorn eye
+                ctx.fillStyle = '#111827';
+                ctx.fillRect(ux - 19, uy - 20, 3, 3);
+
+                // Player character in center
+                drawMiniNoob2D(ctx, w * 0.48, h - 66, 0.78);
             }
         }
 
@@ -3662,6 +3766,22 @@
                 meshData.weaponMeshes.scanner.visible = true;
                 meshData.weaponMeshes.scanner.material.color.setHex(0x10b981);
                 meshData.weaponMeshes.scanner.material.emissive.setHex(0x059669);
+            } else if (weaponId === 'pet_food') {
+                meshData.weaponMeshes.scanner.visible = true;
+                meshData.weaponMeshes.scanner.material.color.setHex(0xef4444);
+                meshData.weaponMeshes.scanner.material.emissive.setHex(0xb91c1c);
+            } else if (weaponId === 'pet_water') {
+                meshData.weaponMeshes.scanner.visible = true;
+                meshData.weaponMeshes.scanner.material.color.setHex(0x38bdf8);
+                meshData.weaponMeshes.scanner.material.emissive.setHex(0x0284c7);
+            } else if (weaponId === 'pet_ride') {
+                meshData.weaponMeshes.scanner.visible = true;
+                meshData.weaponMeshes.scanner.material.color.setHex(0xec4899);
+                meshData.weaponMeshes.scanner.material.emissive.setHex(0xbe185d);
+            } else if (weaponId === 'pet_switch') {
+                meshData.weaponMeshes.scanner.visible = true;
+                meshData.weaponMeshes.scanner.material.color.setHex(0xfacc15);
+                meshData.weaponMeshes.scanner.material.emissive.setHex(0xca8a04);
             } else if (meshData.weaponMeshes[weaponId]) {
                 meshData.weaponMeshes[weaponId].visible = true;
             }
@@ -4537,10 +4657,15 @@
             prop_crate: { id: 'prop_crate', name: 'Maska: Bedna', icon: '📦', type: 'prop', cooldown: 0.25 },
             prop_barrel: { id: 'prop_barrel', name: 'Maska: Sud', icon: '🛢️', type: 'prop', cooldown: 0.25 },
             prop_bush: { id: 'prop_bush', name: 'Maska: Keř', icon: '🌿', type: 'prop', cooldown: 0.25 },
+            pet_food: { id: 'pet_food', name: 'Krmení (Hlad)', icon: '🍎', type: 'pet_care', hint: 'Klikni pro nakrmení mazlíčka (splní potřebu Hlad)', cooldown: 0.35 },
+            pet_water: { id: 'pet_water', name: 'Nápoj (Žízeň)', icon: '🍼', type: 'pet_care', hint: 'Klikni pro napojení mazlíčka (splní potřebu Žízeň)', cooldown: 0.35 },
+            pet_ride: { id: 'pet_ride', name: 'Fly & Ride', icon: '🦄', type: 'pet_care', hint: 'Klikni pro nasednutí / létání na mazlíčkovi (Mezerník = Létání)', cooldown: 0.35 },
+            pet_switch: { id: 'pet_switch', name: 'Sbírka Mazlíčků', icon: '🥚', type: 'pet_care', hint: 'Klikni pro přepnutí aktivního mazlíčka ze své sbírky', cooldown: 0.30 },
             none: { id: 'none', name: 'Volné ruce', icon: '🖐️', type: 'hand', damage: 10, range: 4.0, cooldown: 0.3 }
         };
 
         const GAME_LOADOUTS = {
+            adoptme: ['pet_food', 'pet_water', 'pet_ride', 'pet_switch'],
             obby: ['none', 'coil_speed'],
             lava: ['none', 'coil_speed', 'coil_gravity'],
             sfoth: ['sword', 'axe', 'pistol', 'medkit'],
@@ -4577,7 +4702,7 @@
             if (w.type === 'coil') {
                 playerState.speedMultiplier = w.speedMult || 1.0;
                 playerState.jumpMultiplier = w.jumpMult || 1.0;
-            } else if (activeGameMode !== 'speedrun') {
+            } else if (activeGameMode !== 'speedrun' && activeGameMode !== 'adoptme') {
                 playerState.speedMultiplier = gameSpecificData && gameSpecificData.permSpeedMult ? gameSpecificData.permSpeedMult : 1.0;
                 playerState.jumpMultiplier = gameSpecificData && gameSpecificData.permJumpMult ? gameSpecificData.permJumpMult : 1.0;
             }
@@ -4667,6 +4792,8 @@
                     statsEl.textContent = `Bloky: ${active.ammo} ks • Klikni pro stavbu`;
                 } else if (active.type === 'heal') {
                     statsEl.textContent = `+${active.heal} HP • Zbývá: ${active.ammo}x`;
+                } else if (active.type === 'pet_care') {
+                    statsEl.textContent = active.hint || 'Klikni pro akci s mazlíčkem';
                 } else {
                     statsEl.textContent = `Aktivní vybavení [Slot ${playerState.activeWeaponSlot + 1}]`;
                 }
@@ -4884,8 +5011,9 @@
             // Initialize Game Weapon Loadout & Hotbar
             setupGameWeaponLoadout(gameId);
 
-            // Configure specific game world (10 Playable Games)
-            if (gameId === 'obby') setupGame1Obby();
+            // Configure specific game world (11 Playable Games)
+            if (gameId === 'adoptme') setupGame11AdoptMe();
+            else if (gameId === 'obby') setupGame1Obby();
             else if (gameId === 'lava') setupGame2LavaTower();
             else if (gameId === 'sfoth') setupGame3SFOTH();
             else if (gameId === 'tycoon') setupGame4Tycoon();
@@ -5970,6 +6098,661 @@
         }
 
         /* ============================================================================
+         * 11B. GAME 11: ADOPT ME! – ADOPTION ISLAND (playadopt.me Authentic Experience)
+         * ============================================================================ */
+        const STORAGE_KEY_ADOPTME_PETS = 'boblox_adoptme_pets_v1';
+        const STORAGE_KEY_ADOPTME_BUCKS = 'boblox_adoptme_bucks_v1';
+
+        const ADOPT_ME_AGE_STAGES = [
+            'Newborn',
+            'Junior',
+            'Pre-Teen',
+            'Teen',
+            'Post-Teen',
+            'Full Grown ✨ NEON'
+        ];
+
+        const ADOPT_ME_PET_CATALOG = {
+            dog: {
+                id: 'dog', name: 'Starter Dog', icon: '🐶', rarity: 'Common',
+                bodyColor: 0xb45309, secondaryColor: 0x78350f, neonColor: 0x38bdf8,
+                earStyle: 'floppy', canFly: true
+            },
+            cat: {
+                id: 'cat', name: 'Ginger Cat', icon: '🐱', rarity: 'Common',
+                bodyColor: 0xf97316, secondaryColor: 0xfed7aa, neonColor: 0xf472b6,
+                earStyle: 'pointy', canFly: true
+            },
+            penguin: {
+                id: 'penguin', name: 'King Penguin', icon: '🐧', rarity: 'Rare',
+                bodyColor: 0x1e293b, secondaryColor: 0xf8fafc, neonColor: 0x22d3ee,
+                earStyle: 'penguin', canFly: true
+            },
+            bunny: {
+                id: 'bunny', name: 'Snow Bunny', icon: '🐰', rarity: 'Rare',
+                bodyColor: 0xffffff, secondaryColor: 0xf472b6, neonColor: 0xf472b6,
+                earStyle: 'long', canFly: true
+            },
+            redpanda: {
+                id: 'redpanda', name: 'Red Panda', icon: '🐼', rarity: 'Ultra-Rare',
+                bodyColor: 0xc2410c, secondaryColor: 0xfef3c7, neonColor: 0xfb923c,
+                earStyle: 'pointy', canFly: true
+            },
+            kitsune: {
+                id: 'kitsune', name: 'Nine-Tail Kitsune', icon: '🦊', rarity: 'Ultra-Rare',
+                bodyColor: 0xfffbeb, secondaryColor: 0xf97316, neonColor: 0x22d3ee,
+                earStyle: 'pointy', hasMultiTail: true, canFly: true
+            },
+            unicorn: {
+                id: 'unicorn', name: 'Neon Unicorn', icon: '🦄', rarity: 'Legendary',
+                bodyColor: 0xffffff, secondaryColor: 0xf472b6, neonColor: 0xf472b6,
+                earStyle: 'unicorn', hasHorn: true, hasWings: true, canFly: true
+            },
+            dragon: {
+                id: 'dragon', name: 'Shadow Dragon', icon: '🐉', rarity: 'Legendary',
+                bodyColor: 0x1e1b4b, secondaryColor: 0xa855f7, neonColor: 0xc084fc,
+                earStyle: 'horns', hasWings: true, canFly: true
+            }
+        };
+
+        const ADOPT_ME_NEEDS = [
+            {
+                id: 'hungry',
+                name: '🍎 Hlad (Hungry)',
+                hint: 'Nakrm mazlíčka [Slot 1: 🍎 Krmení] nebo u misky v Nursery!',
+                color: 0xef4444,
+                bucks: 30,
+                bobux: 25
+            },
+            {
+                id: 'thirsty',
+                name: '💧 Žízeň (Thirsty)',
+                hint: 'Dej mazlíčkovi napít [Slot 2: 🍼 Nápoj] nebo u fontány!',
+                color: 0x38bdf8,
+                bucks: 30,
+                bobux: 25
+            },
+            {
+                id: 'sleepy',
+                name: '💤 Únava (Sleepy)',
+                hint: 'Ulož mazlíčka do RŮŽOVÉ POSTÝLKY vlevo u Nursery (Zóna Spánku)!',
+                color: 0xa855f7,
+                bucks: 38,
+                bobux: 30
+            },
+            {
+                id: 'dirty',
+                name: '🛁 Špinavý (Camping Shower)',
+                hint: 'Vykoupej mazlíčka v TYRKYSOVÝCH HOT SPRINGS vpravo u Nursery!',
+                color: 0x06b6d4,
+                bucks: 38,
+                bobux: 30
+            },
+            {
+                id: 'sick',
+                name: '🏥 Nemocný (Hospital)',
+                hint: 'Vezmi mazlíčka do NEMOCNICE pro Zlaté Jablko (vlevo na ostrově)!',
+                color: 0x22c55e,
+                bucks: 45,
+                bobux: 35
+            },
+            {
+                id: 'bored',
+                name: '🛝 Nuda (Playground)',
+                hint: 'Zaskákej si s mazlíčkem na TRAMPOLÍNÁCH na hřišti (vpravo na ostrově)!',
+                color: 0xfacc15,
+                bucks: 42,
+                bobux: 30
+            }
+        ];
+
+        function loadAdoptMeSavedData() {
+            let bucks = parseInt(localStorage.getItem(STORAGE_KEY_ADOPTME_BUCKS) || '120', 10);
+            if (!Number.isFinite(bucks) || bucks < 0) bucks = 120;
+            let pets = [];
+            try {
+                pets = JSON.parse(localStorage.getItem(STORAGE_KEY_ADOPTME_PETS) || '[]');
+            } catch (e) {
+                pets = [];
+            }
+            if (!Array.isArray(pets) || pets.length === 0) {
+                pets = [{ id: 'dog', tasksDone: 0, ageIdx: 0 }];
+            }
+            pets = pets.filter(p => p && ADOPT_ME_PET_CATALOG[p.id]);
+            if (pets.length === 0) {
+                pets = [{ id: 'dog', tasksDone: 0, ageIdx: 0 }];
+            }
+            return { bucks, pets };
+        }
+
+        function saveAdoptMeData(bucks, pets) {
+            localStorage.setItem(STORAGE_KEY_ADOPTME_BUCKS, String(Math.max(0, Math.floor(bucks))));
+            localStorage.setItem(STORAGE_KEY_ADOPTME_PETS, JSON.stringify(pets));
+        }
+
+        function createAdoptMePetMesh(petId, isNeon = false) {
+            const def = ADOPT_ME_PET_CATALOG[petId] || ADOPT_ME_PET_CATALOG.dog;
+            const root = new THREE.Group();
+
+            const bodyMat = new THREE.MeshStandardMaterial({
+                color: def.bodyColor,
+                roughness: 0.4,
+                metalness: 0.1
+            });
+            const secMat = new THREE.MeshStandardMaterial({
+                color: isNeon ? def.neonColor : def.secondaryColor,
+                emissive: (isNeon || def.rarity === 'Legendary') ? def.neonColor : 0x000000,
+                emissiveIntensity: isNeon ? 0.85 : (def.rarity === 'Legendary' ? 0.5 : 0),
+                roughness: 0.3
+            });
+            const eyeMat = new THREE.MeshBasicMaterial({ color: def.id === 'dragon' ? 0xc084fc : 0x111827 });
+
+            // Body
+            const bodyMesh = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.9, 1.65), bodyMat);
+            bodyMesh.position.set(0, 0.85, 0);
+            bodyMesh.castShadow = true;
+            root.add(bodyMesh);
+
+            // Belly / Secondary chest patch
+            const chestMesh = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.65, 0.25), secMat);
+            chestMesh.position.set(0, 0.82, -0.78);
+            root.add(chestMesh);
+
+            // Head
+            const headMesh = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.98, 1.02), bodyMat);
+            headMesh.position.set(0, 1.52, -0.72);
+            headMesh.castShadow = true;
+            root.add(headMesh);
+
+            // Snout / Beak
+            const snoutColor = def.id === 'penguin' ? 0xfacc15 : def.secondaryColor;
+            const snoutMesh = new THREE.Mesh(
+                new THREE.BoxGeometry(0.54, 0.38, 0.42),
+                new THREE.MeshStandardMaterial({ color: snoutColor, roughness: 0.4 })
+            );
+            snoutMesh.position.set(0, 1.38, -1.32);
+            root.add(snoutMesh);
+
+            // Cute Nose tip
+            if (def.id !== 'penguin') {
+                const noseMesh = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.22, 0.16, 0.12),
+                    new THREE.MeshBasicMaterial({ color: def.id === 'unicorn' || def.id === 'bunny' ? 0xf472b6 : 0x111827 })
+                );
+                noseMesh.position.set(0, 1.48, -1.52);
+                root.add(noseMesh);
+            }
+
+            // Eyes
+            [-0.28, 0.28].forEach(ex => {
+                const eye = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.2, 0.08), eyeMat);
+                eye.position.set(ex, 1.62, -1.24);
+                root.add(eye);
+            });
+
+            // Ears
+            if (def.earStyle === 'long') {
+                [-0.3, 0.3].forEach(ex => {
+                    const ear = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.82, 0.22), secMat);
+                    ear.position.set(ex, 2.28, -0.68);
+                    root.add(ear);
+                });
+            } else if (def.earStyle === 'floppy') {
+                [-0.58, 0.58].forEach(ex => {
+                    const ear = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.55, 0.36), secMat);
+                    ear.position.set(ex, 1.52, -0.68);
+                    root.add(ear);
+                });
+            } else if (def.earStyle === 'horns') {
+                [-0.36, 0.36].forEach(ex => {
+                    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.72, 8), secMat);
+                    horn.position.set(ex, 2.22, -0.62);
+                    horn.rotation.x = -0.3;
+                    root.add(horn);
+                });
+            } else {
+                [-0.34, 0.34].forEach(ex => {
+                    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.45, 4), secMat);
+                    ear.position.set(ex, 2.15, -0.68);
+                    root.add(ear);
+                });
+            }
+
+            // Unicorn Golden Horn & Rainbow Mane
+            if (def.hasHorn) {
+                const hornMesh = new THREE.Mesh(
+                    new THREE.ConeGeometry(0.16, 0.85, 12),
+                    new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xeab308, emissiveIntensity: 0.75, metalness: 0.7 })
+                );
+                hornMesh.position.set(0, 2.32, -0.95);
+                hornMesh.rotation.x = -0.45;
+                root.add(hornMesh);
+
+                const maneMesh = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.75, 0.45), secMat);
+                maneMesh.position.set(0, 1.72, -0.2);
+                root.add(maneMesh);
+            }
+
+            // 4 Animated Legs
+            const legs = [];
+            const legPositions = [
+                [-0.38, 0.4, -0.52],
+                [0.38, 0.4, -0.52],
+                [-0.38, 0.4, 0.52],
+                [0.38, 0.4, 0.52]
+            ];
+            legPositions.forEach(([lx, ly, lz]) => {
+                const leg = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.55, 0.3), bodyMat);
+                leg.position.set(lx, ly, lz);
+                root.add(leg);
+                legs.push(leg);
+            });
+
+            // Tail (or Multi-Tail for Kitsune)
+            const tailGroup = new THREE.Group();
+            tailGroup.position.set(0, 1.05, 0.85);
+            if (def.hasMultiTail) {
+                [-0.35, 0, 0.35].forEach(tx => {
+                    const t = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.65, 0.75), secMat);
+                    t.position.set(tx, 0.2, 0.3);
+                    t.rotation.x = 0.5;
+                    tailGroup.add(t);
+                });
+            } else {
+                const tail = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.3, 0.75), secMat);
+                tail.position.set(0, 0.15, 0.25);
+                tail.rotation.x = 0.45;
+                tailGroup.add(tail);
+            }
+            root.add(tailGroup);
+
+            // Wings (for Unicorn, Dragon, or when flying!)
+            const leftWingPivot = new THREE.Group();
+            leftWingPivot.position.set(-0.58, 1.2, 0);
+            const wingGeo = new THREE.BoxGeometry(1.25, 0.12, 0.85);
+            const leftWing = new THREE.Mesh(wingGeo, secMat);
+            leftWing.position.set(-0.6, 0.1, 0);
+            leftWingPivot.add(leftWing);
+            leftWingPivot.visible = !!def.hasWings;
+            root.add(leftWingPivot);
+
+            const rightWingPivot = new THREE.Group();
+            rightWingPivot.position.set(0.58, 1.2, 0);
+            const rightWing = new THREE.Mesh(wingGeo, secMat);
+            rightWing.position.set(0.6, 0.1, 0);
+            rightWingPivot.add(rightWing);
+            rightWingPivot.visible = !!def.hasWings;
+            root.add(rightWingPivot);
+
+            // Floating Need Orb above pet head
+            const needOrb = new THREE.Mesh(
+                new THREE.SphereGeometry(0.32, 12, 12),
+                new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0xef4444, emissiveIntensity: 0.85 })
+            );
+            needOrb.position.set(0, 2.85, -0.5);
+            needOrb.visible = false;
+            root.add(needOrb);
+
+            // Neon Ring under pet when Full Grown Neon
+            const neonRing = new THREE.Mesh(
+                new THREE.TorusGeometry(0.95, 0.08, 10, 24),
+                new THREE.MeshBasicMaterial({ color: def.neonColor })
+            );
+            neonRing.rotation.x = Math.PI / 2;
+            neonRing.position.y = 0.15;
+            neonRing.visible = isNeon;
+            root.add(neonRing);
+
+            return {
+                root,
+                legs,
+                tailGroup,
+                leftWingPivot,
+                rightWingPivot,
+                needOrb,
+                neonRing,
+                def
+            };
+        }
+
+        function refreshAdoptMeHUD() {
+            const gd = gameSpecificData;
+            if (!gd || activeGameMode !== 'adoptme') return;
+            const activePetEntry = gd.pets[gd.activePetIdx] || gd.pets[0];
+            const petDef = ADOPT_ME_PET_CATALOG[activePetEntry.id] || ADOPT_ME_PET_CATALOG.dog;
+            const stageName = ADOPT_ME_AGE_STAGES[Math.min(ADOPT_ME_AGE_STAGES.length - 1, activePetEntry.ageIdx || 0)];
+
+            document.getElementById('hud-extra-label').textContent = 'Adopt Me: ';
+            document.getElementById('hud-extra-value').textContent =
+                `💵 $${gd.bucks} • ${petDef.icon} ${petDef.name} (${stageName}) • Sbírka: ${gd.pets.length}`;
+
+            if (gd.currentNeed) {
+                document.getElementById('hud-objective-title').textContent =
+                    `POTŘEBA MAZLÍČKA: ${gd.currentNeed.name}`;
+                document.getElementById('hud-objective-text').textContent =
+                    `${gd.currentNeed.hint} (Odměna: +$${gd.currentNeed.bucks} & +${gd.currentNeed.bobux} B$)`;
+            } else {
+                document.getElementById('hud-objective-title').textContent =
+                    `ADOPT ME! – ${petDef.icon} ${petDef.name} (${petDef.rarity})`;
+                document.getElementById('hud-objective-text').textContent =
+                    'Mazlíček je spokojený! Vylíhni vajíčka v Nursery ($35 / $65 / $120), létej [Slot 3] nebo obchoduj na Trade stanovišti!';
+            }
+        }
+
+        function spawnAdoptMeActivePetMesh() {
+            const gd = gameSpecificData;
+            if (!gd) return;
+            if (gd.activePetMesh && gd.activePetMesh.root) {
+                scene.remove(gd.activePetMesh.root);
+                disposeObject3D(gd.activePetMesh.root);
+            }
+            const activePetEntry = gd.pets[gd.activePetIdx] || gd.pets[0];
+            const isNeon = (activePetEntry.ageIdx || 0) >= ADOPT_ME_AGE_STAGES.length - 1;
+            gd.activePetMesh = createAdoptMePetMesh(activePetEntry.id, isNeon);
+            gd.activePetMesh.root.position.copy(gd.petPos);
+            scene.add(gd.activePetMesh.root);
+            refreshAdoptMeHUD();
+        }
+
+        function completeAdoptMeNeed(needId) {
+            const gd = gameSpecificData;
+            if (!gd || !gd.currentNeed || gd.currentNeed.id !== needId) return false;
+
+            const need = gd.currentNeed;
+            gd.currentNeed = null;
+            gd.needTimer = 7.5; // Next need in 7.5 seconds
+
+            gd.bucks += need.bucks;
+            addBobux(need.bobux, `Splněna potřeba mazlíčka (${need.name})`);
+
+            const activePetEntry = gd.pets[gd.activePetIdx] || gd.pets[0];
+            activePetEntry.tasksDone = (activePetEntry.tasksDone || 0) + 1;
+            const prevAge = activePetEntry.ageIdx || 0;
+            const newAge = Math.min(ADOPT_ME_AGE_STAGES.length - 1, Math.floor(activePetEntry.tasksDone / 2));
+            activePetEntry.ageIdx = newAge;
+
+            saveAdoptMeData(gd.bucks, gd.pets);
+            sfx.playWinFanfare();
+            spawnObbyConfetti(gd.petPos.clone().add(new THREE.Vector3(0, 2, 0)));
+
+            const petDef = ADOPT_ME_PET_CATALOG[activePetEntry.id] || ADOPT_ME_PET_CATALOG.dog;
+            if (newAge > prevAge) {
+                const stageName = ADOPT_ME_AGE_STAGES[newAge];
+                showHudToast(`🎉 ${petDef.icon} ${petDef.name} vyrostl na úroveň: ${stageName}!`, 'gold');
+                if (newAge === ADOPT_ME_AGE_STAGES.length - 1) {
+                    addBobux(180, `Mazlíček ${petDef.name} dosáhl FULL GROWN NEON!`);
+                    spawnAdoptMeActivePetMesh();
+                }
+            } else {
+                showHudToast(`Splněno: ${need.name}! (+$${need.bucks} Bucks & +${need.bobux} B$)`, 'green');
+            }
+
+            if (gd.activePetMesh && gd.activePetMesh.needOrb) {
+                gd.activePetMesh.needOrb.visible = false;
+            }
+            refreshAdoptMeHUD();
+            return true;
+        }
+
+        function hatchAdoptMeEgg(eggStand) {
+            const gd = gameSpecificData;
+            if (!gd || gd.hatchCooldown > 0) return;
+
+            if (gd.bucks < eggStand.cost) {
+                gd.hatchCooldown = 1.8;
+                showHudToast(`Potřebuješ $${eggStand.cost} Bucks pro ${eggStand.name}! Plň potřeby mazlíčka nebo sbírej peníze u Money Tree.`, 'red');
+                return;
+            }
+
+            gd.hatchCooldown = 2.6;
+            gd.bucks -= eggStand.cost;
+
+            // Weighted random pet selection from this egg's pool
+            const pool = eggStand.pool;
+            const totalWeight = pool.reduce((s, item) => s + item.weight, 0);
+            let roll = Math.random() * totalWeight;
+            let chosenId = pool[0].id;
+            for (let i = 0; i < pool.length; i++) {
+                roll -= pool[i].weight;
+                if (roll <= 0) {
+                    chosenId = pool[i].id;
+                    break;
+                }
+            }
+
+            const newPet = { id: chosenId, tasksDone: 0, ageIdx: 0 };
+            gd.pets.push(newPet);
+            gd.activePetIdx = gd.pets.length - 1;
+            saveAdoptMeData(gd.bucks, gd.pets);
+
+            const petDef = ADOPT_ME_PET_CATALOG[chosenId];
+            sfx.playWinFanfare();
+            spawnObbyConfetti(eggStand.pos.clone().add(new THREE.Vector3(0, 2.5, 0)));
+            spawnAdoptMeActivePetMesh();
+
+            const bonusBobux = petDef.rarity === 'Legendary' ? 120 : (petDef.rarity === 'Ultra-Rare' ? 75 : 45);
+            addBobux(bonusBobux, `Vylíhnut ${petDef.icon} ${petDef.name} (${petDef.rarity})!`);
+            showHudToast(`🥚 VYLÍHNUTO Z ${eggStand.name.toUpperCase()}: ${petDef.icon} ${petDef.name} [${petDef.rarity}]!`, 'gold');
+        }
+
+        function setupGame11AdoptMe() {
+            // Bright playadopt.me pastel sky & turquoise water surroundings
+            scene.background = new THREE.Color(0x7dd3fc);
+            scene.fog = new THREE.FogExp2(0xbae6fd, 0.0028);
+
+            const saved = loadAdoptMeSavedData();
+
+            playerState.spawnPoint.set(0, 3, 30);
+            playerState.pos.copy(playerState.spawnPoint);
+
+            // 1. Turquoise Ocean Floor
+            createBlock(0, -1.8, 0, 170, 1.5, 170, 0x06b6d4, { roughness: 0.2, metalness: 0.1 });
+
+            // 2. Neighborhood / Player Spawn Island (South at Z = +34)
+            createBlock(0, 0, 34, 34, 2.2, 22, 0x4ade80);
+            // Cozy Pastel Player House on Neighborhood Island (X = -10, Z = +35)
+            createBlock(-10, 3.0, 35, 9, 4.8, 8, 0xfef08a);
+            createBlock(-10, 6.2, 35, 10.2, 1.8, 9.2, 0xf472b6); // Pink Roof
+            createBlock(-10, 2.1, 30.8, 2.2, 3.0, 0.4, 0xdb2777); // Door
+            // Money Tree next to Player House (generates free Adopt Me Bucks!)
+            createBlock(-3, 2.2, 34, 1.2, 3.4, 1.2, 0x78350f);
+            const moneyTreeCrown = createBlock(-3, 4.6, 34, 3.8, 2.8, 3.8, 0x10b981, {
+                emissive: 0x059669,
+                emissiveIntensity: 0.45
+            });
+
+            // 3. Iconic Red Arched Adopt Me! Bridge connecting Neighborhood (Z=23) to Adoption Island (Z=13)
+            createBlock(0, 0.6, 18, 7.5, 1.2, 12, 0xef4444);
+            createBlock(-3.5, 2.1, 18, 0.6, 2.2, 12, 0xdc2626);
+            createBlock(3.5, 2.1, 18, 0.6, 2.2, 12, 0xdc2626);
+            // Golden Arch over the Red Bridge
+            createBlock(-3.5, 4.5, 18, 0.7, 3.0, 1.2, 0xfacc15);
+            createBlock(3.5, 4.5, 18, 0.7, 3.0, 1.2, 0xfacc15);
+            createBlock(0, 6.2, 18, 7.8, 0.9, 1.4, 0xfacc15, { emissive: 0xca8a04, emissiveIntensity: 0.4 });
+
+            // 4. Main Adoption Island Plaza (X = -30..+30, Z = -32..+12)
+            createBlock(0, 0, -10, 62, 2.2, 46, 0x22c55e);
+            // Cobblestone / Pastel Town Square Pathways
+            createBlock(0, 1.15, -6, 10, 0.15, 36, 0xfef3c7);
+            createBlock(0, 1.15, -6, 46, 0.15, 8, 0xfef3c7);
+
+            // 5. THE NURSERY (Adopční Centrum) at North Plaza (X = 0, Z = -24)
+            createBlock(0, 4.2, -25, 26, 6.5, 10, 0xfef9c3); // Cream Castle Walls
+            createBlock(0, 8.4, -25, 28, 2.2, 11.5, 0xec4899); // Iconic Pink Nursery Roof
+            createBlock(0, 10.6, -25, 12, 2.4, 7, 0xf472b6); // Upper Castle Tower
+            createBlock(0, 12.6, -25, 4, 2.2, 4, 0xfacc15, { emissive: 0xeab308, emissiveIntensity: 0.6 }); // Golden Crown Top
+            // Nursery Entrance Arch
+            createBlock(0, 2.8, -19.8, 5.5, 3.8, 0.6, 0xdb2777);
+
+            // 3 EGG HATCHING PEDESTALS (Gumball Machine Incubators) in front of the Nursery (Z = -16.5)
+            const eggStands = [
+                {
+                    id: 'cracked_egg',
+                    name: 'Cracked Egg ($35)',
+                    cost: 35,
+                    pos: new THREE.Vector3(-6.5, 1.2, -16.5),
+                    padColor: 0xfde047,
+                    eggColor: 0xfef3c7,
+                    spotColor: 0xd97706,
+                    pool: [
+                        { id: 'dog', weight: 40 },
+                        { id: 'cat', weight: 35 },
+                        { id: 'penguin', weight: 14 },
+                        { id: 'bunny', weight: 8 },
+                        { id: 'redpanda', weight: 3 }
+                    ]
+                },
+                {
+                    id: 'pet_egg',
+                    name: 'Pet Egg ($65)',
+                    cost: 65,
+                    pos: new THREE.Vector3(0, 1.2, -16.5),
+                    padColor: 0x38bdf8,
+                    eggColor: 0xe0f2fe,
+                    spotColor: 0x0284c7,
+                    pool: [
+                        { id: 'penguin', weight: 30 },
+                        { id: 'bunny', weight: 28 },
+                        { id: 'redpanda', weight: 22 },
+                        { id: 'kitsune', weight: 12 },
+                        { id: 'unicorn', weight: 5 },
+                        { id: 'dragon', weight: 3 }
+                    ]
+                },
+                {
+                    id: 'royal_egg',
+                    name: 'Royal Legendary Egg ($120)',
+                    cost: 120,
+                    pos: new THREE.Vector3(6.5, 1.2, -16.5),
+                    padColor: 0xec4899,
+                    eggColor: 0xffffff,
+                    spotColor: 0xfacc15,
+                    pool: [
+                        { id: 'redpanda', weight: 22 },
+                        { id: 'kitsune', weight: 28 },
+                        { id: 'unicorn', weight: 27 },
+                        { id: 'dragon', weight: 23 }
+                    ]
+                }
+            ];
+
+            eggStands.forEach(stand => {
+                // Pedestal Base
+                createBlock(stand.pos.x, 1.4, stand.pos.z, 3.4, 0.6, 3.4, stand.padColor, {
+                    emissive: stand.padColor,
+                    emissiveIntensity: 0.35
+                });
+                // 3D Egg Mesh floating above pedestal
+                const eggGroup = new THREE.Group();
+                const eggShell = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.95, 16, 16),
+                    new THREE.MeshStandardMaterial({ color: stand.eggColor, roughness: 0.25, metalness: 0.15 })
+                );
+                eggShell.scale.set(1, 1.32, 1);
+                eggGroup.add(eggShell);
+
+                // Egg Belt / Crown Ring
+                const eggRing = new THREE.Mesh(
+                    new THREE.TorusGeometry(0.88, 0.12, 8, 20),
+                    new THREE.MeshStandardMaterial({ color: stand.spotColor, emissive: stand.spotColor, emissiveIntensity: 0.4 })
+                );
+                eggRing.rotation.x = Math.PI / 2;
+                eggGroup.add(eggRing);
+
+                eggGroup.position.set(stand.pos.x, 3.1, stand.pos.z);
+                scene.add(eggGroup);
+                stand.eggMesh = eggGroup;
+            });
+
+            // 6. CARE STATION 1: SLEEPY CRIBS (vlevo u Nursery, X = -19, Z = -16)
+            createBlock(-19, 1.3, -16, 8, 0.4, 8, 0xa855f7, { emissive: 0x7e22ce, emissiveIntensity: 0.4 });
+            createBlock(-19, 2.2, -18.5, 6, 1.8, 2.5, 0xf472b6); // Pink Pet Crib
+            createBlock(-19, 2.2, -13.5, 6, 1.8, 2.5, 0x38bdf8); // Blue Pet Crib
+
+            // 7. CARE STATION 2: CAMPING & HOT SPRINGS BATH (vpravo u Nursery, X = +19, Z = -16)
+            createBlock(19, 1.3, -16, 9, 0.45, 9, 0x06b6d4, { emissive: 0x0891b2, emissiveIntensity: 0.55 });
+            createBlock(19, 2.0, -19.8, 9, 1.4, 1.2, 0x94a3b8); // Hot Spring Stone Rim
+
+            // 8. CARE STATION 3: HOSPITAL & GOLDEN APPLE (vlevo dole na ostrově, X = -20, Z = +1)
+            createBlock(-20, 3.2, 1, 9, 4.5, 8, 0xffffff); // White Hospital Building
+            createBlock(-20, 6.0, 1, 9.6, 1.0, 8.6, 0xef4444); // Red Cross Roof
+            createBlock(-14.5, 1.3, 1, 4.5, 0.4, 4.5, 0x22c55e, { emissive: 0x16a34a, emissiveIntensity: 0.5 }); // Healing Pad
+            const goldenApple = new THREE.Mesh(
+                new THREE.SphereGeometry(0.65, 14, 14),
+                new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xca8a04, emissiveIntensity: 0.7, metalness: 0.8 })
+            );
+            goldenApple.position.set(-14.5, 2.4, 1);
+            scene.add(goldenApple);
+
+            // 9. CARE STATION 4: PLAYGROUND & BOUNCY TRAMPOLINES (vpravo dole na ostrově, X = +20, Z = +1)
+            createBlock(20, 1.3, 1, 10, 0.4, 10, 0xfacc15, { emissive: 0xca8a04, emissiveIntensity: 0.35 });
+            // 2 Bouncy Trampoline Pads (isBoost launches player upward!)
+            const tramp1 = createBlock(18, 1.65, -1, 3.4, 0.5, 3.4, 0xec4899, { emissive: 0xdb2777, emissiveIntensity: 0.5 });
+            const tramp2 = createBlock(22, 1.65, 3, 3.4, 0.5, 3.4, 0x38bdf8, { emissive: 0x0284c7, emissiveIntensity: 0.5 });
+
+            // 10. CENTRAL TRADE HUB & FEEDER FOUNTAIN (X = 0, Z = -4)
+            createBlock(0, 1.3, -4, 7.5, 0.45, 7.5, 0xf59e0b, { emissive: 0xd97706, emissiveIntensity: 0.4 });
+            // Feeder & Water Bowls next to center plaza (X = -5, Z = -8)
+            createBlock(-5.5, 1.5, -8, 2.2, 0.6, 2.2, 0xef4444); // Food Bowl
+            createBlock(5.5, 1.5, -8, 2.2, 0.6, 2.2, 0x38bdf8);  // Water Bowl
+
+            // 11. Friendly Adopt Me! NPC Collectors with their own 3D Pets
+            const npcs = [
+                { name: 'Trader_Mia', pos: new THREE.Vector3(-3.2, 1.2, -3.5), torso: 0xec4899, petId: 'unicorn', neon: true },
+                { name: 'NeonCollector_Leo', pos: new THREE.Vector3(4.2, 1.2, -5.0), torso: 0x0284c7, petId: 'dragon', neon: true },
+                { name: 'Nursery_Anna', pos: new THREE.Vector3(-9.5, 1.2, -13.5), torso: 0x10b981, petId: 'kitsune', neon: false }
+            ];
+            const npcEntities = npcs.map(n => {
+                const charMesh = createBlockyCharacterMesh({
+                    headColor: 0xF5CD30,
+                    torsoColor: n.torso,
+                    legColor: 0x1e293b
+                });
+                charMesh.root.position.copy(n.pos);
+                scene.add(charMesh.root);
+
+                const petMesh = createAdoptMePetMesh(n.petId, n.neon);
+                petMesh.root.position.set(n.pos.x + 1.8, n.pos.y, n.pos.z + 0.8);
+                scene.add(petMesh.root);
+
+                return {
+                    name: n.name,
+                    basePos: n.pos.clone(),
+                    charMesh,
+                    petMesh,
+                    phase: Math.random() * 6.28
+                };
+            });
+
+            gameSpecificData = {
+                bucks: saved.bucks,
+                pets: saved.pets,
+                activePetIdx: saved.pets.length - 1,
+                activePetMesh: null,
+                petPos: new THREE.Vector3(2.2, 1.2, 30),
+                isRidingPet: false,
+                currentNeed: ADOPT_ME_NEEDS[0], // Start with Hungry so player immediately experiences feeding!
+                needTimer: 6.0,
+                hatchCooldown: 0,
+                tradeCooldown: 0,
+                moneyTreeTimer: 0,
+                eggStands,
+                goldenApple,
+                trampolines: [tramp1, tramp2],
+                npcEntities,
+                confettiParticles: []
+            };
+
+            spawnAdoptMeActivePetMesh();
+            if (gameSpecificData.activePetMesh && gameSpecificData.activePetMesh.needOrb) {
+                gameSpecificData.activePetMesh.needOrb.visible = true;
+                gameSpecificData.activePetMesh.needOrb.material.color.setHex(ADOPT_ME_NEEDS[0].color);
+                gameSpecificData.activePetMesh.needOrb.material.emissive.setHex(ADOPT_ME_NEEDS[0].color);
+            }
+            refreshAdoptMeHUD();
+        }
+
+        /* ============================================================================
          * 12. PLAYER ACTIONS, PHYSICS & AABB COLLISION RESOLUTION
          * ============================================================================ */
         function triggerPrimaryAction() {
@@ -5979,6 +6762,70 @@
 
             playerState.weaponCooldownTimer = w.cooldown || 0.28;
             playerState.attackTimer = 0.28;
+
+            // 0. Adopt Me! Pet Care & Fly/Ride Actions (Slots 1-4)
+            if (w.type === 'pet_care' && activeGameMode === 'adoptme') {
+                const gd = gameSpecificData;
+                if (!gd || !gd.pets || gd.pets.length === 0) return;
+                const activePetEntry = gd.pets[gd.activePetIdx] || gd.pets[0];
+                const petDef = ADOPT_ME_PET_CATALOG[activePetEntry.id] || ADOPT_ME_PET_CATALOG.dog;
+
+                if (w.id === 'pet_food') {
+                    sfx.playCoin();
+                    if (!completeAdoptMeNeed('hungry')) {
+                        gd.bucks += 10;
+                        saveAdoptMeData(gd.bucks, gd.pets);
+                        refreshAdoptMeHUD();
+                        showHudToast(`🍎 Nakrmil jsi ${petDef.icon} ${petDef.name} pamlskem! (+$10 Bucks)`, 'green');
+                    }
+                    return;
+                }
+
+                if (w.id === 'pet_water') {
+                    sfx.playCoin();
+                    if (!completeAdoptMeNeed('thirsty')) {
+                        gd.bucks += 10;
+                        saveAdoptMeData(gd.bucks, gd.pets);
+                        refreshAdoptMeHUD();
+                        showHudToast(`🍼 Dal jsi napít ${petDef.icon} ${petDef.name}! (+$10 Bucks)`, 'blue');
+                    }
+                    return;
+                }
+
+                if (w.id === 'pet_ride') {
+                    gd.isRidingPet = !gd.isRidingPet;
+                    sfx.playJump();
+                    if (gd.isRidingPet) {
+                        playerState.speedMultiplier = 1.62;
+                        playerState.jumpMultiplier = 1.35;
+                        if (gd.activePetMesh) {
+                            gd.activePetMesh.leftWingPivot.visible = true;
+                            gd.activePetMesh.rightWingPivot.visible = true;
+                        }
+                        showHudToast(`🦄 Jedeš a létáš na ${petDef.icon} ${petDef.name}! Drž MEZERNÍK pro létání!`, 'gold');
+                    } else {
+                        playerState.speedMultiplier = 1.0;
+                        playerState.jumpMultiplier = 1.0;
+                        if (gd.activePetMesh && !petDef.hasWings) {
+                            gd.activePetMesh.leftWingPivot.visible = false;
+                            gd.activePetMesh.rightWingPivot.visible = false;
+                        }
+                        showHudToast(`Sesedl jsi z mazlíčka ${petDef.icon} ${petDef.name}.`, 'blue');
+                    }
+                    return;
+                }
+
+                if (w.id === 'pet_switch') {
+                    gd.activePetIdx = (gd.activePetIdx + 1) % gd.pets.length;
+                    const nextEntry = gd.pets[gd.activePetIdx];
+                    const nextDef = ADOPT_ME_PET_CATALOG[nextEntry.id] || ADOPT_ME_PET_CATALOG.dog;
+                    const stageName = ADOPT_ME_AGE_STAGES[Math.min(ADOPT_ME_AGE_STAGES.length - 1, nextEntry.ageIdx || 0)];
+                    sfx.playCoin();
+                    spawnAdoptMeActivePetMesh();
+                    showHudToast(`🥚 Vybrán mazlíček (${gd.activePetIdx + 1}/${gd.pets.length}): ${nextDef.icon} ${nextDef.name} [${nextDef.rarity} • ${stageName}]`, 'gold');
+                    return;
+                }
+            }
 
             // 1. Medkit Healing
             if (w.type === 'heal') {
@@ -6490,7 +7337,11 @@
 
             // Jump & Ladder Climbing (Keyboard Space or Mobile Touch Jump Button)
             const wantJump = keysPressed['Space'] || touchState.jumpPressed;
-            if (playerState.onLadder) {
+            if (activeGameMode === 'adoptme' && gameSpecificData && gameSpecificData.isRidingPet && wantJump) {
+                // Adopt Me! Fly Potion: smooth upward flight while riding pet
+                playerState.vel.y = 11.5;
+                playerState.onGround = false;
+            } else if (playerState.onLadder) {
                 playerState.vel.y = (wantJump || Math.abs(moveForward) > 0.1) ? 10.5 : 2.0;
             } else {
                 if (wantJump && playerState.onGround) {
@@ -6516,6 +7367,9 @@
 
             // 3. Animate Player Limbs (Walking, Jumping, Weapon Swing)
             playerAvatar.root.position.copy(playerState.pos);
+            if (activeGameMode === 'adoptme' && gameSpecificData && gameSpecificData.isRidingPet) {
+                playerAvatar.root.position.y += 0.72; // Sit elevated on pet's back
+            }
             const horizSpeed = Math.hypot(playerState.vel.x, playerState.vel.z);
 
             if (!playerState.onGround) {
@@ -6548,8 +7402,9 @@
                 playerAvatar.rightArmPivot.rotation.x *= 0.8;
             }
 
-            // 4. Run Game-Specific Frame Logic (All 10 Games)
-            if (activeGameMode === 'obby') updateGame1Obby(dt);
+            // 4. Run Game-Specific Frame Logic (All 11 Games)
+            if (activeGameMode === 'adoptme') updateGame11AdoptMe(dt, elapsedSec);
+            else if (activeGameMode === 'obby') updateGame1Obby(dt);
             else if (activeGameMode === 'lava') updateGame2Lava(dt, elapsedSec);
             else if (activeGameMode === 'sfoth') updateGame3SFOTH(dt);
             else if (activeGameMode === 'tycoon') updateGame4Tycoon(dt, elapsedSec);
@@ -7227,6 +8082,193 @@
 
                     if (en.pos.y < -18) {
                         eliminateBedwarsEnemy(en);
+                    }
+                });
+            }
+        }
+
+        function updateGame11AdoptMe(dt, elapsedSec) {
+            const gd = gameSpecificData;
+            if (!gd) return;
+
+            // 1. Update confetti particles
+            updateGame1Obby(dt);
+
+            if (gd.hatchCooldown > 0) gd.hatchCooldown = Math.max(0, gd.hatchCooldown - dt);
+            if (gd.tradeCooldown > 0) gd.tradeCooldown = Math.max(0, gd.tradeCooldown - dt);
+
+            // 2. Money Tree passive paycheck (+$15 Bucks every 9 seconds, just like Adopt Me Paycheck!)
+            gd.moneyTreeTimer = (gd.moneyTreeTimer || 0) + dt;
+            if (gd.moneyTreeTimer >= 9.0) {
+                gd.moneyTreeTimer = 0;
+                gd.bucks += 15;
+                saveAdoptMeData(gd.bucks, gd.pets);
+                refreshAdoptMeHUD();
+                showHudToast('💵 Adopt Me! Výplata (Paycheck): +$15 Bucks!', 'green');
+            }
+
+            // 3. Pet Needs (Ailments) generator
+            if (!gd.currentNeed) {
+                gd.needTimer -= dt;
+                if (gd.needTimer <= 0) {
+                    const nextNeed = ADOPT_ME_NEEDS[Math.floor(Math.random() * ADOPT_ME_NEEDS.length)];
+                    gd.currentNeed = nextNeed;
+                    sfx.playJump();
+                    if (gd.activePetMesh && gd.activePetMesh.needOrb) {
+                        gd.activePetMesh.needOrb.visible = true;
+                        gd.activePetMesh.needOrb.material.color.setHex(nextNeed.color);
+                        gd.activePetMesh.needOrb.material.emissive.setHex(nextNeed.color);
+                    }
+                    refreshAdoptMeHUD();
+                    showHudToast(`🐾 Tvůj mazlíček má novou potřebu: ${nextNeed.name}!`, 'blue');
+                }
+            }
+
+            // 4. Animate Active 3D Pet (Following player OR Riding/Flying underneath player)
+            if (gd.activePetMesh && gd.activePetMesh.root) {
+                const pm = gd.activePetMesh;
+                if (gd.isRidingPet) {
+                    // Mounted directly under the player
+                    gd.petPos.set(playerState.pos.x, playerState.pos.y, playerState.pos.z);
+                    pm.root.position.copy(gd.petPos);
+                    pm.root.rotation.y = playerAvatar.root.rotation.y;
+                } else {
+                    // Follow smoothly behind/beside the player
+                    const followOffset = new THREE.Vector3(
+                        Math.sin(playerAvatar.root.rotation.y + 0.7) * 2.5,
+                        0,
+                        Math.cos(playerAvatar.root.rotation.y + 0.7) * 2.5
+                    );
+                    const targetPos = playerState.pos.clone().add(followOffset);
+                    const delta = targetPos.sub(gd.petPos);
+                    const dist = Math.hypot(delta.x, delta.z);
+                    if (dist > 0.25) {
+                        gd.petPos.x += delta.x * Math.min(1, dt * 6.5);
+                        gd.petPos.z += delta.z * Math.min(1, dt * 6.5);
+                        pm.root.rotation.y = Math.atan2(-delta.x, -delta.z);
+                    }
+                    gd.petPos.y = playerState.pos.y + Math.abs(Math.sin(elapsedSec * 5.5)) * (dist > 0.35 ? 0.28 : 0.06);
+                    pm.root.position.copy(gd.petPos);
+                }
+
+                // Animate pet legs, wagging tail, flapping wings & floating Need Orb
+                const walkSpeed = Math.hypot(playerState.vel.x, playerState.vel.z);
+                const legSwing = walkSpeed > 0.6 ? Math.sin(elapsedSec * 12) * 0.45 : 0;
+                if (pm.legs && pm.legs.length === 4) {
+                    pm.legs[0].rotation.x = legSwing;
+                    pm.legs[1].rotation.x = -legSwing;
+                    pm.legs[2].rotation.x = -legSwing;
+                    pm.legs[3].rotation.x = legSwing;
+                }
+                if (pm.tailGroup) {
+                    pm.tailGroup.rotation.y = Math.sin(elapsedSec * 7.5) * 0.45;
+                }
+                if (pm.leftWingPivot && pm.rightWingPivot && (pm.leftWingPivot.visible || gd.isRidingPet)) {
+                    const flap = Math.sin(elapsedSec * (gd.isRidingPet && !playerState.onGround ? 14 : 6.5)) * 0.52;
+                    pm.leftWingPivot.rotation.z = flap;
+                    pm.rightWingPivot.rotation.z = -flap;
+                }
+                if (pm.needOrb && pm.needOrb.visible) {
+                    pm.needOrb.position.y = 2.85 + Math.sin(elapsedSec * 4.5) * 0.22;
+                }
+                if (pm.neonRing && pm.neonRing.visible) {
+                    pm.neonRing.rotation.z = elapsedSec * 2.5;
+                }
+            }
+
+            // 5. Animate Egg Pedestals in Nursery & Check Egg Purchase / Hatching
+            if (gd.eggStands) {
+                gd.eggStands.forEach(stand => {
+                    if (stand.eggMesh) {
+                        stand.eggMesh.rotation.y = elapsedSec * 1.8;
+                        stand.eggMesh.position.y = 3.1 + Math.sin(elapsedSec * 3.2 + stand.pos.x) * 0.2;
+                    }
+                    if (playerState.pos.distanceTo(stand.pos) < 2.65) {
+                        hatchAdoptMeEgg(stand);
+                    }
+                });
+            }
+
+            // 6. Animate Golden Apple in Hospital
+            if (gd.goldenApple) {
+                gd.goldenApple.rotation.y = elapsedSec * 2.2;
+                gd.goldenApple.position.y = 2.4 + Math.sin(elapsedSec * 3.5) * 0.18;
+            }
+
+            // 7. Check Care Stations on Adoption Island
+            // A) Feeder Bowl (X = -5.5, Z = -8) -> Hungry
+            if (Math.hypot(playerState.pos.x + 5.5, playerState.pos.z + 8) < 2.6) {
+                completeAdoptMeNeed('hungry');
+            }
+            // B) Water Bowl (X = +5.5, Z = -8) -> Thirsty
+            if (Math.hypot(playerState.pos.x - 5.5, playerState.pos.z + 8) < 2.6) {
+                completeAdoptMeNeed('thirsty');
+            }
+            // C) Nursery Cribs (X = -19, Z = -16) -> Sleepy
+            if (Math.hypot(playerState.pos.x + 19, playerState.pos.z + 16) < 4.5) {
+                completeAdoptMeNeed('sleepy');
+            }
+            // D) Camping & Hot Springs Shower (X = +19, Z = -16) -> Dirty
+            if (Math.hypot(playerState.pos.x - 19, playerState.pos.z + 16) < 4.8) {
+                completeAdoptMeNeed('dirty');
+            }
+            // E) Hospital Golden Apple Pad (X = -14.5, Z = +1) -> Sick + Full Player Heal
+            if (Math.hypot(playerState.pos.x + 14.5, playerState.pos.z - 1) < 3.2) {
+                if (playerState.hp < playerState.maxHp) {
+                    playerState.hp = playerState.maxHp;
+                    updateHealthHUD();
+                }
+                completeAdoptMeNeed('sick');
+            }
+            // F) Playground Bouncy Trampolines (X = +20, Z = +1) -> Bored + Super Bounce
+            if (gd.trampolines) {
+                gd.trampolines.forEach(tr => {
+                    if (Math.hypot(playerState.pos.x - tr.mesh.position.x, playerState.pos.z - tr.mesh.position.z) < 2.3 &&
+                        playerState.pos.y <= tr.mesh.position.y + 1.8) {
+                        playerState.vel.y = 22.5;
+                        playerState.onGround = false;
+                        sfx.playJump();
+                        completeAdoptMeNeed('bored');
+                    }
+                });
+            }
+            if (Math.hypot(playerState.pos.x - 20, playerState.pos.z - 1) < 5.2) {
+                completeAdoptMeNeed('bored');
+            }
+
+            // 8. Central Trade Hub Pad (X = 0, Z = -4) -> Trade Showcase Bonus with NPCs/Players
+            if (Math.hypot(playerState.pos.x, playerState.pos.z + 4) < 3.5 && gd.tradeCooldown <= 0) {
+                gd.tradeCooldown = 16.0;
+                gd.bucks += 40;
+                saveAdoptMeData(gd.bucks, gd.pets);
+                addBobux(35, 'Adopt Me! Trade Hub bonus s Trader_Mia');
+                sfx.playCoin();
+                refreshAdoptMeHUD();
+                showHudToast('🔁 TRADE HUB: Obchodoval jsi s Trader_Mia! (+$40 Bucks & +35 B$)', 'gold');
+            }
+
+            // 9. Animate NPC Collectors & their Pets
+            if (gd.npcEntities) {
+                gd.npcEntities.forEach(npc => {
+                    npc.phase += dt * 1.6;
+                    const nx = npc.basePos.x + Math.cos(npc.phase) * 1.4;
+                    const nz = npc.basePos.z + Math.sin(npc.phase) * 1.4;
+                    npc.charMesh.root.position.set(nx, npc.basePos.y, nz);
+                    npc.charMesh.root.rotation.y = -npc.phase;
+                    const sw = Math.sin(npc.phase * 4) * 0.45;
+                    npc.charMesh.leftLegPivot.rotation.x = sw;
+                    npc.charMesh.rightLegPivot.rotation.x = -sw;
+
+                    npc.petMesh.root.position.set(
+                        nx + Math.cos(npc.phase - 0.9) * 1.8,
+                        npc.basePos.y + Math.abs(Math.sin(npc.phase * 3)) * 0.18,
+                        nz + Math.sin(npc.phase - 0.9) * 1.8
+                    );
+                    npc.petMesh.root.rotation.y = -npc.phase;
+                    if (npc.petMesh.leftWingPivot && npc.petMesh.leftWingPivot.visible) {
+                        const flap = Math.sin(elapsedSec * 7 + npc.phase) * 0.45;
+                        npc.petMesh.leftWingPivot.rotation.z = flap;
+                        npc.petMesh.rightWingPivot.rotation.z = -flap;
                     }
                 });
             }

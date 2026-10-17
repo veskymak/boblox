@@ -21,7 +21,7 @@ const COMMENT_COOLDOWN_MS = 30 * 1000; // 30s anti-spam cooldown
 const MAX_COMMENT_LENGTH = 250;
 
 const VALID_GAME_IDS = new Set([
-    'obby', 'lava', 'sfoth', 'tycoon', 'disasters',
+    'adoptme', 'obby', 'lava', 'sfoth', 'tycoon', 'disasters',
     'toh', 'zombies', 'speedrun', 'hideandseek', 'bedwars'
 ]);
 
