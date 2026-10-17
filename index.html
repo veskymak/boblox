@@ -1420,19 +1420,51 @@
             return 'fnv_' + (h >>> 0).toString(16);
         }
 
+        const CUSTOM_API_BASE = (window.BOBLOX_API_BASE || localStorage.getItem('boblox_api_base') || '').replace(/\/+$/, '');
+
+        function isStaticHostingWithoutBackend() {
+            if (CUSTOM_API_BASE) return false;
+            if (location.protocol === 'file:') return true;
+            const h = (location.hostname || '').toLowerCase();
+            // Static hosts where POST /api/* returns 405 Method Not Allowed or 404 HTML
+            return h.endsWith('.github.io') || h.endsWith('.pages.dev') || h.endsWith('.netlify.app') || h.endsWith('.surge.sh');
+        }
+
         async function apiRequest(path, options = {}) {
+            // If running on GitHub Pages (or static host) without an external backend URL configured,
+            // use the built-in cryptographic local database directly without triggering 404/405 browser errors.
+            if (isStaticHostingWithoutBackend()) {
+                authState.backendConnected = false;
+                return handleOfflineApiFallback(path, options);
+            }
+
             const headers = Object.assign({ 'Content-Type': 'application/json' }, options.headers || {});
             if (authState.token) {
                 headers['Authorization'] = 'Bearer ' + authState.token;
             }
+            const targetUrl = CUSTOM_API_BASE ? (CUSTOM_API_BASE + path) : path;
             try {
-                const resp = await fetch(path, {
+                const resp = await fetch(targetUrl, {
                     method: options.method || 'GET',
                     headers,
-                    credentials: 'same-origin',
+                    credentials: CUSTOM_API_BASE ? 'include' : 'same-origin',
                     body: options.body ? JSON.stringify(options.body) : undefined
                 });
-                const data = await resp.json().catch(() => ({}));
+
+                const contentType = (resp.headers.get('content-type') || '').toLowerCase();
+                // If a static server (like Varnish/GitHub Pages/LiveServer) responds with 405 Method Not Allowed,
+                // 501 Not Implemented, or an HTML 404 page instead of JSON, fall back to local DB.
+                if (resp.status === 405 || resp.status === 501 || !contentType.includes('application/json')) {
+                    authState.backendConnected = false;
+                    return handleOfflineApiFallback(path, options);
+                }
+
+                const data = await resp.json().catch(() => null);
+                if (!data || typeof data !== 'object') {
+                    authState.backendConnected = false;
+                    return handleOfflineApiFallback(path, options);
+                }
+
                 authState.backendConnected = true;
                 if (typeof data.serverTime === 'number') {
                     serverTimeOffsetMs = data.serverTime - Date.now();
@@ -1444,7 +1476,7 @@
             }
         }
 
-        // Seamless cryptographic local DB fallback when index.html is opened without node server.js
+        // Seamless cryptographic local DB fallback when hosted on static GitHub Pages or opened without node server.js
         async function handleOfflineApiFallback(path, options = {}) {
             const method = (options.method || 'GET').toUpperCase();
             const body = options.body || {};
@@ -1470,6 +1502,7 @@
                     return { ok: false, status: 409, data: { error: 'Toto uživatelské jméno je již obsazené.' } };
                 }
                 const password_hash = await hashPasswordClientFallback(pass);
+                const startCoins = Math.max(bobuxBalance, 250);
                 const newUser = {
                     id: users.length + 1,
                     username: uname,
@@ -1480,7 +1513,7 @@
                         torsoHex: avatarTorsoHex,
                         gamesPlayed: gamesPlayedCount
                     },
-                    coins: bobuxBalance,
+                    coins: startCoins,
                     daily_claim_date: lastClaimTimestamp,
                     game_ratings: {},
                     comments: [],
@@ -1502,6 +1535,10 @@
                 }
                 const token = 'local_jwt_' + u.id;
                 return { ok: true, status: 200, data: { token, user: u, serverTime: now } };
+            }
+
+            if (path === '/api/auth/logout' && method === 'POST') {
+                return { ok: true, status: 200, data: { ok: true, serverTime: now } };
             }
 
             if (path === '/api/auth/me' && method === 'GET') {
@@ -1537,7 +1574,7 @@
                     };
                 }
                 if (currentUser) {
-                    currentUser.coins = (currentUser.coins || 0) + 50;
+                    currentUser.coins = (currentUser.coins || 0) + 100;
                     currentUser.daily_claim_date = now;
                     saveLocalUsersDB(users);
                 }
@@ -1546,7 +1583,7 @@
                     status: 200,
                     data: {
                         ok: true,
-                        reward: 50,
+                        reward: 100,
                         user: currentUser,
                         lastClaimTimestamp: now,
                         nextClaimTimestamp: now + DAILY_COOLDOWN_MS,
@@ -1556,6 +1593,34 @@
             }
 
             const socialDB = getLocalSocialDB();
+
+            if (path === '/api/games/summary' && method === 'GET') {
+                const summary = {};
+                GAMES_CATALOG.forEach(g => {
+                    const gData = socialDB[g.id] || { votes: {}, comments: [] };
+                    const vals = Object.values(gData.votes || {});
+                    const likes = vals.filter(v => v === 'like').length;
+                    const dislikes = vals.filter(v => v === 'dislike').length;
+                    const total = likes + dislikes;
+                    summary[g.id] = {
+                        likes,
+                        dislikes,
+                        ratingPct: total ? Math.round((likes / total) * 100) : null,
+                        commentCount: (gData.comments || []).length,
+                        online: (liveSocialState.perGameOnline && liveSocialState.perGameOnline[g.id]) || 0
+                    };
+                });
+                return {
+                    ok: true,
+                    status: 200,
+                    data: {
+                        games: summary,
+                        totalOnline: liveSocialState.totalOnline || 1,
+                        serverTime: now
+                    }
+                };
+            }
+
             const rateMatch = path.match(/^\/api\/games\/([a-z0-9_]+)\/rate$/);
             if (rateMatch && method === 'POST') {
                 if (!currentUser) return { ok: false, status: 401, data: { error: 'Pro hodnocení hry se nejprve přihlas ke svému účtu!' } };
@@ -2226,10 +2291,16 @@
                 recomputeLivePlayerCounts();
             }, 2500);
 
-            if (location.protocol === 'http:' || location.protocol === 'https:') {
+            if (!isStaticHostingWithoutBackend() && (location.protocol === 'http:' || location.protocol === 'https:')) {
                 try {
-                    const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-                    const ws = new WebSocket(`${wsProto}//${location.host}/ws`);
+                    let wsUrl;
+                    if (CUSTOM_API_BASE) {
+                        wsUrl = CUSTOM_API_BASE.replace(/^http/i, 'ws') + '/ws';
+                    } else {
+                        const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+                        wsUrl = `${wsProto}//${location.host}/ws`;
+                    }
+                    const ws = new WebSocket(wsUrl);
                     mpState.ws = ws;
 
                     ws.onopen = () => {
