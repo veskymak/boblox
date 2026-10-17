@@ -2617,18 +2617,90 @@ function startDerbyRace() {
         lanesEl.appendChild(lane);
     });
 
+    // 1. Fair Weighted Random Logic for Winner Selection:
+    // Probability is proportional to 1 / odds so all horses can win and payouts reflect true risk!
+    const weights = DERBY_HORSES.map(h => 1 / h.odds);
+    const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+    let roll = Math.random() * totalWeight;
+    let winnerIndex = 0;
+    for (let i = 0; i < DERBY_HORSES.length; i++) {
+        if (roll < weights[i]) {
+            winnerIndex = i;
+            break;
+        }
+        roll -= weights[i];
+    }
+    const predeterminedWinner = DERBY_HORSES[winnerIndex];
+
+    // 2. Setup target finish frames and dynamic pace profiles
+    const nonWinnerIndices = [0, 1, 2, 3, 4].filter(idx => idx !== winnerIndex);
+    // Shuffle non-winners randomly with weights for realistic 2nd to 5th placements
+    nonWinnerIndices.sort((a, b) => (1 / DERBY_HORSES[b].odds) * (Math.random() + 0.5) - (1 / DERBY_HORSES[a].odds) * (Math.random() + 0.5));
+
+    const targetFinishTicks = new Array(5);
+    // Winner crosses 1000m at tick ~96 (~6.7 seconds)
+    const baseWinTick = 96;
+    targetFinishTicks[winnerIndex] = baseWinTick;
+    targetFinishTicks[nonWinnerIndices[0]] = baseWinTick + Math.floor(2 + Math.random() * 2); // 2nd place (neck-and-neck!)
+    targetFinishTicks[nonWinnerIndices[1]] = baseWinTick + Math.floor(4 + Math.random() * 3); // 3rd place
+    targetFinishTicks[nonWinnerIndices[2]] = baseWinTick + Math.floor(7 + Math.random() * 4); // 4th place
+    targetFinishTicks[nonWinnerIndices[3]] = baseWinTick + Math.floor(11 + Math.random() * 5); // 5th place
+
+    // Horse Running Dynamics (Early speed, mid-race surge, and individual stamina)
+    const horseProfiles = DERBY_HORSES.map((h, i) => {
+        const isWinner = (i === winnerIndex);
+        return {
+            earlyPace: 0.92 + Math.random() * 0.22,
+            spurtStartTick: 20 + Math.floor(Math.random() * 40),
+            spurtLength: 12 + Math.floor(Math.random() * 8),
+            spurtMultiplier: 1.15 + Math.random() * 0.25,
+            isWinner
+        };
+    });
+
+    let currentTick = 0;
     let currentLeadMeters = 0;
     const raceInterval = setInterval(() => {
+        currentTick++;
         let maxMeters = 0;
-        let winnerId = 1;
 
         // Simulate step for each horse
         for (let i = 0; i < 5; i++) {
-            // Speed based inversely on odds with high random variance
             const h = DERBY_HORSES[i];
-            const baseSpd = 12.0 + (16 - h.odds) * 0.45;
-            const variance = (Math.random() - 0.45) * 8.5;
-            derbyState.raceProgress[i] += Math.max(2, baseSpd + variance);
+            const profile = horseProfiles[i];
+            const targetTicks = targetFinishTicks[i];
+
+            // Base nominal step to reach 1000m around targetTicks
+            let step = (1000 / targetTicks);
+
+            // Phase 1: First 300m (Opening bursts & jockey positioning)
+            if (derbyState.raceProgress[i] < 300) {
+                step *= profile.earlyPace;
+            }
+
+            // Phase 2: Mid-race spurt (random horse makes an exciting move!)
+            if (currentTick >= profile.spurtStartTick && currentTick < profile.spurtStartTick + profile.spurtLength) {
+                step *= profile.spurtMultiplier;
+            }
+
+            // Phase 3: Final 250m (Home stretch sprint)
+            if (derbyState.raceProgress[i] >= 750) {
+                if (profile.isWinner) {
+                    step *= 1.25;
+                } else {
+                    step *= (0.92 + Math.random() * 0.12);
+                }
+            }
+
+            // Small micro random bounce (±1.2m)
+            step += (Math.random() - 0.48) * 2.4;
+
+            derbyState.raceProgress[i] += Math.max(1.5, step);
+
+            // Cap non-winners at 992m until winner crosses 1000m
+            if (!profile.isWinner && derbyState.raceProgress[i] >= 992) {
+                derbyState.raceProgress[i] = 992 + Math.random() * 4;
+            }
 
             const bar = document.getElementById(`derby-horse-bar-${h.id}`);
             const pct = Math.min(100, (derbyState.raceProgress[i] / 1000) * 100);
@@ -2636,7 +2708,6 @@ function startDerbyRace() {
 
             if (derbyState.raceProgress[i] > maxMeters) {
                 maxMeters = derbyState.raceProgress[i];
-                winnerId = h.id;
             }
 
             // Animate 3D horse meshes in derby arena
@@ -2649,12 +2720,34 @@ function startDerbyRace() {
             }
         }
 
+        // Find current race leader for commentary
+        let leaderIdx = 0;
+        let leadDistance = 0;
+        for (let i = 0; i < 5; i++) {
+            if (derbyState.raceProgress[i] > leadDistance) {
+                leadDistance = derbyState.raceProgress[i];
+                leaderIdx = i;
+            }
+        }
+        const leader = DERBY_HORSES[leaderIdx];
+
+        // Dynamic exciting commentary
+        if (leadDistance < 250) {
+            statusLabel.textContent = `🐎 Odstartováno! Koně vyrazily ze startovních boxů! Fandíš: #${horse.id} ${horse.name}`;
+        } else if (leadDistance < 550) {
+            statusLabel.textContent = `⚡ 1. úsek: V čele běží #${leader.id} ${leader.name}! #${horse.id} ${horse.name} se drží v poli!`;
+        } else if (leadDistance < 800) {
+            statusLabel.textContent = `🔥 Zatáčka před cílem: #${leader.id} ${leader.name} drží těsné vedení! Boj o každou pozici!`;
+        } else {
+            statusLabel.textContent = `💥 CÍLOVÁ ROVINKA! Plný sprint do cíle, #${leader.id} ${leader.name} finišuje!`;
+        }
+
         currentLeadMeters = Math.min(1000, Math.round(maxMeters));
         if (metersEl) metersEl.textContent = `${currentLeadMeters} m / 1 000 m`;
 
-        if (maxMeters >= 1000) {
+        if (derbyState.raceProgress[winnerIndex] >= 1000) {
             clearInterval(raceInterval);
-            finishDerbyRace(winnerId);
+            finishDerbyRace(predeterminedWinner.id);
         }
     }, 70);
 }
