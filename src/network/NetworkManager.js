@@ -6,6 +6,8 @@ const mpState = {
     peer: null,
     ws: null,
     bc: typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('boblox_live_presence_v2') : null,
+    supabaseGameChannel: null,
+    supabaseSocialChannel: null,
     isHost: false,
     roomCode: '',
     nickname: localStorage.getItem('boblox_mp_nick') || 'Guest',
@@ -13,7 +15,8 @@ const mpState = {
     connections: [], // Active PeerJS DataConnections
     remotePlayers: {}, // peerId -> { id, nickname, torsoHex, outfit, weaponId, disguiseId, gameMode, pos, targetPos, rotY, walkCycle, onGround, attackTimer, meshData, lastSeen }
     localTabPeers: {}, // tabId -> { gameId, lastSeen }
-    syncTimer: 0
+    syncTimer: 0,
+    lastSupabaseSync: 0
 };
 
 function setMatchmakingMode(mode) {
@@ -121,53 +124,210 @@ function generateRoomCode() {
     return code;
 }
 
+function leaveGameNetwork() {
+    if (mpState.supabaseGameChannel) {
+        try {
+            mpState.supabaseGameChannel.send({
+                type: 'broadcast',
+                event: 'peerLeave',
+                payload: { id: mpState.myId }
+            });
+            const sb = typeof getSupabaseClient === 'function' ? getSupabaseClient() : null;
+            if (sb) sb.removeChannel(mpState.supabaseGameChannel);
+        } catch (e) {}
+        mpState.supabaseGameChannel = null;
+    }
+    mpState.connections.forEach(c => { try { c.close(); } catch (e) {} });
+    mpState.connections = [];
+    Object.keys(mpState.remotePlayers).forEach(pid => {
+        removeRemotePlayer(pid);
+    });
+    if (mpState.peer) {
+        try { mpState.peer.destroy(); } catch (e) {}
+        mpState.peer = null;
+    }
+    mpState.isHost = false;
+    updateMpCounters();
+}
+
+function broadcastGameAnnounce() {
+    if (!activeGameMode) return;
+    const payload = {
+        id: mpState.myId,
+        nickname: mpState.nickname,
+        torsoHex: typeof avatarTorsoHex !== 'undefined' ? avatarTorsoHex : '#0D69AC',
+        outfit: typeof avatarOutfit !== 'undefined' ? avatarOutfit : {},
+        weaponId: (typeof playerState !== 'undefined' && playerState.activeWeapon) ? playerState.activeWeapon.id : 'none',
+        gameMode: activeGameMode,
+        x: (typeof playerState !== 'undefined' && playerState.pos) ? Number(playerState.pos.x.toFixed(2)) : 0,
+        y: (typeof playerState !== 'undefined' && playerState.pos) ? Number(playerState.pos.y.toFixed(2)) : 3,
+        z: (typeof playerState !== 'undefined' && playerState.pos) ? Number(playerState.pos.z.toFixed(2)) : 0
+    };
+
+    if (mpState.supabaseGameChannel) {
+        try {
+            mpState.supabaseGameChannel.send({
+                type: 'broadcast',
+                event: 'peerAnnounce',
+                payload: payload
+            });
+        } catch (e) {}
+    }
+
+    if (mpState.bc) {
+        try {
+            mpState.bc.postMessage(Object.assign({
+                type: 'playerState',
+                mode: mpState.mode,
+                roomCode: mpState.roomCode
+            }, payload));
+        } catch (e) {}
+    }
+}
+
+function handleRemotePlayerAnnounce(payload) {
+    if (!payload || !payload.id || payload.id === mpState.myId) return;
+
+    let rp = mpState.remotePlayers[payload.id];
+    if (!rp) {
+        rp = {
+            id: payload.id,
+            nickname: sanitizeTextClient(payload.nickname || 'Hráč', 16),
+            torsoHex: payload.torsoHex || '#0D69AC',
+            outfit: sanitizeOutfit(payload.outfit),
+            weaponId: payload.weaponId || 'none',
+            disguiseId: null,
+            gameMode: payload.gameMode || activeGameMode,
+            pos: new THREE.Vector3(payload.x || 0, payload.y || 3, payload.z || 0),
+            targetPos: new THREE.Vector3(payload.x || 0, payload.y || 3, payload.z || 0),
+            rotY: payload.rotY || 0,
+            walkCycle: 0,
+            onGround: true,
+            attackTimer: 0,
+            meshData: null,
+            lastSeen: performance.now()
+        };
+        mpState.remotePlayers[payload.id] = rp;
+        updateMpCounters();
+        if (typeof showHudToast === 'function') {
+            showHudToast(`Hráč ${rp.nickname} se připojil do hry!`, 'green');
+        }
+        if (typeof sfx !== 'undefined' && sfx.playCoin) sfx.playCoin();
+
+        // Respond with our own presence so the remote player immediately discovers us too
+        broadcastGameAnnounce();
+    } else {
+        rp.lastSeen = performance.now();
+        if (payload.x !== undefined) rp.targetPos.set(payload.x, payload.y, payload.z);
+    }
+
+    // WebRTC connection initiator: lower string connects to higher
+    if (mpState.peer && mpState.peer.open) {
+        const isConnected = mpState.connections.some(c => c.peer === payload.id);
+        if (!isConnected && mpState.myId < payload.id) {
+            try {
+                const conn = mpState.peer.connect(payload.id, { reliable: false });
+                setupPeerConnection(conn);
+            } catch (e) {}
+        }
+    }
+}
+
 // Automatically joins the public global matchmaking pool for a given gameId (no code needed!)
 function connectGlobalPublicMatchmaking(gameId) {
+    leaveGameNetwork();
     mpState.mode = 'public';
     mpState.roomCode = `PUB_${gameId.toUpperCase()}`;
+    mpState.myId = 'p_' + Math.random().toString(36).slice(2, 10);
+
+    const statusEl = document.getElementById('mp-status-badge');
+    if (statusEl) {
+        statusEl.textContent = 'Připojuji do globálního poolu...';
+        statusEl.className = 'text-xs font-bold text-[#FFE066]';
+    }
+
     sendWsPresence();
+    broadcastSocialPresence(true);
 
-    if (typeof Peer === 'undefined') return;
-    if (mpState.peer) mpState.peer.destroy();
-    mpState.connections = [];
-
-    // Deterministic public broker room ID: first player becomes public lobby host, others auto-join!
-    const publicRoomPeerId = `boblox-cz-pub-pool-v2-${gameId}`;
-    const tryHostPeer = new Peer(publicRoomPeerId);
-    mpState.peer = tryHostPeer;
-
-    tryHostPeer.on('open', (id) => {
-        mpState.myId = id;
-        mpState.isHost = true;
-        updateMpCounters();
-        sendWsPresence();
-    });
-
-    tryHostPeer.on('connection', (conn) => {
-        setupPeerConnection(conn);
-    });
-
-    tryHostPeer.on('error', (err) => {
-        // If publicRoomPeerId is already taken ('unavailable-id'), a public room is already active -> auto-connect as client!
-        if (err && err.type === 'unavailable-id') {
-            const clientPeer = new Peer();
-            mpState.peer = clientPeer;
-            mpState.isHost = false;
-            clientPeer.on('open', (id) => {
-                mpState.myId = id;
-                const conn = clientPeer.connect(publicRoomPeerId, { reliable: false });
-                setupPeerConnection(conn);
-                sendWsPresence();
+    // 1. PeerJS WebRTC P2P
+    if (typeof Peer !== 'undefined') {
+        try {
+            const peer = new Peer(mpState.myId, {
+                debug: 0,
+                config: {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' }
+                    ]
+                }
             });
+            mpState.peer = peer;
+
+            peer.on('open', (id) => {
+                mpState.myId = id;
+                updateMpCounters();
+                broadcastGameAnnounce();
+            });
+
+            peer.on('connection', (conn) => {
+                setupPeerConnection(conn);
+            });
+
+            peer.on('error', (err) => {
+                console.warn('PeerJS note:', err?.type || err);
+            });
+        } catch (e) {
+            console.warn('PeerJS init failed:', e);
         }
-    });
+    }
+
+    // 2. Supabase Realtime Broadcast Matchmaking Channel
+    const sb = typeof getSupabaseClient === 'function' ? getSupabaseClient() : null;
+    if (sb) {
+        try {
+            const chName = `boblox_game_${gameId}`;
+            const gameCh = sb.channel(chName, {
+                config: { broadcast: { self: false } }
+            });
+            mpState.supabaseGameChannel = gameCh;
+
+            gameCh.on('broadcast', { event: 'peerAnnounce' }, ({ payload }) => {
+                handleRemotePlayerAnnounce(payload);
+            });
+
+            gameCh.on('broadcast', { event: 'playerPacket' }, ({ payload }) => {
+                if (!payload || payload.id === mpState.myId) return;
+                handleMultiplayerPacket(payload, null);
+            });
+
+            gameCh.on('broadcast', { event: 'peerLeave' }, ({ payload }) => {
+                if (payload && payload.id) {
+                    removeRemotePlayer(payload.id);
+                }
+            });
+
+            gameCh.subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                    if (statusEl) {
+                        statusEl.textContent = 'Globální Pool (Připojeno)';
+                        statusEl.className = 'text-xs font-bold text-[#00B06F]';
+                    }
+                    broadcastGameAnnounce();
+                }
+            });
+        } catch (e) {
+            console.warn('Supabase game channel error:', e);
+        }
+    }
 }
 
 function hostMultiplayerRoom() {
+    leaveGameNetwork();
     setMatchmakingMode('private');
-    const code = generateRoomCode(); // 6-digit code
+    const code = generateRoomCode();
     mpState.roomCode = code;
     mpState.isHost = true;
+    mpState.myId = 'p_' + Math.random().toString(36).slice(2, 10);
 
     const hostCodeModalEl = document.getElementById('modal-party-host-code');
     if (hostCodeModalEl) hostCodeModalEl.textContent = code;
@@ -186,25 +346,49 @@ function hostMultiplayerRoom() {
     }
 
     sendWsPresence();
+    broadcastSocialPresence(true);
 
-    if (typeof Peer === 'undefined') return;
-    if (mpState.peer) mpState.peer.destroy();
-    mpState.connections = [];
+    if (typeof Peer !== 'undefined') {
+        try {
+            const peer = new Peer(mpState.myId);
+            mpState.peer = peer;
+            peer.on('open', (id) => {
+                mpState.myId = id;
+                updateMpCounters();
+                if (typeof sfx !== 'undefined' && sfx.playWinFanfare) sfx.playWinFanfare();
+                if (typeof showHudToast === 'function') {
+                    showHudToast(`Soukromá párty ${code} vytvořena! Kód: ${code}`, 'green');
+                }
+                broadcastGameAnnounce();
+            });
+            peer.on('connection', (conn) => {
+                setupPeerConnection(conn);
+            });
+        } catch (e) {}
+    }
 
-    const fullPeerId = `boblox-cz-party6-${code}`;
-    const peer = new Peer(fullPeerId);
-    mpState.peer = peer;
+    const sb = typeof getSupabaseClient === 'function' ? getSupabaseClient() : null;
+    if (sb) {
+        try {
+            const chName = `boblox_party_${code}`;
+            const gameCh = sb.channel(chName, { config: { broadcast: { self: false } } });
+            mpState.supabaseGameChannel = gameCh;
 
-    peer.on('open', (id) => {
-        mpState.myId = id;
-        updateMpCounters();
-        sfx.playWinFanfare();
-        showHudToast(`Soukromá párty ${code} vytvořena! Pošli 6místný kód přátelům.`, 'green');
-    });
-
-    peer.on('connection', (conn) => {
-        setupPeerConnection(conn);
-    });
+            gameCh.on('broadcast', { event: 'peerAnnounce' }, ({ payload }) => {
+                handleRemotePlayerAnnounce(payload);
+            });
+            gameCh.on('broadcast', { event: 'playerPacket' }, ({ payload }) => {
+                if (!payload || payload.id === mpState.myId) return;
+                handleMultiplayerPacket(payload, null);
+            });
+            gameCh.on('broadcast', { event: 'peerLeave' }, ({ payload }) => {
+                if (payload && payload.id) removeRemotePlayer(payload.id);
+            });
+            gameCh.subscribe((status) => {
+                if (status === 'SUBSCRIBED') broadcastGameAnnounce();
+            });
+        } catch (e) {}
+    }
 }
 
 function joinMultiplayerRoomFromModal() {
@@ -217,13 +401,17 @@ function joinMultiplayerRoomFromModal() {
 function joinMultiplayerRoom(overrideCode) {
     const rawInput = (overrideCode || document.getElementById('mp-join-code-input')?.value || '').trim().toUpperCase();
     if (rawInput.length !== 6) {
-        showHudToast('Zadej platný 6místný kód soukromé párty (např. K7X9P2)!', 'red');
+        if (typeof showHudToast === 'function') {
+            showHudToast('Zadej platný 6místný kód soukromé párty (např. K7X9P2)!', 'red');
+        }
         return;
     }
 
+    leaveGameNetwork();
     setMatchmakingMode('private');
     mpState.isHost = false;
     mpState.roomCode = rawInput;
+    mpState.myId = 'p_' + Math.random().toString(36).slice(2, 10);
 
     const statusEl = document.getElementById('mp-status-badge');
     if (statusEl) {
@@ -232,26 +420,51 @@ function joinMultiplayerRoom(overrideCode) {
     }
 
     sendWsPresence();
+    broadcastSocialPresence(true);
 
-    if (typeof Peer === 'undefined') return;
-    if (mpState.peer) mpState.peer.destroy();
-    mpState.connections = [];
+    if (typeof Peer !== 'undefined') {
+        try {
+            const peer = new Peer(mpState.myId);
+            mpState.peer = peer;
+            peer.on('open', (id) => {
+                mpState.myId = id;
+                updateMpCounters();
+                broadcastGameAnnounce();
+            });
+            peer.on('connection', (conn) => {
+                setupPeerConnection(conn);
+            });
+        } catch (e) {}
+    }
 
-    const peer = new Peer();
-    mpState.peer = peer;
+    const sb = typeof getSupabaseClient === 'function' ? getSupabaseClient() : null;
+    if (sb) {
+        try {
+            const chName = `boblox_party_${rawInput}`;
+            const gameCh = sb.channel(chName, { config: { broadcast: { self: false } } });
+            mpState.supabaseGameChannel = gameCh;
 
-    peer.on('open', (id) => {
-        mpState.myId = id;
-        const hostConn = peer.connect(`boblox-cz-party6-${rawInput}`, { reliable: false });
-        setupPeerConnection(hostConn);
-    });
-
-    peer.on('error', () => {
-        if (statusEl) {
-            statusEl.textContent = 'Párty nenalezena nebo kamarád není online!';
-            statusEl.className = 'text-xs font-bold text-red-400';
-        }
-    });
+            gameCh.on('broadcast', { event: 'peerAnnounce' }, ({ payload }) => {
+                handleRemotePlayerAnnounce(payload);
+            });
+            gameCh.on('broadcast', { event: 'playerPacket' }, ({ payload }) => {
+                if (!payload || payload.id === mpState.myId) return;
+                handleMultiplayerPacket(payload, null);
+            });
+            gameCh.on('broadcast', { event: 'peerLeave' }, ({ payload }) => {
+                if (payload && payload.id) removeRemotePlayer(payload.id);
+            });
+            gameCh.subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                    if (statusEl) {
+                        statusEl.textContent = `Párty ${rawInput} (Připojeno)`;
+                        statusEl.className = 'text-xs font-bold text-[#00B06F]';
+                    }
+                    broadcastGameAnnounce();
+                }
+            });
+        } catch (e) {}
+    }
 }
 
 function setupPeerConnection(conn) {
@@ -267,8 +480,10 @@ function setupPeerConnection(conn) {
             statusEl.className = 'text-xs font-bold text-[#00B06F]';
         }
         updateMpCounters();
-        sfx.playCoin();
-        showHudToast(mpState.mode === 'public' ? 'Hráč se připojil z globálního matchmakingu!' : 'Kamarád se připojil do párty!', 'green');
+        if (typeof sfx !== 'undefined' && sfx.playCoin) sfx.playCoin();
+        if (typeof showHudToast === 'function') {
+            showHudToast(mpState.mode === 'public' ? 'Hráč se připojil z globálního matchmakingu!' : 'Kamarád se připojil do párty!', 'green');
+        }
 
         if (mpState.isHost && activeGameMode) {
             conn.send({ type: 'hostGameSelect', gameMode: activeGameMode });
@@ -286,13 +501,58 @@ function setupPeerConnection(conn) {
     });
 }
 
-// WebSocket & BroadcastChannel Live Presence + Matchmaking Relay
+function sendSocialBroadcast(event, payload) {
+    if (mpState.supabaseSocialChannel) {
+        try {
+            mpState.supabaseSocialChannel.send({
+                type: 'broadcast',
+                event: event,
+                payload: payload
+            });
+        } catch (e) {}
+    }
+    if (mpState.bc) {
+        try {
+            mpState.bc.postMessage({
+                type: 'social_event',
+                event: event,
+                payload: payload
+            });
+        } catch (e) {}
+    }
+}
+
+function broadcastSocialPresence(inGame = false) {
+    const myUName = (typeof authState !== 'undefined' && authState.user && authState.user.username)
+        ? authState.user.username
+        : mpState.nickname;
+    const myUid = (typeof authState !== 'undefined' && authState.user && authState.user.id)
+        ? authState.user.id
+        : mpState.myId;
+
+    const payload = {
+        id: myUid,
+        username: myUName,
+        inGame: inGame || !!activeGameMode,
+        gameId: activeGameMode || null,
+        gameTitle: activeGameMode ? ((typeof GAMES_CATALOG !== 'undefined' && GAMES_CATALOG.find(g => g.id === activeGameMode)?.title) || activeGameMode) : null,
+        roomCode: mpState.roomCode || null,
+        mode: mpState.mode
+    };
+    sendSocialBroadcast('friend_presence', payload);
+}
+
+// WebSocket, Supabase Realtime Social & BroadcastChannel Live Presence
 function initLiveSocketAndPresence() {
     if (mpState.bc) {
         mpState.bc.onmessage = (ev) => {
             const data = ev.data;
             if (!data) return;
-            if (data.type === 'tabHeartbeat' && data.tabId !== mpState.myId) {
+            if (data.type === 'social_event') {
+                if (typeof handleIncomingSocialPacket === 'function') {
+                    handleIncomingSocialPacket(data.event, data.payload);
+                }
+            } else if (data.type === 'tabHeartbeat' && data.tabId !== mpState.myId) {
                 mpState.localTabPeers[data.tabId] = { gameId: data.gameId, lastSeen: Date.now() };
                 recomputeLivePlayerCounts();
             } else if ((data.type === 'playerState' || data.type === 'weaponSwitch' || data.type === 'chatMessage') && data.id !== mpState.myId) {
@@ -305,6 +565,49 @@ function initLiveSocketAndPresence() {
         };
     }
 
+    // Initialize Supabase Social Realtime Channel (Cross-device friend requests & presence)
+    const sb = typeof getSupabaseClient === 'function' ? getSupabaseClient() : null;
+    if (sb && !mpState.supabaseSocialChannel) {
+        try {
+            const socialCh = sb.channel('boblox_social', {
+                config: { broadcast: { self: false } }
+            });
+            mpState.supabaseSocialChannel = socialCh;
+
+            socialCh.on('broadcast', { event: 'friend_request_send' }, ({ payload }) => {
+                if (typeof handleIncomingSocialPacket === 'function') {
+                    handleIncomingSocialPacket('friend_request_send', payload);
+                }
+            });
+
+            socialCh.on('broadcast', { event: 'friend_request_accept' }, ({ payload }) => {
+                if (typeof handleIncomingSocialPacket === 'function') {
+                    handleIncomingSocialPacket('friend_request_accept', payload);
+                }
+            });
+
+            socialCh.on('broadcast', { event: 'friend_request_cancel' }, ({ payload }) => {
+                if (typeof handleIncomingSocialPacket === 'function') {
+                    handleIncomingSocialPacket('friend_request_cancel', payload);
+                }
+            });
+
+            socialCh.on('broadcast', { event: 'friend_presence' }, ({ payload }) => {
+                if (typeof handleIncomingSocialPacket === 'function') {
+                    handleIncomingSocialPacket('friend_presence', payload);
+                }
+            });
+
+            socialCh.subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                    broadcastSocialPresence(!!activeGameMode);
+                }
+            });
+        } catch (e) {
+            console.warn('Supabase social channel init failed:', e);
+        }
+    }
+
     setInterval(() => {
         if (mpState.bc) {
             mpState.bc.postMessage({
@@ -313,8 +616,9 @@ function initLiveSocketAndPresence() {
                 gameId: activeGameMode || null
             });
         }
+        broadcastSocialPresence(!!activeGameMode);
         recomputeLivePlayerCounts();
-    }, 2500);
+    }, 3500);
 
     if (!isStaticHostingWithoutBackend() && (location.protocol === 'http:' || location.protocol === 'https:')) {
         try {
@@ -584,17 +888,51 @@ function handleMultiplayerPacket(packet, sourceConn) {
 }
 
 function sendMultiplayerPacket(payload) {
+    // 1. Direct WebRTC DataConnections (PeerJS mesh)
     mpState.connections.forEach(c => {
-        if (c.open) c.send(payload);
+        if (c.open) {
+            try { c.send(payload); } catch (e) {}
+        }
     });
-    if (mpState.ws && mpState.ws.readyState === 1) {
-        mpState.ws.send(JSON.stringify(payload));
+
+    // 2. Supabase Realtime fallback broadcast
+    if (mpState.supabaseGameChannel) {
+        if (payload.type === 'chatMessage') {
+            try {
+                mpState.supabaseGameChannel.send({
+                    type: 'broadcast',
+                    event: 'playerPacket',
+                    payload: payload
+                });
+            } catch (e) {}
+        } else if (payload.type === 'playerState') {
+            const now = performance.now();
+            if (!mpState.lastSupabaseSync || now - mpState.lastSupabaseSync > 110) {
+                mpState.lastSupabaseSync = now;
+                try {
+                    mpState.supabaseGameChannel.send({
+                        type: 'broadcast',
+                        event: 'playerPacket',
+                        payload: payload
+                    });
+                } catch (e) {}
+            }
+        }
     }
+
+    // 3. Fallback WebSocket
+    if (mpState.ws && mpState.ws.readyState === 1) {
+        try { mpState.ws.send(JSON.stringify(payload)); } catch (e) {}
+    }
+
+    // 4. Same-device multi-tab testing via BroadcastChannel
     if (mpState.bc) {
-        mpState.bc.postMessage(Object.assign({}, payload, {
-            mode: mpState.mode,
-            roomCode: mpState.roomCode
-        }));
+        try {
+            mpState.bc.postMessage(Object.assign({}, payload, {
+                mode: mpState.mode,
+                roomCode: mpState.roomCode
+            }));
+        } catch (e) {}
     }
 }
 

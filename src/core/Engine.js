@@ -517,6 +517,9 @@ function startGame(gameId, skipAutoMatchmaking = false) {
     if (typeof setRobloxShiftLock === 'function') {
         setRobloxShiftLock(false);
     }
+    if (typeof updateMobileControlsVisibility === 'function') {
+        updateMobileControlsVisibility();
+    }
 
     // Reset Player State
     playerState.hp = 100;
@@ -570,6 +573,10 @@ function startGame(gameId, skipAutoMatchmaking = false) {
 }
 
 function leavePublicMatchmaking() {
+    if (typeof leaveGameNetwork === 'function') {
+        leaveGameNetwork();
+        return;
+    }
     mpState.connections.forEach(c => { try { c.close(); } catch (e) { } });
     mpState.connections = [];
     Object.keys(mpState.remotePlayers).forEach(pid => { delete mpState.remotePlayers[pid]; });
@@ -592,6 +599,9 @@ function returnToLobby() {
     try {
         touchState.joyTouchId = null; touchState.joyX = 0; touchState.joyY = 0;
         touchState.lookTouchId = null; touchState.jumpPressed = false;
+        if (typeof updateMobileControlsVisibility === 'function') {
+            updateMobileControlsVisibility();
+        }
         Object.keys(keysPressed).forEach(k => { keysPressed[k] = false; });
         cleanupCurrentGame();
         if (mpState.mode === 'public' && mpState.peer) leavePublicMatchmaking();

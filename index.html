@@ -628,6 +628,19 @@
                     <span id="people-results-query-text" class="text-white font-extrabold">Přátelé</span>
                 </h2>
 
+                <!-- Incoming Friend Requests Banner Section (Shown when requests exist) -->
+                <div id="people-incoming-requests-container" class="hidden space-y-2.5 bg-[#232527] border border-[#393B3D] rounded-xl p-4 shadow-lg">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-xs sm:text-sm font-extrabold text-white flex items-center gap-2">
+                            <span>👥 Příchozí žádosti o přátelství</span>
+                            <span id="people-incoming-requests-badge" class="px-2 py-0.5 rounded-full bg-[#00A2FF] text-[10px] font-bold text-white">0</span>
+                        </h3>
+                    </div>
+                    <div id="people-incoming-requests-list" class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                        <!-- Populated via JS -->
+                    </div>
+                </div>
+
                 <!-- In-Page Search Box -->
                 <div class="relative">
                     <svg class="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1294,20 +1307,26 @@
         <div id="hud-toast-container" class="fixed top-24 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex flex-col items-center gap-2"></div>
 
         <!-- ROBLOX-STYLE MOBILE TOUCH CONTROLS OVERLAY -->
-        <div id="mobile-touch-controls" class="fixed inset-0 z-20 pointer-events-none">
-            <!-- Left-Bottom: Virtual Analog Thumbstick Joystick -->
-            <div id="touch-joystick-zone" class="fixed left-5 bottom-6 sm:left-8 sm:bottom-8 pointer-events-auto md:hidden">
+        <div id="mobile-touch-controls" class="fixed inset-0 z-20 pointer-events-none select-none hidden">
+            <!-- Left-Screen Zone for Movement & Thumbstick (Generous hit area for mobile thumb) -->
+            <div id="touch-move-zone" class="fixed top-12 left-0 bottom-0 w-[48%] pointer-events-auto z-10 touch-none select-none"></div>
+
+            <!-- Left-Bottom: Virtual Analog Thumbstick Joystick Visual -->
+            <div id="touch-joystick-zone" class="fixed left-5 bottom-6 sm:left-8 sm:bottom-8 pointer-events-none z-20 touch-none">
                 <div id="touch-joystick-base" class="roblox-joystick-base">
                     <div id="touch-joystick-knob" class="roblox-joystick-knob"></div>
                 </div>
             </div>
 
-            <!-- Right-Bottom: Dedicated Circular Jump Button (Upward Arrow Icon) & Action/Attack Button -->
-            <div class="fixed right-5 bottom-6 sm:right-8 sm:bottom-8 flex items-end gap-3.5 pointer-events-auto md:hidden">
-                <button id="touch-action-btn" type="button" aria-label="Útok nebo akce" class="roblox-action-btn mb-1">
+            <!-- Right-Screen Swipe Area for Smooth Camera Pitch/Yaw Rotation -->
+            <div id="roblox-camera-touch-zone" class="fixed top-0 right-0 bottom-0 w-[52%] pointer-events-auto z-10 touch-none select-none"></div>
+
+            <!-- Right-Bottom: Dedicated Circular Jump Button & Action/Attack Button (z-30 ensures priority over camera swipe) -->
+            <div class="fixed right-4 bottom-5 sm:right-8 sm:bottom-8 flex items-end gap-3 pointer-events-auto z-30 touch-none">
+                <button id="touch-action-btn" type="button" aria-label="Útok nebo akce" class="roblox-action-btn mb-1 active:scale-95 transition-transform">
                     <span id="touch-action-icon" class="text-2xl leading-none">⚔️</span>
                 </button>
-                <button id="touch-jump-btn" type="button" aria-label="Skok" class="roblox-jump-btn">
+                <button id="touch-jump-btn" type="button" aria-label="Skok" class="roblox-jump-btn active:scale-95 transition-transform">
                     <svg class="w-10 h-10 text-white drop-shadow" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M5 11l7-7 7 7M12 4v16"/>
                     </svg>
@@ -1692,14 +1711,14 @@
     </div>
 
     <!-- BOBLOX Modular Architecture (Core Engine, State, Network, Games & UI with Cache-Busting) -->
-    <script src="src/core/SoundEngine.js?v=2.8" defer></script>
-    <script src="src/state/PortalStore.js?v=2.8" defer></script>
-    <script src="src/network/NetworkManager.js?v=2.8" defer></script>
-    <script src="src/ui/PortalUI.js?v=2.8" defer></script>
-    <script src="src/core/AvatarAndShop.js?v=2.8" defer></script>
-    <script src="src/core/Engine.js?v=2.8" defer></script>
-    <script src="src/games/GameWorlds.js?v=2.8" defer></script>
-    <script src="src/core/PhysicsAndLoop.js?v=2.8" defer></script>
-    <script src="src/core/InputManager.js?v=2.8" defer></script>
+    <script src="src/core/SoundEngine.js?v=2.9" defer></script>
+    <script src="src/state/PortalStore.js?v=2.9" defer></script>
+    <script src="src/network/NetworkManager.js?v=2.9" defer></script>
+    <script src="src/ui/PortalUI.js?v=2.9" defer></script>
+    <script src="src/core/AvatarAndShop.js?v=2.9" defer></script>
+    <script src="src/core/Engine.js?v=2.9" defer></script>
+    <script src="src/games/GameWorlds.js?v=2.9" defer></script>
+    <script src="src/core/PhysicsAndLoop.js?v=2.9" defer></script>
+    <script src="src/core/InputManager.js?v=2.9" defer></script>
 </body>
 </html>

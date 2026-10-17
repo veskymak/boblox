@@ -1257,11 +1257,276 @@ function captureRobloxScreenshot() {
  * 4C. ROBLOX MODERN WEB PORTAL: HOME, PROFILE, FRIENDS SYSTEM & PEOPLE SEARCH
  * ============================================================================ */
 const STORAGE_KEY_FRIENDS = 'boblox_friends_list_v1';
+const STORAGE_KEY_SENT_REQUESTS = 'boblox_sent_friend_requests_v1';
+const STORAGE_KEY_RECEIVED_REQUESTS = 'boblox_received_friend_requests_v1';
+const STORAGE_KEY_FRIENDS_CACHE = 'boblox_friends_profiles_cache_v1';
 
 const ROBLOX_DIRECTORY_PLAYERS = [];
-
 const DEMO_FRIEND_ID_PREFIXES = ['p_volvo', 'p_vanessik', 'p_wizardmax', 'p_legion_main', 'p_vojta', 'p_elsa', 'p_dylinkaa', 'p_roboctak', 'p_addarian', 'p_holymoly', 'p_mesty', 'p_swayy', 'p_nahoda'];
-const STORAGE_KEY_FRIENDS_CACHE = 'boblox_friends_profiles_cache_v1';
+
+let sentFriendRequests = (() => {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY_SENT_REQUESTS);
+        return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+})();
+
+let receivedFriendRequests = (() => {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY_RECEIVED_REQUESTS);
+        return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+})();
+
+const liveFriendsPresence = {}; // friendId/username -> { inGame: boolean, gameId, gameTitle, roomCode, lastSeen }
+
+function saveSentFriendRequests() {
+    localStorage.setItem(STORAGE_KEY_SENT_REQUESTS, JSON.stringify(sentFriendRequests));
+}
+
+function saveReceivedFriendRequests() {
+    localStorage.setItem(STORAGE_KEY_RECEIVED_REQUESTS, JSON.stringify(receivedFriendRequests));
+    updateSidebarFriendsBadge();
+}
+
+function hasSentFriendRequest(playerId) {
+    if (!playerId) return false;
+    return !!sentFriendRequests[playerId];
+}
+
+function hasReceivedFriendRequest(playerId) {
+    if (!playerId) return false;
+    return !!receivedFriendRequests[playerId];
+}
+
+function updateSidebarFriendsBadge() {
+    const badge = document.getElementById('sidebar-friends-badge');
+    const incomingCount = Object.keys(receivedFriendRequests).length;
+    if (badge) {
+        if (incomingCount > 0) {
+            badge.textContent = String(incomingCount);
+            badge.className = 'px-2 py-0.5 rounded-full bg-[#00A2FF] text-[10px] font-extrabold text-white animate-pulse';
+            badge.title = `${incomingCount} příchozích žádostí o přátelství`;
+            badge.classList.remove('hidden');
+        } else {
+            const count = friendsSet.size;
+            badge.textContent = String(count);
+            badge.className = 'px-2 py-0.5 rounded-full bg-[#2C2F33] text-[10px] font-bold text-gray-400';
+            badge.title = '';
+            badge.classList.toggle('hidden', count === 0);
+        }
+    }
+}
+
+function handleIncomingSocialPacket(event, payload) {
+    if (!payload) return;
+    const myProfile = getLocalRobloxPlayerProfile();
+    const myId = myProfile.id;
+    const myUName = (myProfile.username || myProfile.displayName || '').toLowerCase();
+
+    if (event === 'friend_request_send') {
+        const toIdMatch = payload.toId && (payload.toId === myId || payload.toId === `db_${myUName}`);
+        const toNameMatch = payload.toUsername && payload.toUsername.toLowerCase() === myUName;
+        if (toIdMatch || toNameMatch) {
+            receivedFriendRequests[payload.fromId] = {
+                id: payload.fromId,
+                username: payload.fromUsername || 'Hráč',
+                receivedAt: Date.now(),
+                senderProfile: payload.senderProfile || null
+            };
+            saveReceivedFriendRequests();
+            if (typeof sfx !== 'undefined' && sfx.playCoin) sfx.playCoin();
+            if (typeof showHudToast === 'function') {
+                showHudToast(`👥 ${payload.fromUsername} ti poslal žádost o přátelství!`, 'green');
+            }
+            renderHomeFriendsStrip();
+            if (activePortalSection === 'profile') renderPortalProfileView();
+            if (activePortalSection === 'people') renderPeopleResultsGrid();
+        }
+    } else if (event === 'friend_request_accept') {
+        const toIdMatch = payload.toId && (payload.toId === myId || payload.toId === `db_${myUName}`);
+        const toNameMatch = payload.toUsername && payload.toUsername.toLowerCase() === myUName;
+        if (toIdMatch || toNameMatch) {
+            delete sentFriendRequests[payload.fromId];
+            saveSentFriendRequests();
+            friendsSet.add(payload.fromId);
+            saveFriendsList();
+            if (payload.acceptorProfile) {
+                saveCachedFriendProfile(payload.acceptorProfile);
+            }
+            if (typeof sfx !== 'undefined' && sfx.playWinFanfare) sfx.playWinFanfare();
+            if (typeof showHudToast === 'function') {
+                showHudToast(`🎉 ${payload.fromUsername} přijal tvou žádost o přátelství! Nyní jste přátelé.`, 'green');
+            }
+            renderHomeFriendsStrip();
+            if (activePortalSection === 'profile') renderPortalProfileView();
+            if (activePortalSection === 'people') renderPeopleResultsGrid();
+        }
+    } else if (event === 'friend_request_cancel') {
+        if (payload.toId === myId || (payload.toUsername && payload.toUsername.toLowerCase() === myUName)) {
+            delete receivedFriendRequests[payload.fromId];
+            saveReceivedFriendRequests();
+            renderHomeFriendsStrip();
+            if (activePortalSection === 'profile') renderPortalProfileView();
+            if (activePortalSection === 'people') renderPeopleResultsGrid();
+        }
+    } else if (event === 'friend_presence') {
+        if (payload.id) {
+            liveFriendsPresence[payload.id] = payload;
+        }
+        if (payload.username) {
+            liveFriendsPresence[payload.username.toLowerCase()] = payload;
+        }
+        if (friendsSet.has(payload.id) || (payload.username && [...friendsSet].some(fid => fid.toLowerCase().includes(payload.username.toLowerCase())))) {
+            renderHomeFriendsStrip();
+            if (activePortalSection === 'people') renderPeopleResultsGrid();
+        }
+    }
+}
+
+function sendFriendRequest(playerId) {
+    if (!playerId || playerId === 'local') return;
+    const player = getPlayerById(playerId);
+    const pName = player.username || player.displayName || 'Hráč';
+    const myProfile = getLocalRobloxPlayerProfile();
+
+    sentFriendRequests[playerId] = {
+        id: playerId,
+        username: pName,
+        sentAt: Date.now()
+    };
+    saveSentFriendRequests();
+
+    if (typeof sendSocialBroadcast === 'function') {
+        sendSocialBroadcast('friend_request_send', {
+            fromId: myProfile.id,
+            fromUsername: myProfile.username,
+            toId: playerId,
+            toUsername: pName,
+            senderProfile: myProfile
+        });
+    }
+
+    if (typeof showHudToast === 'function') {
+        showHudToast(`📩 Žádost o přátelství odeslána (${pName})!`, 'blue');
+    }
+
+    renderHomeFriendsStrip();
+    if (activePortalSection === 'profile') renderPortalProfileView();
+    if (activePortalSection === 'people') renderPeopleResultsGrid();
+}
+
+function cancelFriendRequest(playerId) {
+    if (!playerId) return;
+    const myProfile = getLocalRobloxPlayerProfile();
+    delete sentFriendRequests[playerId];
+    saveSentFriendRequests();
+
+    if (typeof sendSocialBroadcast === 'function') {
+        sendSocialBroadcast('friend_request_cancel', {
+            fromId: myProfile.id,
+            toId: playerId
+        });
+    }
+
+    if (typeof showHudToast === 'function') {
+        showHudToast('Žádost o přátelství byla zrušena.', 'blue');
+    }
+
+    renderHomeFriendsStrip();
+    if (activePortalSection === 'profile') renderPortalProfileView();
+    if (activePortalSection === 'people') renderPeopleResultsGrid();
+}
+
+function acceptFriendRequest(playerId) {
+    if (!playerId) return;
+    const myProfile = getLocalRobloxPlayerProfile();
+    const req = receivedFriendRequests[playerId];
+    const player = getPlayerById(playerId);
+    const pName = req?.username || player.username || player.displayName || 'Hráč';
+
+    delete receivedFriendRequests[playerId];
+    saveReceivedFriendRequests();
+
+    friendsSet.add(playerId);
+    saveFriendsList();
+
+    if (req?.senderProfile) {
+        saveCachedFriendProfile(req.senderProfile);
+    } else if (player) {
+        saveCachedFriendProfile(player);
+    }
+
+    if (typeof sendSocialBroadcast === 'function') {
+        sendSocialBroadcast('friend_request_accept', {
+            fromId: myProfile.id,
+            fromUsername: myProfile.username,
+            toId: playerId,
+            toUsername: pName,
+            acceptorProfile: myProfile
+        });
+    }
+
+    if (typeof sfx !== 'undefined' && sfx.playCoin) sfx.playCoin();
+    if (typeof showHudToast === 'function') {
+        showHudToast(`🎉 Nyní jste přátelé s ${pName}!`, 'green');
+    }
+
+    renderHomeFriendsStrip();
+    if (activePortalSection === 'profile') renderPortalProfileView();
+    if (activePortalSection === 'people') renderPeopleResultsGrid();
+}
+
+function declineFriendRequest(playerId) {
+    if (!playerId) return;
+    delete receivedFriendRequests[playerId];
+    saveReceivedFriendRequests();
+
+    if (typeof showHudToast === 'function') {
+        showHudToast('Žádost o přátelství odmítnuta.', 'blue');
+    }
+
+    renderHomeFriendsStrip();
+    if (activePortalSection === 'profile') renderPortalProfileView();
+    if (activePortalSection === 'people') renderPeopleResultsGrid();
+}
+
+function removeFriend(playerId) {
+    if (!playerId) return;
+    const player = getPlayerById(playerId);
+    const pName = player.username || player.displayName || 'Hráč';
+
+    friendsSet.delete(playerId);
+    removeCachedFriendProfile(playerId);
+    saveFriendsList();
+
+    if (typeof showHudToast === 'function') {
+        showHudToast(`${pName} byl odebrán z přátel.`, 'blue');
+    }
+
+    renderHomeFriendsStrip();
+    if (activePortalSection === 'profile') renderPortalProfileView();
+    if (activePortalSection === 'people') renderPeopleResultsGrid();
+}
+
+function joinFriendGame(gameId, roomCode) {
+    if (!gameId) return;
+    const targetGame = typeof GAMES_CATALOG !== 'undefined' ? GAMES_CATALOG.find(g => g.id === gameId) : null;
+    const title = targetGame ? targetGame.title : gameId.toUpperCase();
+
+    if (typeof showHudToast === 'function') {
+        showHudToast(`🎮 Připojuji se ke hře přítele (${title})...`, 'green');
+    }
+
+    if (roomCode) {
+        setMatchmakingMode('private');
+        joinMultiplayerRoom(roomCode);
+    } else {
+        setMatchmakingMode('public');
+    }
+
+    startGame(gameId);
+}
 
 function getCachedFriendsProfiles() {
     try {
@@ -1300,6 +1565,7 @@ let friendsSet = new Set((() => {
 
 function saveFriendsList() {
     localStorage.setItem(STORAGE_KEY_FRIENDS, JSON.stringify([...friendsSet]));
+    updateSidebarFriendsBadge();
 }
 
 function isPlayerFriend(playerId) {
@@ -1988,12 +2254,18 @@ function renderHomeFriendsStrip() {
             item.className = 'flex flex-col items-center gap-1 w-20 shrink-0 group text-center focus:outline-none';
 
             const canvasId = `home-friend-canvas-${idx}`;
+            const presence = liveFriendsPresence[friend.id] || liveFriendsPresence[(friend.username || '').toLowerCase()] || {};
+            const isPlaying = presence.inGame && presence.gameId;
+            const gameTitle = presence.gameTitle || presence.gameId;
+
             let statusDotHtml = '';
-            if (friend.status === 'ingame') {
+            let subtitleHtml = '';
+            if (isPlaying) {
                 statusDotHtml = `
-                    <span class="absolute bottom-0.5 right-0.5 w-5 h-5 rounded-full bg-[#00B06F] border-2 border-[#191B1D] flex items-center justify-center text-white shadow" title="Ve hře">
+                    <span class="absolute bottom-0.5 right-0.5 w-5 h-5 rounded-full bg-[#00B06F] border-2 border-[#191B1D] flex items-center justify-center text-white shadow animate-pulse" title="Právě hraje: ${escapeHtml(gameTitle)}">
                         <svg class="w-3 h-3 fill-current" viewBox="0 0 20 20"><path d="M4 8h12l2 6-3 2-3-3H8l-3 3-3-2 2-6z"/></svg>
                     </span>`;
+                subtitleHtml = `<span class="text-[9px] text-[#00B06F] font-bold truncate w-full -mt-0.5">🎮 ${escapeHtml(gameTitle)}</span>`;
             } else if (friend.status === 'online') {
                 statusDotHtml = `<span class="absolute bottom-0.5 right-0.5 w-4 h-4 rounded-full bg-[#00A2FF] border-2 border-[#191B1D]" title="Online"></span>`;
             }
@@ -2005,7 +2277,7 @@ function renderHomeFriendsStrip() {
                     ${statusDotHtml}
                 </div>
                 <span class="text-[11px] font-semibold text-gray-200 group-hover:text-white truncate w-full mt-0.5">${escapeHtml(friendName)}</span>
-                ${friend.playingGame ? `<span class="text-[9px] text-gray-400 truncate w-full -mt-1">${escapeHtml(friend.playingGame)}</span>` : ''}
+                ${subtitleHtml}
             `;
             strip.appendChild(item);
 
@@ -2262,18 +2534,62 @@ function renderPortalProfileView() {
             `;
         } else {
             const isFriend = isPlayerFriend(profile.id);
-            const friendBtnLabel = isFriend ? 'Unfriend' : 'Add friend';
-            const friendBtnClass = isFriend
-                ? 'px-4 py-2 rounded-lg bg-[#2C2F33] hover:bg-red-600/80 text-xs sm:text-sm font-bold text-white border border-white/10 transition'
-                : 'px-4 py-2 rounded-lg bg-[#00A2FF] hover:bg-[#008BDB] text-xs sm:text-sm font-bold text-white shadow transition';
+            const isSent = hasSentFriendRequest(profile.id);
+            const isReceived = hasReceivedFriendRequest(profile.id);
+            const presence = liveFriendsPresence[profile.id] || liveFriendsPresence[(profile.username || '').toLowerCase()] || {};
+            const isPlaying = isFriend && presence.inGame && presence.gameId;
+
+            let friendButtonsHtml = '';
+            let joinBtnHtml = '';
+
+            if (isPlaying) {
+                const gameTitle = presence.gameTitle || presence.gameId;
+                joinBtnHtml = `
+                    <button type="button" onclick="joinFriendGame('${presence.gameId}', '${presence.roomCode || ''}')" class="px-4 py-2 rounded-lg bg-[#00B06F] hover:bg-[#009E63] text-xs sm:text-sm font-bold text-white shadow transition flex items-center gap-1.5 animate-pulse" title="Připojit se ke hře">
+                        <span>🎮</span>
+                        <span>Připojit se ke hře</span>
+                    </button>
+                `;
+            }
+
+            if (isFriend) {
+                friendButtonsHtml = `
+                    <span class="px-3.5 py-2 rounded-lg bg-[#232527] border border-[#393B3D] text-xs font-bold text-[#00A2FF] flex items-center gap-1">
+                        <span>👥</span> Přátelé
+                    </span>
+                    <button type="button" onclick="removeFriend('${profile.id}')" class="px-3.5 py-2 rounded-lg bg-[#2C2F33] hover:bg-red-600/80 text-xs sm:text-sm font-bold text-gray-300 hover:text-white border border-white/10 transition" title="Odebrat z přátel">
+                        Odebrat
+                    </button>
+                `;
+            } else if (isReceived) {
+                friendButtonsHtml = `
+                    <button type="button" onclick="acceptFriendRequest('${profile.id}')" class="px-4 py-2 rounded-lg bg-[#00B06F] hover:bg-[#009E63] text-xs sm:text-sm font-bold text-white shadow transition">
+                        ✓ Přijmout žádost
+                    </button>
+                    <button type="button" onclick="declineFriendRequest('${profile.id}')" class="px-3 py-2 rounded-lg bg-[#2C2F33] hover:bg-[#393B3D] text-xs sm:text-sm font-bold text-gray-300 transition">
+                        ✕ Odmítnout
+                    </button>
+                `;
+            } else if (isSent) {
+                friendButtonsHtml = `
+                    <button type="button" onclick="cancelFriendRequest('${profile.id}')" class="px-4 py-2 rounded-lg bg-[#2C2F33] hover:bg-red-600/80 text-xs sm:text-sm font-bold text-gray-200 hover:text-white border border-white/10 transition" title="Kliknutím zrušíš žádost">
+                        Žádost odeslána ⏳
+                    </button>
+                `;
+            } else {
+                friendButtonsHtml = `
+                    <button type="button" onclick="sendFriendRequest('${profile.id}')" class="px-4 py-2 rounded-lg bg-[#00A2FF] hover:bg-[#008BDB] text-xs sm:text-sm font-bold text-white shadow transition">
+                        + Přidat do přátel
+                    </button>
+                `;
+            }
 
             actionsEl.innerHTML = `
-                <button type="button" onclick="openBottomChatWithPlayer('${profile.id}')" class="px-5 py-2 rounded-lg bg-[#2C2F33] hover:bg-[#393B3D] text-xs sm:text-sm font-bold text-white border border-white/10 transition">
+                ${joinBtnHtml}
+                <button type="button" onclick="openBottomChatWithPlayer('${profile.id}')" class="px-4 py-2 rounded-lg bg-[#2C2F33] hover:bg-[#393B3D] text-xs sm:text-sm font-bold text-white border border-white/10 transition">
                     Chat
                 </button>
-                <button type="button" onclick="toggleFriendStatus('${profile.id}')" class="${friendBtnClass}">
-                    ${friendBtnLabel}
-                </button>
+                ${friendButtonsHtml}
                 <button type="button" class="w-9 h-9 rounded-lg bg-[#2C2F33] hover:bg-[#393B3D] text-white font-bold flex items-center justify-center border border-white/10 transition">
                     •••
                 </button>
@@ -2722,6 +3038,20 @@ function renderTopSearchDropdown(query) {
         row.className = 'w-full px-3.5 py-2 flex items-center justify-between hover:bg-[#2C2F33] transition text-left';
         const cid = `dd-player-canvas-${idx}`;
         const isFriend = isPlayerFriend(p.id);
+        const isSent = hasSentFriendRequest(p.id);
+        const isReceived = hasReceivedFriendRequest(p.id);
+        let tagText = 'Zobrazit profil';
+        let tagClass = 'text-gray-400';
+        if (isFriend) {
+            tagText = 'Přítel ✓';
+            tagClass = 'text-[#00A2FF] font-bold';
+        } else if (isReceived) {
+            tagText = 'Žádost o přátelství';
+            tagClass = 'text-[#00B06F] font-bold';
+        } else if (isSent) {
+            tagText = 'Žádost odeslána ⏳';
+            tagClass = 'text-yellow-400';
+        }
         const pName = p.username || p.displayName;
         row.innerHTML = `
             <div class="flex items-center gap-2.5 min-w-0">
@@ -2731,7 +3061,7 @@ function renderTopSearchDropdown(query) {
                     <div class="text-[10px] text-gray-400 truncate">@${escapeHtml(pName)}</div>
                 </div>
             </div>
-            <span class="text-[10px] font-semibold ${isFriend ? 'text-[#00A2FF]' : 'text-gray-400'}">${isFriend ? 'Friend ✓' : 'View Profile'}</span>
+            <span class="text-[10px] font-semibold ${tagClass}">${tagText}</span>
         `;
         dd.appendChild(row);
         drawPlayerHeadshotCanvas(document.getElementById(cid), p);
@@ -2799,6 +3129,54 @@ function renderPeopleResultsGrid() {
     const labelEl = document.getElementById('people-results-query-text');
     if (!grid) return;
 
+    // 1. Render Incoming Friend Requests Banner Section
+    const reqContainer = document.getElementById('people-incoming-requests-container');
+    const reqList = document.getElementById('people-incoming-requests-list');
+    const reqBadge = document.getElementById('people-incoming-requests-badge');
+
+    const incomingEntries = Object.entries(receivedFriendRequests);
+    if (reqContainer && reqList) {
+        if (incomingEntries.length > 0) {
+            reqContainer.classList.remove('hidden');
+            if (reqBadge) reqBadge.textContent = String(incomingEntries.length);
+            reqList.innerHTML = '';
+            incomingEntries.forEach(([senderId, req]) => {
+                const item = document.createElement('div');
+                item.className = 'flex items-center justify-between gap-3 bg-[#191B1D] p-3 rounded-xl border border-[#393B3D] shadow-sm';
+                const senderName = req.username || 'Hráč';
+                const cid = `req-headshot-${senderId.replace(/[^a-zA-Z0-9]/g, '_')}`;
+                item.innerHTML = `
+                    <div class="flex items-center gap-3 min-w-0 cursor-pointer" onclick="openPlayerProfile('${senderId}')">
+                        <canvas id="${cid}" width="44" height="44" class="w-11 h-11 rounded-full bg-[#232527] border border-[#393B3D] shrink-0"></canvas>
+                        <div class="min-w-0">
+                            <div class="text-xs sm:text-sm font-bold text-white truncate">${escapeHtml(senderName)}</div>
+                            <div class="text-[10px] text-gray-400">Ti poslal žádost o přátelství</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        <button type="button" onclick="acceptFriendRequest('${senderId}')" class="px-3.5 py-1.5 rounded-lg bg-[#00B06F] hover:bg-[#009E63] text-xs font-bold text-white shadow transition">
+                            ✓ Přijmout
+                        </button>
+                        <button type="button" onclick="declineFriendRequest('${senderId}')" class="px-2.5 py-1.5 rounded-lg bg-[#2C2F33] hover:bg-[#393B3D] text-xs font-bold text-gray-300 hover:text-white transition">
+                            ✕
+                        </button>
+                    </div>
+                `;
+                reqList.appendChild(item);
+                setTimeout(() => {
+                    const c = document.getElementById(cid);
+                    if (c) {
+                        const p = getPlayerById(senderId) || req.senderProfile;
+                        drawPlayerHeadshotCanvas(c, p);
+                    }
+                }, 10);
+            });
+        } else {
+            reqContainer.classList.add('hidden');
+        }
+    }
+
+    // 2. Render Search Results / Friends Grid
     const q = currentPeopleSearchQuery.trim();
     const qLower = q.toLowerCase();
     const allPlayers = getAllSearchablePlayers();
@@ -2833,6 +3211,11 @@ function renderPeopleResultsGrid() {
 
     results.forEach((p, idx) => {
         const isFriend = isPlayerFriend(p.id);
+        const isSent = hasSentFriendRequest(p.id);
+        const isReceived = hasReceivedFriendRequest(p.id);
+        const presence = liveFriendsPresence[p.id] || liveFriendsPresence[(p.username || '').toLowerCase()] || {};
+        const isPlaying = isFriend && presence.inGame && presence.gameId;
+
         const card = document.createElement('div');
         card.className = 'bg-[#232527] border border-[#2C2F33] hover:border-[#393B3D] rounded-xl p-4 flex flex-col justify-between gap-4 shadow transition';
         const cid = `people-res-canvas-${idx}`;
@@ -2845,25 +3228,67 @@ function renderPeopleResultsGrid() {
                </div>`
             : '';
 
-        const statusLine = isFriend
-            ? `<div class="text-[11px] text-gray-300 flex items-center gap-1 mt-0.5">
-                   <span>👥</span>
-                   <span>Přítel</span>
-               </div>`
-            : `<div class="text-[11px] text-gray-400 mt-0.5">${p.status === 'online' ? 'Online' : (p.status === 'ingame' ? `Playing ${escapeHtml(p.playingGame || 'Boblox')}` : 'Offline')}</div>`;
+        let statusLine = '';
+        if (isPlaying) {
+            statusLine = `<div class="text-[11px] text-[#00B06F] font-semibold flex items-center gap-1 mt-0.5">
+                <span class="w-2 h-2 rounded-full bg-[#00B06F] animate-pulse"></span>
+                <span>Hraje: ${escapeHtml(presence.gameTitle || presence.gameId)}</span>
+            </div>`;
+        } else if (isFriend) {
+            statusLine = `<div class="text-[11px] text-gray-300 flex items-center gap-1 mt-0.5">
+                <span>👥</span>
+                <span>Přítel</span>
+            </div>`;
+        } else {
+            statusLine = `<div class="text-[11px] text-gray-400 mt-0.5">${p.status === 'online' ? 'Online' : 'Offline'}</div>`;
+        }
 
-        const actionBtnHtml = isFriend
-            ? `<div class="flex items-center gap-2">
-                   <button type="button" onclick="openBottomChatWithPlayer('${p.id}')" class="flex-1 py-2 rounded-lg bg-[#393B3D] hover:bg-[#494B4D] text-xs font-bold text-white transition">
-                       Chat
-                   </button>
-                   <button type="button" onclick="toggleFriendStatus('${p.id}')" title="Odebrat z přátel" class="px-3 py-2 rounded-lg bg-[#2C2F33] hover:bg-red-600/80 text-xs font-bold text-gray-300 hover:text-white transition">
-                       ✓
-                   </button>
-               </div>`
-            : `<button type="button" onclick="toggleFriendStatus('${p.id}')" class="w-full py-2 rounded-lg bg-[#393B3D] hover:bg-[#494B4D] text-xs font-bold text-white transition">
-                   Add friend
-               </button>`;
+        let actionBtnHtml = '';
+        if (isFriend) {
+            let joinBtn = '';
+            if (isPlaying) {
+                joinBtn = `
+                    <button type="button" onclick="joinFriendGame('${presence.gameId}', '${presence.roomCode || ''}')" class="py-2 px-3 rounded-lg bg-[#00B06F] hover:bg-[#009E63] text-xs font-bold text-white shadow transition flex items-center justify-center gap-1 animate-pulse" title="Připojit se ke hře">
+                        <span>🎮</span>
+                        <span>Hrát</span>
+                    </button>
+                `;
+            }
+            actionBtnHtml = `
+                <div class="flex items-center gap-2">
+                    ${joinBtn}
+                    <button type="button" onclick="openBottomChatWithPlayer('${p.id}')" class="flex-1 py-2 rounded-lg bg-[#393B3D] hover:bg-[#494B4D] text-xs font-bold text-white transition">
+                        Chat
+                    </button>
+                    <button type="button" onclick="removeFriend('${p.id}')" title="Odebrat z přátel" class="px-3 py-2 rounded-lg bg-[#2C2F33] hover:bg-red-600/80 text-xs font-bold text-gray-300 hover:text-white transition">
+                        ✕
+                    </button>
+                </div>
+            `;
+        } else if (isReceived) {
+            actionBtnHtml = `
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="acceptFriendRequest('${p.id}')" class="flex-1 py-2 rounded-lg bg-[#00B06F] hover:bg-[#009E63] text-xs font-bold text-white transition">
+                        ✓ Přijmout
+                    </button>
+                    <button type="button" onclick="declineFriendRequest('${p.id}')" class="px-3 py-2 rounded-lg bg-[#2C2F33] hover:bg-[#393B3D] text-xs font-bold text-gray-300 transition">
+                        ✕
+                    </button>
+                </div>
+            `;
+        } else if (isSent) {
+            actionBtnHtml = `
+                <button type="button" onclick="cancelFriendRequest('${p.id}')" class="w-full py-2 rounded-lg bg-[#2C2F33] hover:bg-red-600/80 text-xs font-bold text-gray-300 hover:text-white transition" title="Kliknutím zrušíš žádost">
+                    Žádost odeslána ⏳
+                </button>
+            `;
+        } else {
+            actionBtnHtml = `
+                <button type="button" onclick="sendFriendRequest('${p.id}')" class="w-full py-2 rounded-lg bg-[#00A2FF] hover:bg-[#008BDB] text-xs font-bold text-white transition">
+                    + Přidat do přátel
+                </button>
+            `;
+        }
 
         const pName = p.username || p.displayName;
         card.innerHTML = `

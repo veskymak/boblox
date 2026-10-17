@@ -1,13 +1,41 @@
 /* ============================================================================
  * 14. EVENT LISTENERS: ROBLOX-STYLE MOBILE TOUCH, WEAPON SWITCHING & CAMERA
  * ============================================================================ */
+let _mobileTouchControlsInitialized = false;
+
+function isMobileOrTouchDevice() {
+    return ('ontouchstart' in window) ||
+           (navigator.maxTouchPoints > 0) ||
+           (window._bobloxTouchDetected === true) ||
+           (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+}
+
+function updateMobileControlsVisibility() {
+    const overlay = document.getElementById('mobile-touch-controls');
+    if (!overlay) return;
+    if (activeGameMode && isMobileOrTouchDevice()) {
+        overlay.classList.remove('hidden');
+        overlay.style.display = 'block';
+    } else {
+        overlay.classList.add('hidden');
+        overlay.style.display = 'none';
+    }
+}
+
 function initMobileTouchControls() {
-    const joyZone = document.getElementById('touch-joystick-zone') || document.getElementById('roblox-joystick-zone');
-    const joyBase = document.getElementById('touch-joystick-base') || document.getElementById('roblox-joystick-base');
-    const joyKnob = document.getElementById('touch-joystick-knob') || document.getElementById('roblox-joystick-knob');
+    if (_mobileTouchControlsInitialized) {
+        updateMobileControlsVisibility();
+        return;
+    }
+    _mobileTouchControlsInitialized = true;
+
+    const moveZone = document.getElementById('touch-move-zone') || document.getElementById('touch-joystick-zone');
+    const joyZone = document.getElementById('touch-joystick-zone');
+    const joyBase = document.getElementById('touch-joystick-base');
+    const joyKnob = document.getElementById('touch-joystick-knob');
     const lookZone = document.getElementById('roblox-camera-touch-zone');
-    const jumpBtn = document.getElementById('touch-jump-btn') || document.getElementById('roblox-jump-btn');
-    const actionBtn = document.getElementById('touch-action-btn') || document.getElementById('roblox-action-btn');
+    const jumpBtn = document.getElementById('touch-jump-btn');
+    const actionBtn = document.getElementById('touch-action-btn');
 
     const maxRadius = 46;
 
@@ -31,51 +59,48 @@ function initMobileTouchControls() {
         touchState.joyX = 0;
         touchState.joyY = 0;
         if (joyKnob) joyKnob.style.transform = 'translate(-50%, -50%)';
+        if (joyZone) {
+            joyZone.style.left = '';
+            joyZone.style.top = '';
+            joyZone.style.bottom = '';
+            joyZone.style.transform = '';
+        }
     }
 
-    if (joyZone) {
-        joyZone.addEventListener('touchstart', (e) => {
+    // Window-level touch detection to auto-enable mobile overlay if user touches screen
+    window.addEventListener('touchstart', () => {
+        if (!window._bobloxTouchDetected) {
+            window._bobloxTouchDetected = true;
+            updateMobileControlsVisibility();
+        }
+    }, { passive: true });
+
+    // 1. Movement & Dynamic Thumbstick Zone (Left half of screen)
+    if (moveZone) {
+        moveZone.addEventListener('touchstart', (e) => {
             if (!activeGameMode) return;
             e.preventDefault();
             for (let i = 0; i < e.changedTouches.length; i++) {
                 const t = e.changedTouches[i];
                 if (touchState.joyTouchId === null) {
                     touchState.joyTouchId = t.identifier;
-                    const rect = joyBase.getBoundingClientRect();
-                    touchState.joyOriginX = rect.left + rect.width / 2;
-                    touchState.joyOriginY = rect.top + rect.height / 2;
-                    updateJoystickVisual(t.clientX - touchState.joyOriginX, t.clientY - touchState.joyOriginY);
+                    // Dynamic thumbstick: center joystick base right under player's touch
+                    if (joyZone) {
+                        joyZone.style.left = `${t.clientX}px`;
+                        joyZone.style.top = `${t.clientY}px`;
+                        joyZone.style.bottom = 'auto';
+                        joyZone.style.transform = 'translate(-50%, -50%)';
+                    }
+                    touchState.joyOriginX = t.clientX;
+                    touchState.joyOriginY = t.clientY;
+                    updateJoystickVisual(0, 0);
                     break;
                 }
             }
         }, { passive: false });
-
-        joyZone.addEventListener('touchmove', (e) => {
-            if (!activeGameMode || touchState.joyTouchId === null) return;
-            e.preventDefault();
-            for (let i = 0; i < e.changedTouches.length; i++) {
-                const t = e.changedTouches[i];
-                if (t.identifier === touchState.joyTouchId) {
-                    updateJoystickVisual(t.clientX - touchState.joyOriginX, t.clientY - touchState.joyOriginY);
-                    break;
-                }
-            }
-        }, { passive: false });
-
-        const endJoy = (e) => {
-            for (let i = 0; i < e.changedTouches.length; i++) {
-                if (e.changedTouches[i].identifier === touchState.joyTouchId) {
-                    e.preventDefault();
-                    resetJoystick();
-                    break;
-                }
-            }
-        };
-        joyZone.addEventListener('touchend', endJoy, { passive: false });
-        joyZone.addEventListener('touchcancel', endJoy, { passive: false });
     }
 
-    // Right-Half Screen Touch Swipe for Smooth Camera Pitch/Yaw Rotation
+    // 2. Camera Rotation Swipe Zone (Right half of screen)
     if (lookZone) {
         lookZone.addEventListener('touchstart', (e) => {
             if (!activeGameMode) return;
@@ -90,73 +115,80 @@ function initMobileTouchControls() {
                 }
             }
         }, { passive: false });
-
-        lookZone.addEventListener('touchmove', (e) => {
-            if (!activeGameMode || touchState.lookTouchId === null) return;
-            e.preventDefault();
-            for (let i = 0; i < e.changedTouches.length; i++) {
-                const t = e.changedTouches[i];
-                if (t.identifier === touchState.lookTouchId) {
-                    const dx = t.clientX - touchState.lookLastX;
-                    const dy = t.clientY - touchState.lookLastY;
-                    touchState.lookLastX = t.clientX;
-                    touchState.lookLastY = t.clientY;
-                    camState.yaw -= dx * 0.0075;
-                    camState.pitch = Math.max(0.08, Math.min(1.35, camState.pitch + dy * 0.0075));
-                    break;
-                }
-            }
-        }, { passive: false });
-
-        const endLook = (e) => {
-            for (let i = 0; i < e.changedTouches.length; i++) {
-                if (e.changedTouches[i].identifier === touchState.lookTouchId) {
-                    e.preventDefault();
-                    touchState.lookTouchId = null;
-                    break;
-                }
-            }
-        };
-        lookZone.addEventListener('touchend', endLook, { passive: false });
-        lookZone.addEventListener('touchcancel', endLook, { passive: false });
     }
 
-    // Dedicated Circular Jump Button (Bottom Right)
+    // 3. Global Window-Level TouchMove & TouchEnd for unbreakable tracking across screen
+    window.addEventListener('touchmove', (e) => {
+        if (!activeGameMode) return;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const t = e.changedTouches[i];
+            if (t.identifier === touchState.joyTouchId) {
+                e.preventDefault();
+                updateJoystickVisual(t.clientX - touchState.joyOriginX, t.clientY - touchState.joyOriginY);
+            } else if (t.identifier === touchState.lookTouchId) {
+                e.preventDefault();
+                const dx = t.clientX - touchState.lookLastX;
+                const dy = t.clientY - touchState.lookLastY;
+                touchState.lookLastX = t.clientX;
+                touchState.lookLastY = t.clientY;
+                camState.yaw -= dx * 0.007;
+                camState.pitch = Math.max(0.08, Math.min(1.35, camState.pitch + dy * 0.007));
+            }
+        }
+    }, { passive: false });
+
+    const handleGlobalTouchEnd = (e) => {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const t = e.changedTouches[i];
+            if (t.identifier === touchState.joyTouchId) {
+                resetJoystick();
+            }
+            if (t.identifier === touchState.lookTouchId) {
+                touchState.lookTouchId = null;
+            }
+        }
+    };
+    window.addEventListener('touchend', handleGlobalTouchEnd, { passive: false });
+    window.addEventListener('touchcancel', handleGlobalTouchEnd, { passive: false });
+
+    // 4. Dedicated Circular Jump Button (Bottom Right)
     if (jumpBtn) {
         jumpBtn.addEventListener('touchstart', (e) => {
             e.preventDefault();
             e.stopPropagation();
             touchState.jumpPressed = true;
-            jumpBtn.classList.add('pressed');
+            jumpBtn.classList.add('touch-active');
         }, { passive: false });
 
         const releaseJump = (e) => {
             e.preventDefault();
             e.stopPropagation();
             touchState.jumpPressed = false;
-            jumpBtn.classList.remove('pressed');
+            jumpBtn.classList.remove('touch-active');
         };
         jumpBtn.addEventListener('touchend', releaseJump, { passive: false });
         jumpBtn.addEventListener('touchcancel', releaseJump, { passive: false });
     }
 
-    // Dedicated Circular Action / Attack Button (Bottom Right)
+    // 5. Dedicated Circular Action / Attack Button (Bottom Right)
     if (actionBtn) {
         actionBtn.addEventListener('touchstart', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            actionBtn.classList.add('pressed');
+            actionBtn.classList.add('touch-active');
             triggerPrimaryAction();
         }, { passive: false });
 
         const releaseAction = (e) => {
             e.preventDefault();
             e.stopPropagation();
-            actionBtn.classList.remove('pressed');
+            actionBtn.classList.remove('touch-active');
         };
         actionBtn.addEventListener('touchend', releaseAction, { passive: false });
         actionBtn.addEventListener('touchcancel', releaseAction, { passive: false });
     }
+
+    updateMobileControlsVisibility();
 }
 
 window.addEventListener('keydown', (e) => {
@@ -372,8 +404,11 @@ window.addEventListener('resize', () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// Initialize Boblox Portal on Window Load
-window.onload = function () {
+// Initialize Boblox Portal reliably on Window / DOM Load
+let _bobloxPortalBooted = false;
+function bootBobloxPortal() {
+    if (_bobloxPortalBooted) return;
+    _bobloxPortalBooted = true;
     updateNickname(mpState.nickname);
     updateBobuxUI();
     updateDailyBonusUI();
@@ -382,5 +417,12 @@ window.onload = function () {
     initAuthSession();
     initLiveSocketAndPresence();
     renderGameCatalog();
-};
+}
+
+if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', bootBobloxPortal);
+    window.addEventListener('load', bootBobloxPortal);
+} else {
+    bootBobloxPortal();
+}
 
