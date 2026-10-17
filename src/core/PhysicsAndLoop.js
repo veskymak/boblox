@@ -565,10 +565,37 @@ function resolvePlayerCollisions(dt) {
                 p.y += overlapY;
                 playerState.vel.y = 0;
             }
-        } else if (absX < absZ) {
-            p.x += overlapX;
         } else {
-            p.z += overlapZ;
+            // Horizontal Collision: Check for Auto-Step / Step-Up onto small ledges (SFOTH bridges, raised slabs <= 0.75m)
+            const stepUp = b.box.max.y - p.y;
+            if (!b.isLadder && stepUp > 0.001 && stepUp <= 0.75 && playerState.vel.y <= 0.5 && playerState.vel.y >= -5.0) {
+                const targetY = b.box.max.y;
+                let canStep = true;
+                for (let j = 0; j < worldBlocks.length; j++) {
+                    const ob = worldBlocks[j];
+                    if (ob === b || ob.flyingDebris || ob.isKill) continue;
+                    if (p.x + r > ob.box.min.x && p.x - r < ob.box.max.x &&
+                        p.z + r > ob.box.min.z && p.z - r < ob.box.max.z &&
+                        targetY + h > ob.box.min.y && targetY < ob.box.max.y) {
+                        canStep = false;
+                        break;
+                    }
+                }
+                if (canStep) {
+                    p.y = targetY;
+                    playerState.vel.y = 0;
+                    playerState.onGround = true;
+                    currentPlat = b;
+                } else if (absX < absZ) {
+                    p.x += overlapX;
+                } else {
+                    p.z += overlapZ;
+                }
+            } else if (absX < absZ) {
+                p.x += overlapX;
+            } else {
+                p.z += overlapZ;
+            }
         }
 
         _playerBox.min.set(p.x - r, p.y, p.z - r);
@@ -616,6 +643,13 @@ function gameLoop(now) {
 
     if (playerState.invulnTimer > 0) playerState.invulnTimer -= dt;
     if (playerState.weaponCooldownTimer > 0) playerState.weaponCooldownTimer = Math.max(0, playerState.weaponCooldownTimer - dt);
+
+    // Coyote Time Timer (150ms generous jump window after walking off a ledge)
+    if (playerState.onGround) {
+        playerState.coyoteTimer = 0.15;
+    } else if (playerState.coyoteTimer > 0) {
+        playerState.coyoteTimer = Math.max(0, playerState.coyoteTimer - dt);
+    }
     if (playerState.weaponReloadTimer > 0) {
         playerState.weaponReloadTimer -= dt;
         if (playerState.weaponReloadTimer <= 0) {
@@ -694,12 +728,15 @@ function gameLoop(now) {
     if (activeGameMode === 'adoptme' && gameSpecificData && gameSpecificData.isRidingPet && wantJump) {
         playerState.vel.y = 11.5;
         playerState.onGround = false;
+        playerState.coyoteTimer = 0;
     } else if (playerState.onLadder) {
         playerState.vel.y = (wantJump || Math.abs(moveForward) > 0.1) ? 10.5 : 2.0;
     } else {
-        if (wantJump && playerState.onGround) {
+        const canJump = playerState.onGround || (playerState.coyoteTimer > 0 && playerState.vel.y <= 0.5);
+        if (wantJump && canJump) {
             playerState.vel.y = 16.5 * playerState.jumpMultiplier;
             playerState.onGround = false;
+            playerState.coyoteTimer = 0;
             sfx.playJump();
             spawnJuiceParticles(playerState.pos.x, playerState.pos.y + 0.15, playerState.pos.z, 0xe2e8f0, 6, 4.5, 0.85);
         }
@@ -1604,6 +1641,7 @@ function updateGame11AdoptMe(dt, elapsedSec) {
                 playerState.pos.y <= tr.mesh.position.y + 1.8) {
                 playerState.vel.y = 22.5;
                 playerState.onGround = false;
+                playerState.coyoteTimer = 0;
                 sfx.playJump();
                 completeAdoptMeNeed('bored');
             }

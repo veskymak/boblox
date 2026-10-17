@@ -18,6 +18,7 @@ const playerState = {
     height: 3.7,
     onGround: false,
     onLadder: false,
+    coyoteTimer: 0,
     hp: 100,
     maxHp: 100,
     speedMultiplier: 1.0,
@@ -528,6 +529,8 @@ function respawnPlayer() {
     playerState.pos.copy(playerState.spawnPoint);
     playerState.vel.set(0, 0, 0);
     playerState.knockback.set(0, 0, 0);
+    playerState.onGround = false;
+    playerState.coyoteTimer = 0;
     updateHealthHUD();
     flashDamageScreen();
 }
