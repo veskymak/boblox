@@ -555,13 +555,17 @@ async function updateSocialPresenceTrack() {
                 ? authState.user.id
                 : mpState.myId;
 
+            const isParty = (typeof mpState !== 'undefined') && (mpState.mode === 'private' || (!!mpState.roomCode && !String(mpState.roomCode).startsWith('PUB_')));
+
             await mpState.supabaseSocialChannel.track({
                 id: myUid,
                 username: myUName,
                 gameId: activeGameMode || null,
+                gameTitle: activeGameMode ? ((typeof GAMES_CATALOG !== 'undefined' && GAMES_CATALOG.find(g => g.id === activeGameMode)?.title) || activeGameMode) : null,
                 inGame: !!activeGameMode,
                 roomCode: mpState.roomCode || null,
                 mode: mpState.mode,
+                isParty: isParty,
                 updatedAt: Date.now()
             });
         } catch (e) {
@@ -580,6 +584,8 @@ function broadcastSocialPresence(inGame = false) {
         ? authState.user.id
         : mpState.myId;
 
+    const isParty = (typeof mpState !== 'undefined') && (mpState.mode === 'private' || (!!mpState.roomCode && !String(mpState.roomCode).startsWith('PUB_')));
+
     const payload = {
         id: myUid,
         username: myUName,
@@ -587,11 +593,93 @@ function broadcastSocialPresence(inGame = false) {
         gameId: activeGameMode || null,
         gameTitle: activeGameMode ? ((typeof GAMES_CATALOG !== 'undefined' && GAMES_CATALOG.find(g => g.id === activeGameMode)?.title) || activeGameMode) : null,
         roomCode: mpState.roomCode || null,
-        mode: mpState.mode
+        mode: mpState.mode,
+        isParty: isParty,
+        timestamp: Date.now()
     };
     sendSocialBroadcast('friend_presence', payload);
     updateSocialPresenceTrack();
     recomputeLivePlayerCounts();
+}
+
+function syncSupabasePresenceToLiveState() {
+    if (!mpState.supabaseSocialChannel || typeof mpState.supabaseSocialChannel.presenceState !== 'function') return;
+    try {
+        const pState = mpState.supabaseSocialChannel.presenceState();
+        const now = Date.now();
+        let changed = false;
+        Object.keys(pState).forEach(key => {
+            const presences = pState[key];
+            if (!Array.isArray(presences) || presences.length === 0) return;
+            const latest = presences[presences.length - 1];
+            if (!latest) return;
+            const pId = latest.id || key;
+            const pUser = (latest.username || '').toLowerCase();
+            const gTitle = latest.gameTitle || (latest.gameId && typeof GAMES_CATALOG !== 'undefined' ? (GAMES_CATALOG.find(g => g.id === latest.gameId)?.title || latest.gameId) : null);
+            const isParty = !!(latest.isParty || latest.mode === 'private' || (latest.roomCode && !String(latest.roomCode).startsWith('PUB_')));
+            const enriched = {
+                ...latest,
+                id: pId,
+                username: latest.username || 'Hráč',
+                gameTitle: gTitle,
+                isParty: isParty,
+                lastSeen: now
+            };
+            if (typeof liveFriendsPresence !== 'undefined') {
+                if (pId) liveFriendsPresence[pId] = enriched;
+                if (pUser) liveFriendsPresence[pUser] = enriched;
+            }
+            if (mpState.globalOnlinePeers) {
+                mpState.globalOnlinePeers[pId] = {
+                    id: pId,
+                    username: latest.username || 'Hráč',
+                    inGame: !!latest.inGame,
+                    gameId: latest.gameId || null,
+                    gameTitle: gTitle,
+                    roomCode: latest.roomCode || null,
+                    isParty: isParty,
+                    lastSeen: now
+                };
+            }
+            changed = true;
+        });
+        if (changed) {
+            if (typeof renderHomeFriendsStrip === 'function') renderHomeFriendsStrip();
+            if (typeof renderPeopleResultsGrid === 'function' && typeof activePortalSection !== 'undefined' && activePortalSection === 'people') renderPeopleResultsGrid();
+            if (typeof renderPortalProfileView === 'function' && typeof activePortalSection !== 'undefined' && activePortalSection === 'profile') renderPortalProfileView();
+        }
+    } catch (e) {
+        console.warn('syncSupabasePresence error:', e);
+    }
+}
+
+function handleSupabasePresenceLeave(leftPresences) {
+    if (!Array.isArray(leftPresences)) return;
+    let changed = false;
+    leftPresences.forEach(lp => {
+        if (!lp) return;
+        const pId = lp.id;
+        const pUser = (lp.username || '').toLowerCase();
+        if (typeof liveFriendsPresence !== 'undefined') {
+            if (pId && liveFriendsPresence[pId]) {
+                delete liveFriendsPresence[pId];
+                changed = true;
+            }
+            if (pUser && liveFriendsPresence[pUser]) {
+                delete liveFriendsPresence[pUser];
+                changed = true;
+            }
+        }
+        if (mpState.globalOnlinePeers && pId) {
+            delete mpState.globalOnlinePeers[pId];
+            changed = true;
+        }
+    });
+    if (changed) {
+        if (typeof renderHomeFriendsStrip === 'function') renderHomeFriendsStrip();
+        if (typeof renderPeopleResultsGrid === 'function' && typeof activePortalSection !== 'undefined' && activePortalSection === 'people') renderPeopleResultsGrid();
+        if (typeof renderPortalProfileView === 'function' && typeof activePortalSection !== 'undefined' && activePortalSection === 'profile') renderPortalProfileView();
+    }
 }
 
 // WebSocket, Supabase Realtime Social & BroadcastChannel Live Presence
@@ -611,6 +699,19 @@ function initLiveSocketAndPresence() {
             } else if (data.type === 'tabHeartbeat' && data.tabId !== mpState.myId) {
                 mpState.localTabPeers[data.tabId] = { gameId: data.gameId, lastSeen: Date.now() };
                 recomputeLivePlayerCounts();
+            } else if (data.type === 'tabLeave') {
+                if (data.tabId && mpState.localTabPeers) delete mpState.localTabPeers[data.tabId];
+                if (data.userId) {
+                    if (typeof liveFriendsPresence !== 'undefined') delete liveFriendsPresence[data.userId];
+                    if (mpState.globalOnlinePeers) delete mpState.globalOnlinePeers[data.userId];
+                }
+                if (data.username && typeof liveFriendsPresence !== 'undefined') {
+                    delete liveFriendsPresence[data.username.toLowerCase()];
+                }
+                if (typeof renderHomeFriendsStrip === 'function') renderHomeFriendsStrip();
+                if (typeof renderPeopleResultsGrid === 'function' && typeof activePortalSection !== 'undefined' && activePortalSection === 'people') renderPeopleResultsGrid();
+                if (typeof renderPortalProfileView === 'function' && typeof activePortalSection !== 'undefined' && activePortalSection === 'profile') renderPortalProfileView();
+                recomputeLivePlayerCounts();
             } else if ((data.type === 'playerState' || data.type === 'weaponSwitch' || data.type === 'chatMessage') && data.id !== mpState.myId) {
                 const samePublic = mpState.mode === 'public' && data.mode === 'public' && activeGameMode && data.gameMode === activeGameMode;
                 const samePrivate = mpState.mode === 'private' && data.mode === 'private' && mpState.roomCode && data.roomCode === mpState.roomCode;
@@ -620,6 +721,22 @@ function initLiveSocketAndPresence() {
             }
         };
     }
+
+    window.addEventListener('beforeunload', () => {
+        try {
+            if (mpState.bc) {
+                mpState.bc.postMessage({
+                    type: 'tabLeave',
+                    tabId: mpState.myId,
+                    userId: (typeof authState !== 'undefined' && authState.user && authState.user.id) ? authState.user.id : mpState.myId,
+                    username: (typeof authState !== 'undefined' && authState.user && authState.user.username) ? authState.user.username : mpState.nickname
+                });
+            }
+            if (mpState.supabaseSocialChannel) {
+                mpState.supabaseSocialChannel.untrack();
+            }
+        } catch (e) {}
+    });
 
     // Initialize Supabase Social Realtime Channel (Cross-device friend requests & presence)
     const sb = typeof getSupabaseClient === 'function' ? getSupabaseClient() : null;
@@ -638,12 +755,15 @@ function initLiveSocketAndPresence() {
             mpState.supabaseSocialChannel = socialCh;
 
             socialCh.on('presence', { event: 'sync' }, () => {
+                syncSupabasePresenceToLiveState();
                 recomputeLivePlayerCounts();
             });
             socialCh.on('presence', { event: 'join' }, () => {
+                syncSupabasePresenceToLiveState();
                 recomputeLivePlayerCounts();
             });
-            socialCh.on('presence', { event: 'leave' }, () => {
+            socialCh.on('presence', { event: 'leave' }, ({ leftPresences }) => {
+                handleSupabasePresenceLeave(leftPresences);
                 recomputeLivePlayerCounts();
             });
 

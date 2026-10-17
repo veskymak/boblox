@@ -1386,7 +1386,142 @@ let receivedFriendRequests = (() => {
     } catch { return {}; }
 })();
 
-const liveFriendsPresence = {}; // friendId/username -> { inGame: boolean, gameId, gameTitle, roomCode, lastSeen }
+const liveFriendsPresence = {}; // friendId/username -> { inGame: boolean, gameId, gameTitle, roomCode, mode, isParty, lastSeen }
+
+function getPlayerPresence(playerOrId) {
+    if (!playerOrId) {
+        return {
+            status: 'offline',
+            isOnline: false,
+            inGame: false,
+            gameId: null,
+            gameTitle: null,
+            isParty: false,
+            roomCode: null
+        };
+    }
+
+    const myProfile = typeof getLocalRobloxPlayerProfile === 'function' ? getLocalRobloxPlayerProfile() : null;
+    const myUName = (myProfile && (myProfile.username || myProfile.displayName) || '').toLowerCase();
+    const myId = typeof getMyUniqueSocialId === 'function' ? getMyUniqueSocialId() : null;
+
+    let id = null;
+    let dbId = null;
+    let username = null;
+    let isLocal = false;
+
+    if (typeof playerOrId === 'string') {
+        id = playerOrId;
+        username = playerOrId.replace(/^(db_|cloud_|peer_|user_)/, '');
+    } else if (typeof playerOrId === 'object' && playerOrId !== null) {
+        id = playerOrId.id || null;
+        dbId = playerOrId.dbId || null;
+        username = playerOrId.username || playerOrId.displayName || '';
+        isLocal = !!playerOrId.isLocal;
+    }
+
+    const uLower = (username || '').toLowerCase();
+    const idLower = id ? String(id).toLowerCase() : '';
+    const cleanNick = uLower.replace(/^(db_|cloud_|peer_|user_)/, '');
+
+    // 1. Local player is always active while portal page is open
+    if (
+        isLocal ||
+        id === 'local' ||
+        (myId && (id === myId || idLower === String(myId).toLowerCase())) ||
+        (myUName && (uLower === myUName || cleanNick === myUName))
+    ) {
+        const inGame = typeof activeGameMode !== 'undefined' && !!activeGameMode;
+        const gameId = inGame ? activeGameMode : null;
+        const gameTitle = gameId ? ((typeof GAMES_CATALOG !== 'undefined' && GAMES_CATALOG.find(g => g.id === gameId)?.title) || gameId) : null;
+        const isParty = (typeof mpState !== 'undefined') && (mpState.mode === 'private' || (!!mpState.roomCode && !String(mpState.roomCode).startsWith('PUB_')));
+        const roomCode = (typeof mpState !== 'undefined') ? mpState.roomCode : null;
+
+        return {
+            status: inGame ? 'in_game' : 'online',
+            isOnline: true,
+            inGame: inGame,
+            gameId: gameId,
+            gameTitle: gameTitle,
+            isParty: isParty,
+            roomCode: roomCode
+        };
+    }
+
+    // 2. Remote player presence lookup
+    let pres = null;
+    const now = Date.now();
+
+    if (typeof liveFriendsPresence !== 'undefined') {
+        pres = (id && liveFriendsPresence[id]) ||
+               (dbId && liveFriendsPresence[dbId]) ||
+               (idLower && liveFriendsPresence[idLower]) ||
+               (uLower && liveFriendsPresence[uLower]) ||
+               (cleanNick && liveFriendsPresence[cleanNick]) ||
+               null;
+    }
+
+    // 3. Fallback to globalOnlinePeers
+    if ((!pres || (now - (pres.lastSeen || 0) > 15000)) && typeof mpState !== 'undefined' && mpState.globalOnlinePeers) {
+        const peer = (id && mpState.globalOnlinePeers[id]) ||
+                     (dbId && mpState.globalOnlinePeers[dbId]) ||
+                     (idLower && mpState.globalOnlinePeers[idLower]) ||
+                     (uLower && mpState.globalOnlinePeers[uLower]) ||
+                     null;
+        if (peer && (now - (peer.lastSeen || 0) <= 15000)) {
+            pres = peer;
+        }
+    }
+
+    // 4. Fallback to active connected remote players
+    if ((!pres || (now - (pres.lastSeen || 0) > 15000)) && typeof mpState !== 'undefined' && mpState.remotePlayers) {
+        for (const rp of Object.values(mpState.remotePlayers)) {
+            if (!rp) continue;
+            const match = (id && rp.id === id) ||
+                          (uLower && rp.nickname && rp.nickname.toLowerCase() === uLower);
+            if (match && (performance.now() - (rp.lastSeen || 0) <= 10000)) {
+                pres = {
+                    id: rp.id,
+                    username: rp.nickname,
+                    inGame: true,
+                    gameId: typeof activeGameMode !== 'undefined' ? activeGameMode : null,
+                    isParty: (typeof mpState !== 'undefined') && (mpState.mode === 'private' || (!!mpState.roomCode && !String(mpState.roomCode).startsWith('PUB_'))),
+                    roomCode: mpState.roomCode || null,
+                    lastSeen: now
+                };
+                break;
+            }
+        }
+    }
+
+    if (pres && (now - (pres.lastSeen || 0) <= 15000)) {
+        const inGame = !!(pres.inGame && pres.gameId);
+        const gameId = inGame ? pres.gameId : null;
+        const gameTitle = inGame ? (pres.gameTitle || ((typeof GAMES_CATALOG !== 'undefined' && GAMES_CATALOG.find(g => g.id === gameId)?.title) || gameId)) : null;
+        const isParty = !!(pres.isParty || pres.mode === 'private' || (pres.roomCode && !String(pres.roomCode).startsWith('PUB_')));
+        const roomCode = pres.roomCode || null;
+
+        return {
+            status: inGame ? 'in_game' : 'online',
+            isOnline: true,
+            inGame: inGame,
+            gameId: gameId,
+            gameTitle: gameTitle,
+            isParty: isParty,
+            roomCode: roomCode
+        };
+    }
+
+    return {
+        status: 'offline',
+        isOnline: false,
+        inGame: false,
+        gameId: null,
+        gameTitle: null,
+        isParty: false,
+        roomCode: null
+    };
+}
 
 function saveSentFriendRequests() {
     localStorage.setItem(STORAGE_KEY_SENT_REQUESTS, JSON.stringify(sentFriendRequests));
@@ -1620,29 +1755,40 @@ function handleIncomingSocialPacket(event, payload) {
             if (activePortalSection === 'people') renderPeopleResultsGrid();
         }
     } else if (event === 'friend_presence') {
-        if (payload.id) {
-            liveFriendsPresence[payload.id] = payload;
+        const pId = payload.id;
+        const pUser = (payload.username || '').toLowerCase();
+        const gTitle = payload.gameTitle || (payload.gameId && typeof GAMES_CATALOG !== 'undefined' ? (GAMES_CATALOG.find(g => g.id === payload.gameId)?.title || payload.gameId) : null);
+        const isParty = !!(payload.isParty || payload.mode === 'private' || (payload.roomCode && !String(payload.roomCode).startsWith('PUB_')));
+        const enriched = {
+            ...payload,
+            gameTitle: gTitle,
+            isParty: isParty,
+            lastSeen: Date.now()
+        };
+        if (pId) {
+            liveFriendsPresence[pId] = enriched;
         }
-        if (payload.username) {
-            liveFriendsPresence[payload.username.toLowerCase()] = payload;
+        if (pUser) {
+            liveFriendsPresence[pUser] = enriched;
         }
-        if (typeof mpState !== 'undefined' && mpState.globalOnlinePeers && payload.id) {
-            mpState.globalOnlinePeers[payload.id] = {
-                id: payload.id,
+        if (typeof mpState !== 'undefined' && mpState.globalOnlinePeers && pId) {
+            mpState.globalOnlinePeers[pId] = {
+                id: pId,
                 username: payload.username || 'Hráč',
                 inGame: !!payload.inGame,
                 gameId: payload.gameId || null,
+                gameTitle: gTitle,
                 roomCode: payload.roomCode || null,
+                isParty: isParty,
                 lastSeen: Date.now()
             };
             if (typeof recomputeLivePlayerCounts === 'function') {
                 recomputeLivePlayerCounts();
             }
         }
-        if (isPlayerFriend(payload.id) || (payload.username && isPlayerFriend(payload.username))) {
-            renderHomeFriendsStrip();
-            if (activePortalSection === 'people') renderPeopleResultsGrid();
-        }
+        renderHomeFriendsStrip();
+        if (typeof activePortalSection !== 'undefined' && activePortalSection === 'people') renderPeopleResultsGrid();
+        if (typeof activePortalSection !== 'undefined' && activePortalSection === 'profile') renderPortalProfileView();
     }
 }
 
@@ -2228,12 +2374,17 @@ function syncFriendRequestsWithCloudUsers(cloudUsers) {
     }
 }
 
-// Periodic sync every 7 seconds for realtime cross-device friend requests & acceptances
+// Periodic sync every 6 seconds for realtime cross-device friend requests & active presence
 setInterval(() => {
     if (typeof fetchCloudUsers === 'function' && typeof authState !== 'undefined' && authState.user) {
         fetchCloudUsers().catch(() => {});
     }
-}, 7000);
+    if (typeof activePortalSection !== 'undefined') {
+        if (activePortalSection === 'home') renderHomeFriendsStrip();
+        else if (activePortalSection === 'people') renderPeopleResultsGrid();
+        else if (activePortalSection === 'profile') renderPortalProfileView();
+    }
+}, 6000);
 
 function forceAddFriendDirectly(playerId) {
     sendFriendRequest(playerId);
@@ -2252,13 +2403,15 @@ function getAllSearchablePlayers() {
             if (u.username.toLowerCase() === myUName) return;
             const pid = `db_${u.username.toLowerCase()}`;
             if (!map.has(pid)) {
+                const pres = getPlayerPresence({ id: pid, username: u.username });
                 map.set(pid, {
                     id: pid,
                     username: u.username,
                     displayName: u.username,
                     handle: `@${u.username}`,
                     bio: u.bio || 'Registered Boblox Player.',
-                    status: 'online',
+                    status: pres.status,
+                    presence: pres,
                     friendsCount: 0,
                     followers: 0,
                     following: 0,
@@ -2286,13 +2439,15 @@ function getAllSearchablePlayers() {
             const pid = `peer_${rp.id}`;
             const nick = rp.nickname || 'Player';
             if (!map.has(pid)) {
+                const pres = getPlayerPresence({ id: pid, username: nick });
                 map.set(pid, {
                     id: pid,
                     username: nick,
                     displayName: nick,
                     handle: `@${nick.replace(/\s+/g, '')}`,
                     bio: 'Live multiplayer player in Boblox.',
-                    status: 'online',
+                    status: pres.status,
+                    presence: pres,
                     friendsCount: 0,
                     followers: 0,
                     following: 0,
@@ -2328,6 +2483,7 @@ function getAllSearchablePlayers() {
                     : (typeof u.inventory === 'string' ? (() => { try { return JSON.parse(u.inventory); } catch (e) { return {}; } })() : {});
                 const outfit = inv.outfit || null;
                 const torsoHex = inv.torsoHex || '#0D69AC';
+                const pres = getPlayerPresence({ id: pid, dbId: u.id, username: u.username });
                 map.set(pid, {
                     id: pid,
                     dbId: u.id,
@@ -2335,7 +2491,8 @@ function getAllSearchablePlayers() {
                     displayName: u.username,
                     handle: `@${u.username}`,
                     bio: u.bio || `Registrovaný Boblox hráč • ${u.coins ?? 250} B$`,
-                    status: 'online',
+                    status: pres.status,
+                    presence: pres,
                     friendsCount: 0,
                     followers: 0,
                     following: 0,
@@ -2361,7 +2518,12 @@ function getAllSearchablePlayers() {
     cachedFriends.forEach(p => {
         if (!p || !p.id) return;
         if (!map.has(p.id) && isPlayerFriend(p)) {
-            map.set(p.id, p);
+            const pres = getPlayerPresence(p);
+            map.set(p.id, {
+                ...p,
+                status: pres.status,
+                presence: pres
+            });
         }
     });
 
@@ -2392,14 +2554,15 @@ function getAllSearchablePlayers() {
         if (!exists) {
             const cleanName = String(fid).replace(/^(db_|cloud_|peer_|user_)/, '');
             if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanName)) return;
-            const pres = (typeof liveFriendsPresence !== 'undefined') ? (liveFriendsPresence[fid] || liveFriendsPresence[fidLower] || liveFriendsPresence[cleanName]) : null;
+            const pres = getPlayerPresence(fid);
             map.set(fid, {
                 id: fid,
                 username: (pres && pres.username) || cleanName,
                 displayName: (pres && pres.username) || cleanName,
                 handle: `@${(pres && pres.username) || cleanName}`,
                 bio: 'Přítel v Bobloxu',
-                status: (pres && pres.inGame) ? 'in_game' : 'online',
+                status: pres.status,
+                presence: pres,
                 friendsCount: 0,
                 followers: 0,
                 following: 0,
@@ -2421,7 +2584,8 @@ function getPlayerById(playerId) {
     const isRegistered = typeof authState !== 'undefined' && authState.user && !myUName.startsWith('guest');
 
     if (!playerId || playerId === 'local' || playerId === myId || (isRegistered && typeof playerId === 'string' && playerId.toLowerCase() === myUName)) {
-        return { ...myProfile, isLocal: true };
+        const pres = getPlayerPresence('local');
+        return { ...myProfile, status: pres.status, presence: pres, isLocal: true };
     }
 
     const pidLower = String(playerId).toLowerCase();
@@ -2438,8 +2602,11 @@ function getPlayerById(playerId) {
         )
     );
     if (cached) {
+        const pres = getPlayerPresence(cached);
         return {
             ...cached,
+            status: pres.status,
+            presence: pres,
             isLocal: false
         };
     }
@@ -2460,15 +2627,18 @@ function getPlayerById(playerId) {
 
     if (found) {
         const isMe = (found.id === 'local') || (found.id === myId) || (isRegistered && found.username && found.username.toLowerCase() === myUName);
+        const pres = getPlayerPresence(found);
         return {
             ...found,
+            status: pres.status,
+            presence: pres,
             isLocal: isMe
         };
     }
 
     // 3. Check live presence
-    const pres = (typeof liveFriendsPresence !== 'undefined') ? (liveFriendsPresence[playerId] || liveFriendsPresence[pidLower] || liveFriendsPresence[cleanNick]) : null;
-    if (pres) {
+    const pres = getPlayerPresence(playerId);
+    if (pres.isOnline) {
         const uname = pres.username || cleanNick;
         return {
             id: pres.id || playerId,
@@ -2476,7 +2646,8 @@ function getPlayerById(playerId) {
             displayName: uname,
             handle: `@${uname}`,
             bio: 'Registrovaný Boblox hráč',
-            status: pres.inGame ? 'in_game' : 'online',
+            status: pres.status,
+            presence: pres,
             friendsCount: 0,
             followers: 0,
             following: 0,
@@ -2487,14 +2658,15 @@ function getPlayerById(playerId) {
         };
     }
 
-    // 4. Clean fallback
+    // 4. Clean fallback (offline)
     return {
         id: playerId,
         username: cleanNick,
         displayName: cleanNick,
         handle: `@${cleanNick}`,
         bio: 'Registrovaný Boblox hráč',
-        status: 'online',
+        status: 'offline',
+        presence: pres,
         friendsCount: 0,
         followers: 0,
         following: 0,
@@ -3086,23 +3258,36 @@ function renderHomeFriendsStrip() {
             item.className = 'flex flex-col items-center gap-1 w-20 shrink-0 group text-center focus:outline-none';
 
             const canvasId = `home-friend-canvas-${idx}`;
-            const presence = liveFriendsPresence[friend.id] || liveFriendsPresence[(friend.username || '').toLowerCase()] || {};
+            const presence = getPlayerPresence(friend);
             const isPlaying = presence.inGame && presence.gameId;
+            const isOnline = presence.isOnline;
             const gameTitle = presence.gameTitle || presence.gameId;
+            const isParty = presence.isParty;
+            const friendName = friend.username || friend.displayName;
 
             let statusDotHtml = '';
             let subtitleHtml = '';
             if (isPlaying) {
+                const partyLabel = isParty ? ' (Soukromá party)' : '';
+                const tooltipText = `Hraje: ${gameTitle}${partyLabel}`;
                 statusDotHtml = `
-                    <span class="absolute bottom-0.5 right-0.5 w-5 h-5 rounded-full bg-[#00B06F] border-2 border-[#191B1D] flex items-center justify-center text-white shadow animate-pulse" title="Právě hraje: ${escapeHtml(gameTitle)}">
-                        <svg class="w-3 h-3 fill-current" viewBox="0 0 20 20"><path d="M4 8h12l2 6-3 2-3-3H8l-3 3-3-2 2-6z"/></svg>
+                    <span class="absolute bottom-0.5 right-0.5 w-5 h-5 rounded-full bg-[#00B06F] border-2 border-[#191B1D] flex items-center justify-center text-white shadow-md animate-pulse cursor-pointer" title="${escapeHtml(tooltipText)}">
+                        <svg class="w-3 h-3 fill-white" viewBox="0 0 24 24">
+                            <path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-10 7H8v3H6v-3H3v-2h3V8h2v3h3v2zm4.5 2c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm3-3c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+                        </svg>
                     </span>`;
-                subtitleHtml = `<span class="text-[9px] text-[#00B06F] font-bold truncate w-full -mt-0.5">🎮 ${escapeHtml(gameTitle)}</span>`;
-            } else if (friend.status === 'online') {
-                statusDotHtml = `<span class="absolute bottom-0.5 right-0.5 w-4 h-4 rounded-full bg-[#00A2FF] border-2 border-[#191B1D]" title="Online"></span>`;
+                subtitleHtml = `<span class="text-[9px] text-[#00B06F] font-bold truncate w-full -mt-0.5" title="${escapeHtml(tooltipText)}">🎮 ${escapeHtml(isParty ? `${gameTitle} (Party)` : gameTitle)}</span>`;
+                item.title = `${friendName} • ${tooltipText}`;
+            } else if (isOnline) {
+                statusDotHtml = `<span class="absolute bottom-0.5 right-0.5 w-4 h-4 rounded-full bg-[#00A2FF] border-2 border-[#191B1D] shadow" title="Online na webu"></span>`;
+                item.title = `${friendName} (Online na webu)`;
+            } else {
+                // Offline: NO BADGE OR SUBTITLE!
+                statusDotHtml = '';
+                subtitleHtml = '';
+                item.title = `${friendName} (Offline)`;
             }
 
-            const friendName = friend.username || friend.displayName;
             item.innerHTML = `
                 <div class="relative w-20 h-20 rounded-full bg-[#232527] border border-[#393B3D] group-hover:border-white/50 overflow-visible transition shadow-md">
                     <canvas id="${canvasId}" width="96" height="96" class="w-full h-full rounded-full block"></canvas>
@@ -3358,6 +3543,62 @@ function renderPortalProfileView() {
     if (handleEl) handleEl.textContent = `@${uName}`;
     if (bioEl) bioEl.textContent = profile.bio || 'No bio yet';
 
+    const pres = getPlayerPresence(profile);
+    const isPlaying = pres.inGame && pres.gameId;
+    const isOnline = pres.isOnline;
+    const gameTitle = pres.gameTitle || pres.gameId;
+    const isParty = pres.isParty;
+
+    const badgeEl = document.getElementById('profile-status-badge');
+    if (badgeEl) {
+        if (isPlaying) {
+            const partyLabel = isParty ? ' (Soukromá party)' : '';
+            const tooltipText = `Hraje: ${gameTitle}${partyLabel}`;
+            badgeEl.className = 'absolute bottom-0.5 right-0.5 w-7 h-7 rounded-full bg-[#00B06F] border-2 border-[#191B1D] flex items-center justify-center text-white shadow-lg animate-pulse';
+            badgeEl.title = tooltipText;
+            badgeEl.innerHTML = `
+                <svg class="w-4 h-4 fill-white" viewBox="0 0 24 24">
+                    <path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-10 7H8v3H6v-3H3v-2h3V8h2v3h3v2zm4.5 2c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm3-3c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+                </svg>
+            `;
+            badgeEl.style.display = 'flex';
+        } else if (isOnline) {
+            badgeEl.className = 'absolute bottom-0.5 right-0.5 w-6 h-6 rounded-full bg-[#00A2FF] border-2 border-[#191B1D] flex items-center justify-center text-white shadow';
+            badgeEl.title = 'Online na webu';
+            badgeEl.innerHTML = `
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="5" fill="currentColor"/>
+                </svg>
+            `;
+            badgeEl.style.display = 'flex';
+        } else {
+            badgeEl.style.display = 'none';
+        }
+    }
+
+    let statusTextEl = document.getElementById('profile-status-text');
+    if (!statusTextEl && handleEl && handleEl.parentNode) {
+        statusTextEl = document.createElement('div');
+        statusTextEl.id = 'profile-status-text';
+        handleEl.parentNode.appendChild(statusTextEl);
+    }
+    if (statusTextEl) {
+        if (isPlaying) {
+            const partyLabel = isParty ? ' <span class="text-amber-400 font-bold">(Soukromá party)</span>' : '';
+            statusTextEl.className = 'text-xs text-[#00B06F] font-bold flex items-center gap-1 mt-1';
+            statusTextEl.innerHTML = `<span>🎮</span><span>Hraje: <strong>${escapeHtml(gameTitle)}</strong>${partyLabel}</span>`;
+            statusTextEl.style.display = 'flex';
+        } else if (isOnline) {
+            statusTextEl.className = 'text-xs text-[#00A2FF] font-medium flex items-center gap-1 mt-1';
+            statusTextEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-[#00A2FF]"></span><span>Online na webu</span>`;
+            statusTextEl.style.display = 'flex';
+        } else {
+            statusTextEl.className = 'text-xs text-gray-500 font-medium mt-1';
+            statusTextEl.textContent = 'Offline';
+            statusTextEl.style.display = 'block';
+        }
+    }
+
     const fCount = profile.isLocal ? friendsSet.size : (profile.friendsCount || 0);
     if (friendsStat) friendsStat.textContent = String(fCount);
     if (followersStat) followersStat.textContent = String(profile.followers ?? 0);
@@ -3390,18 +3631,17 @@ function renderPortalProfileView() {
             const isFriend = isPlayerFriend(profile);
             const isSent = hasSentFriendRequest(profile);
             const isReceived = hasReceivedFriendRequest(profile);
-            const presence = liveFriendsPresence[profile.id] || liveFriendsPresence[(profile.username || '').toLowerCase()] || {};
-            const isPlaying = isFriend && presence.inGame && presence.gameId;
 
             let friendButtonsHtml = '';
             let joinBtnHtml = '';
 
             if (isPlaying) {
-                const gameTitle = presence.gameTitle || presence.gameId;
+                const partyLabel = isParty ? ' (Soukromá party)' : '';
+                const tooltipText = `Hraje: ${gameTitle}${partyLabel}`;
                 joinBtnHtml = `
-                    <button type="button" onclick="joinFriendGame('${presence.gameId}', '${presence.roomCode || ''}')" class="px-4 py-2 rounded-lg bg-[#00B06F] hover:bg-[#009E63] text-xs sm:text-sm font-bold text-white shadow transition flex items-center gap-1.5 animate-pulse" title="Připojit se ke hře">
+                    <button type="button" onclick="joinFriendGame('${pres.gameId}', '${pres.roomCode || ''}')" class="px-4 py-2 rounded-lg bg-[#00B06F] hover:bg-[#009E63] text-xs sm:text-sm font-bold text-white shadow transition flex items-center gap-1.5 animate-pulse" title="${escapeHtml(tooltipText)}">
                         <span>🎮</span>
-                        <span>Připojit se ke hře</span>
+                        <span>${isParty ? 'Připojit se k party' : 'Připojit se ke hře'}</span>
                     </button>
                 `;
             }
@@ -3894,9 +4134,14 @@ function renderTopSearchDropdown(query) {
         const isFriend = isPlayerFriend(p.id);
         const isSent = hasSentFriendRequest(p.id);
         const isReceived = hasReceivedFriendRequest(p.id);
+        const pres = getPlayerPresence(p);
         let tagText = 'Zobrazit profil';
         let tagClass = 'text-gray-400';
-        if (isFriend) {
+        if (pres.inGame && pres.gameId) {
+            const partyLabel = pres.isParty ? ' (Party)' : '';
+            tagText = `🎮 ${pres.gameTitle}${partyLabel}`;
+            tagClass = 'text-[#00B06F] font-bold truncate max-w-[140px]';
+        } else if (isFriend) {
             tagText = 'Přítel ✓';
             tagClass = 'text-[#00A2FF] font-bold';
         } else if (isReceived) {
@@ -3906,10 +4151,22 @@ function renderTopSearchDropdown(query) {
             tagText = 'Žádost odeslána ⏳';
             tagClass = 'text-yellow-400';
         }
+
+        let dotHtml = '';
+        if (pres.inGame && pres.gameId) {
+            const partyLabel = pres.isParty ? ' (Soukromá party)' : '';
+            dotHtml = `<span class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-[#00B06F] border border-[#191B1D] flex items-center justify-center text-white" title="Hraje: ${escapeHtml(pres.gameTitle)}${escapeHtml(partyLabel)}"><svg class="w-2 h-2 fill-white" viewBox="0 0 24 24"><path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-10 7H8v3H6v-3H3v-2h3V8h2v3h3v2zm4.5 2c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm3-3c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg></span>`;
+        } else if (pres.isOnline) {
+            dotHtml = `<span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#00A2FF] border border-[#191B1D]" title="Online na webu"></span>`;
+        }
+
         const pName = p.username || p.displayName;
         row.innerHTML = `
             <div class="flex items-center gap-2.5 min-w-0">
-                <canvas id="${cid}" width="40" height="40" class="w-8 h-8 rounded-full bg-[#191B1D] shrink-0"></canvas>
+                <div class="relative shrink-0">
+                    <canvas id="${cid}" width="40" height="40" class="w-8 h-8 rounded-full bg-[#191B1D] block"></canvas>
+                    ${dotHtml}
+                </div>
                 <div class="min-w-0">
                     <div class="text-xs font-bold text-white truncate">${escapeHtml(pName)}</div>
                     <div class="text-[10px] text-gray-400 truncate">@${escapeHtml(pName)}</div>
@@ -4127,44 +4384,60 @@ function renderPeopleResultsGrid() {
         const isFriend = isPlayerFriend(p);
         const isSent = hasSentFriendRequest(p);
         const isReceived = hasReceivedFriendRequest(p);
-        const presence = liveFriendsPresence[p.id] || liveFriendsPresence[(p.username || '').toLowerCase()] || {};
-        const isPlaying = isFriend && presence.inGame && presence.gameId;
+        const pres = getPlayerPresence(p);
+        const isPlaying = pres.inGame && pres.gameId;
+        const isOnline = pres.isOnline;
+        const gameTitle = pres.gameTitle || pres.gameId;
+        const isParty = pres.isParty;
 
         const card = document.createElement('div');
         card.className = 'bg-[#232527] border border-[#2C2F33] hover:border-[#393B3D] rounded-xl p-4 flex flex-col justify-between gap-4 shadow transition';
         const cid = `people-res-canvas-${idx}`;
 
-        const badgeHtml = isFriend
-            ? `<div class="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-[#00A2FF] border-2 border-[#232527] flex items-center justify-center text-white">
-                   <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
-                       <circle cx="12" cy="8" r="3.5"/><path stroke-linecap="round" d="M5 19c0-3 3.1-5 7-5s7 2 7 5"/>
-                   </svg>
-               </div>`
-            : '';
+        let badgeHtml = '';
+        if (isPlaying) {
+            const partyLabel = isParty ? ' (Soukromá party)' : '';
+            const tooltipText = `Hraje: ${gameTitle}${partyLabel}`;
+            badgeHtml = `
+                <div class="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-[#00B06F] border-2 border-[#232527] flex items-center justify-center text-white shadow-md animate-pulse cursor-pointer" title="${escapeHtml(tooltipText)}">
+                    <svg class="w-3.5 h-3.5 fill-white" viewBox="0 0 24 24">
+                        <path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-10 7H8v3H6v-3H3v-2h3V8h2v3h3v2zm4.5 2c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm3-3c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+                    </svg>
+                </div>`;
+        } else if (isOnline) {
+            badgeHtml = `<div class="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-[#00A2FF] border-2 border-[#232527] shadow" title="Online na webu"></div>`;
+        } else {
+            badgeHtml = '';
+        }
 
         let statusLine = '';
         if (isPlaying) {
-            statusLine = `<div class="text-[11px] text-[#00B06F] font-semibold flex items-center gap-1 mt-0.5">
-                <span class="w-2 h-2 rounded-full bg-[#00B06F] animate-pulse"></span>
-                <span>Hraje: ${escapeHtml(presence.gameTitle || presence.gameId)}</span>
-            </div>`;
-        } else if (isFriend) {
-            statusLine = `<div class="text-[11px] text-gray-300 flex items-center gap-1 mt-0.5">
-                <span>👥</span>
-                <span>Přítel</span>
-            </div>`;
+            const partyLabel = isParty ? ' <span class="text-amber-400 font-bold">(Soukromá party)</span>' : '';
+            const tooltipText = `Hraje: ${gameTitle}${isParty ? ' (Soukromá party)' : ''}`;
+            statusLine = `
+                <div class="text-[11px] text-[#00B06F] font-semibold flex items-center gap-1 mt-0.5 truncate" title="${escapeHtml(tooltipText)}">
+                    <span class="w-2 h-2 rounded-full bg-[#00B06F] shrink-0 animate-pulse"></span>
+                    <span class="truncate">Hraje: <strong>${escapeHtml(gameTitle)}</strong>${partyLabel}</span>
+                </div>`;
+        } else if (isOnline) {
+            statusLine = `
+                <div class="text-[11px] text-[#00A2FF] font-medium flex items-center gap-1 mt-0.5">
+                    <span class="w-2 h-2 rounded-full bg-[#00A2FF] shrink-0"></span>
+                    <span>Online na webu</span>
+                </div>`;
         } else {
-            statusLine = `<div class="text-[11px] text-gray-400 mt-0.5">${p.status === 'online' ? 'Online' : 'Offline'}</div>`;
+            statusLine = `<div class="text-[11px] text-gray-500 font-medium mt-0.5">Offline</div>`;
         }
 
         let actionBtnHtml = '';
         if (isFriend) {
             let joinBtn = '';
             if (isPlaying) {
+                const joinTitle = isParty ? `Připojit se k soukromé party (${pres.roomCode || ''})` : `Připojit se ke hře`;
                 joinBtn = `
-                    <button type="button" onclick="joinFriendGame('${presence.gameId}', '${presence.roomCode || ''}')" class="py-2 px-3 rounded-lg bg-[#00B06F] hover:bg-[#009E63] text-xs font-bold text-white shadow transition flex items-center justify-center gap-1 animate-pulse" title="Připojit se ke hře">
+                    <button type="button" onclick="joinFriendGame('${pres.gameId}', '${pres.roomCode || ''}')" class="py-2 px-3 rounded-lg bg-[#00B06F] hover:bg-[#009E63] text-xs font-bold text-white shadow transition flex items-center justify-center gap-1 animate-pulse" title="${escapeHtml(joinTitle)}">
                         <span>🎮</span>
-                        <span>Hrát</span>
+                        <span>${isParty ? 'Party' : 'Hrát'}</span>
                     </button>
                 `;
             }
@@ -4365,7 +4638,7 @@ function getAppClientVersion() {
         const m = s.src.match(/\?v=([\d\.]+)/);
         if (m) return m[1];
     }
-    return '3.9';
+    return '4.0';
 }
 
 function reloadForUpdateNow() {

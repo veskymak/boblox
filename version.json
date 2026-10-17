@@ -1,7 +1,7 @@
 {
-  "version": "3.9",
-  "buildTime": 1729201500000,
-  "updatedAt": "2026-10-17T22:45:00Z",
-  "title": "Boblox Aktualizace v3.9",
-  "message": "Oprava zobrazení duplicitních přátel a zabránění opakované hlášce o aktualizaci."
+  "version": "4.0",
+  "buildTime": 1729202500000,
+  "updatedAt": "2026-10-17T22:55:00Z",
+  "title": "Boblox Aktualizace v4.0",
+  "message": "Oprava reálné aktivity hráčů, zelená ikonka s joystickem při hraní hry, název hry a soukromá party v tooltipu."
 }
