@@ -595,6 +595,10 @@ function initLiveSocketAndPresence() {
                 if (typeof handleIncomingSocialPacket === 'function') {
                     handleIncomingSocialPacket(data.event, data.payload);
                 }
+            } else if (data.type === 'boblox_update_detected') {
+                if (typeof showUpdateNotificationModal === 'function') {
+                    showUpdateNotificationModal(data.version, data.buildTime);
+                }
             } else if (data.type === 'tabHeartbeat' && data.tabId !== mpState.myId) {
                 mpState.localTabPeers[data.tabId] = { gameId: data.gameId, lastSeen: Date.now() };
                 recomputeLivePlayerCounts();

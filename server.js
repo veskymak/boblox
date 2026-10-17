@@ -739,6 +739,13 @@ app.get('/api/stats/online', (req, res) => {
     });
 });
 
+app.get('/version.json', (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    return res.sendFile(path.join(__dirname, 'version.json'));
+});
+
 // Serve static frontend files
 app.use(express.static(__dirname));
 

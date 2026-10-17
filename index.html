@@ -2114,15 +2114,71 @@
         </div>
     </div>
 
+    <!-- Update Floating Bar (when postponed) -->
+    <div id="update-floating-bar" class="fixed top-4 left-1/2 -translate-x-1/2 z-[9998] hidden items-center gap-3 bg-[#191B1D]/95 border-2 border-[#00A2FF] shadow-2xl backdrop-blur-md px-4 py-2.5 rounded-full text-white text-xs sm:text-sm animate-pulse">
+        <span class="inline-block w-2.5 h-2.5 rounded-full bg-[#00A2FF]"></span>
+        <span class="font-bold">Nový update Bobloxu je připraven!</span>
+        <span class="text-gray-400">Restart za <span id="update-float-secs" class="font-bold text-yellow-400">60s</span></span>
+        <button type="button" onclick="reloadForUpdateNow()" class="ml-2 px-3 py-1 rounded-full bg-[#00A2FF] hover:bg-[#008BDB] text-white font-black text-xs transition shadow-md">
+            Restartovat hned 🚀
+        </button>
+    </div>
+
+    <!-- Live Update Modal Notification -->
+    <div id="update-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-[9999] hidden items-center justify-center p-4">
+        <div class="relative w-full max-w-md bg-[#232527] border-2 border-[#00A2FF] rounded-2xl p-6 shadow-2xl text-center text-white overflow-hidden">
+            <!-- Glow background -->
+            <div class="absolute -top-16 -left-16 w-36 h-36 bg-[#00A2FF]/20 rounded-full blur-2xl pointer-events-none"></div>
+            <div class="absolute -bottom-16 -right-16 w-36 h-36 bg-[#00B06F]/20 rounded-full blur-2xl pointer-events-none"></div>
+
+            <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-tr from-[#00A2FF] to-[#00E5FF] flex items-center justify-center shadow-lg shadow-[#00A2FF]/30">
+                <svg class="w-9 h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+            </div>
+
+            <span id="update-new-version-tag" class="inline-block px-3 py-1 rounded-full bg-[#00A2FF]/20 border border-[#00A2FF]/50 text-[#00A2FF] text-xs font-black uppercase tracking-wider mb-2">
+                Nová aktualizace Bobloxu!
+            </span>
+
+            <h2 class="text-xl sm:text-2xl font-black mb-2">Právě vyšel nový update!</h2>
+            <p class="text-xs sm:text-sm text-gray-300 mb-5 leading-relaxed">
+                Právě byl nasazen nový update Bobloxu. Pro načtení nových funkcí a synchronizaci s ostatními hráči se stránka automaticky restartuje.
+            </p>
+
+            <!-- Countdown Bar -->
+            <div class="bg-[#191B1D] border border-white/10 rounded-xl p-3 mb-5">
+                <div class="flex items-center justify-between text-xs font-bold text-gray-300 mb-2">
+                    <span>Automatický restart za:</span>
+                    <span id="update-countdown-text" class="text-yellow-400 text-sm font-mono font-black">15s</span>
+                </div>
+                <div class="w-full h-2.5 bg-black/50 rounded-full overflow-hidden p-0.5">
+                    <div id="update-countdown-bar" class="h-full bg-gradient-to-r from-yellow-400 via-orange-500 to-[#00A2FF] rounded-full transition-all duration-1000 ease-linear" style="width: 100%;"></div>
+                </div>
+            </div>
+
+            <!-- Action buttons -->
+            <div class="flex flex-col sm:flex-row gap-2.5">
+                <button type="button" onclick="reloadForUpdateNow()" class="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-[#00A2FF] to-[#008BDB] hover:from-[#008BDB] hover:to-[#0070B8] active:scale-95 text-white font-black text-sm shadow-lg shadow-[#00A2FF]/30 transition flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                    Restartovat a hrát hned!
+                </button>
+                <button type="button" onclick="postponeUpdatePrompt()" class="py-3 px-4 rounded-xl bg-[#2C2F33] hover:bg-[#393B3D] active:scale-95 text-gray-300 hover:text-white font-bold text-sm transition border border-white/10">
+                    O 1 minutu později
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- BOBLOX Modular Architecture (Core Engine, State, Network, Games & UI with Cache-Busting) -->
-    <script src="src/core/SoundEngine.js?v=3.6" defer></script>
-    <script src="src/state/PortalStore.js?v=3.6" defer></script>
-    <script src="src/network/NetworkManager.js?v=3.6" defer></script>
-    <script src="src/ui/PortalUI.js?v=3.6" defer></script>
-    <script src="src/core/AvatarAndShop.js?v=3.6" defer></script>
-    <script src="src/core/Engine.js?v=3.6" defer></script>
-    <script src="src/games/GameWorlds.js?v=3.6" defer></script>
-    <script src="src/core/PhysicsAndLoop.js?v=3.6" defer></script>
-    <script src="src/core/InputManager.js?v=3.6" defer></script>
+    <script src="src/core/SoundEngine.js?v=3.7" defer></script>
+    <script src="src/state/PortalStore.js?v=3.7" defer></script>
+    <script src="src/network/NetworkManager.js?v=3.7" defer></script>
+    <script src="src/ui/PortalUI.js?v=3.7" defer></script>
+    <script src="src/core/AvatarAndShop.js?v=3.7" defer></script>
+    <script src="src/core/Engine.js?v=3.7" defer></script>
+    <script src="src/games/GameWorlds.js?v=3.7" defer></script>
+    <script src="src/core/PhysicsAndLoop.js?v=3.7" defer></script>
+    <script src="src/core/InputManager.js?v=3.7" defer></script>
 </body>
 </html>

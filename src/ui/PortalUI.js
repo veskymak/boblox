@@ -4187,5 +4187,150 @@ if (document.readyState === 'loading') {
     }, 0);
 }
 
+/* ============================================================================
+ * LIVE UPDATE DETECTION & AUTO-RELOAD NOTIFICATION SYSTEM
+ * ============================================================================ */
+let updateCountdownInterval = null;
+let updateCountdownRemaining = 15;
+let isUpdatePromptActive = false;
+let initialKnownBuildTime = null;
+
+function getAppClientVersion() {
+    if (typeof BOBLOX_CLIENT_VERSION !== 'undefined') return String(BOBLOX_CLIENT_VERSION).trim();
+    const scripts = Array.from(document.querySelectorAll('script[src*="?v="]'));
+    for (const s of scripts) {
+        const m = s.src.match(/\?v=([\d\.]+)/);
+        if (m) return m[1];
+    }
+    return '3.7';
+}
+
+function reloadForUpdateNow() {
+    if (typeof syncAccountToServer === 'function') {
+        try { syncAccountToServer(); } catch (e) {}
+    }
+    const cleanUrl = window.location.origin + window.location.pathname;
+    window.location.href = cleanUrl + '?_update=' + Date.now();
+}
+
+function postponeUpdatePrompt() {
+    const modal = document.getElementById('update-modal');
+    const floatBar = document.getElementById('update-floating-bar');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+    if (floatBar) {
+        floatBar.classList.remove('hidden');
+        floatBar.classList.add('flex');
+    }
+    updateCountdownRemaining = 60;
+    const floatSecs = document.getElementById('update-float-secs');
+    if (floatSecs) floatSecs.textContent = `${updateCountdownRemaining}s`;
+}
+
+function showUpdateNotificationModal(newVersion, buildTime) {
+    if (isUpdatePromptActive) return;
+    isUpdatePromptActive = true;
+
+    // Exit pointer lock if playing in 3D game
+    if (document.pointerLockElement) {
+        try { document.exitPointerLock(); } catch (e) {}
+    }
+
+    // Play alert sound
+    if (typeof sfx !== 'undefined' && sfx.playDerbyHorn) {
+        try { sfx.playDerbyHorn(); } catch (e) {}
+    } else if (typeof sfx !== 'undefined' && sfx.playWinFanfare) {
+        try { sfx.playWinFanfare(); } catch (e) {}
+    }
+
+    // Broadcast across other local tabs
+    if (typeof mpState !== 'undefined' && mpState.bc) {
+        try {
+            mpState.bc.postMessage({
+                type: 'boblox_update_detected',
+                version: newVersion,
+                buildTime: buildTime
+            });
+        } catch (e) {}
+    }
+
+    const modal = document.getElementById('update-modal');
+    const verTag = document.getElementById('update-new-version-tag');
+    const countText = document.getElementById('update-countdown-text');
+    const countBar = document.getElementById('update-countdown-bar');
+
+    if (verTag && newVersion) {
+        verTag.textContent = `Verze v${newVersion} je připravena`;
+    }
+
+    updateCountdownRemaining = 15;
+    const initialDuration = 15;
+
+    if (countText) countText.textContent = `${updateCountdownRemaining}s`;
+    if (countBar) countBar.style.width = '100%';
+
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    if (updateCountdownInterval) clearInterval(updateCountdownInterval);
+    updateCountdownInterval = setInterval(() => {
+        updateCountdownRemaining--;
+        if (countText) countText.textContent = `${updateCountdownRemaining}s`;
+        const floatSecs = document.getElementById('update-float-secs');
+        if (floatSecs) floatSecs.textContent = `${updateCountdownRemaining}s`;
+
+        if (countBar) {
+            const pct = Math.max(0, (updateCountdownRemaining / initialDuration) * 100);
+            countBar.style.width = `${pct}%`;
+        }
+
+        if (updateCountdownRemaining <= 0) {
+            clearInterval(updateCountdownInterval);
+            reloadForUpdateNow();
+        }
+    }, 1000);
+}
+
+async function checkForBobloxUpdates() {
+    if (isUpdatePromptActive) return;
+    try {
+        const res = await fetch(`version.json?_t=${Date.now()}`, {
+            cache: 'no-store',
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache'
+            }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data || !data.version) return;
+
+        const currentClientVersion = getAppClientVersion();
+        const remoteVersion = String(data.version).trim();
+        const remoteBuildTime = data.buildTime || data.updatedAt || 0;
+
+        if (!initialKnownBuildTime) {
+            initialKnownBuildTime = remoteBuildTime;
+        }
+
+        const isNewVersion = remoteVersion !== currentClientVersion;
+        const isNewerBuild = remoteBuildTime && initialKnownBuildTime && remoteBuildTime > initialKnownBuildTime;
+
+        if (isNewVersion || isNewerBuild) {
+            showUpdateNotificationModal(remoteVersion, remoteBuildTime);
+        }
+    } catch (e) {
+        // Network error / offline, ignore
+    }
+}
+
+// Initial check after 4 seconds, then periodically poll every 15 seconds
+setTimeout(checkForBobloxUpdates, 4000);
+setInterval(checkForBobloxUpdates, 15000);
+
 
 

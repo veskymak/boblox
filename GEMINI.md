@@ -14,16 +14,17 @@ Kdykoliv upravíš jakýkoliv skript v `src/` (`src/core/`, `src/state/`, `src/u
    <script src="src/state/PortalStore.js?v=X.X" defer></script>
    ...
    ```
-3. **Inkrementuj verzi `?v=X.X`** na novou hodnotu (např. z `?v=2.3` na `?v=2.4`).
-4. Ujisti se, že v `<head>` v `index.html` zůstávají meta tagy pro zákaz cachování HTML:
+3. **Inkrementuj verzi `?v=X.X`** na novou hodnotu (např. z `?v=3.6` na `?v=3.7`).
+4. **Inkrementuj verzi a buildTime v [version.json](file:///c:/Users/vacla/Desktop/Boblox/boblox/version.json)** (tím se aktivním hráčům ve hře automaticky zobrazí hláška o nové aktualizaci a nabídne restart).
+5. Ujisti se, že v `<head>` v `index.html` zůstávají meta tagy pro zákaz cachování HTML:
    ```html
    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
    <meta http-equiv="Pragma" content="no-cache">
    <meta http-equiv="Expires" content="0">
    ```
-5. Teprve po inkrementaci verze v `index.html` proveď `git add` a `git commit`.
+6. Teprve po inkrementaci verze v `index.html` i `version.json` proveď `git add` a `git commit`.
 
-> **Proč:** Hráči na webu (GitHub Pages) si jinak stahují staré soubory z mezipaměti prohlížeče a museli by mačkat `Ctrl + Shift + R`. Inkrementace verze zajistí okamžité automatické načtení nového kódu všem hráčům hned napoprvé.
+> **Proč:** Hráči na webu (GitHub Pages) si jinak stahují staré soubory z mezipaměti prohlížeče a museli by mačkat `Ctrl + Shift + R`. Inkrementace verze a `version.json` zajistí okamžité automatické načtení nového kódu všem hráčům hned napoprvé a upozornění běžících her.
 
 ---
 
