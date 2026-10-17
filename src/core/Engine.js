@@ -482,6 +482,9 @@ function startGame(gameId, skipAutoMatchmaking = false) {
     cleanupCurrentGame();
     if (typeof closeRobloxEscMenu === 'function') closeRobloxEscMenu();
     activeGameMode = gameId;
+    if (typeof broadcastSocialPresence === 'function') {
+        broadcastSocialPresence(true);
+    }
 
     // 1. Default Public Global Matchmaking vs. Private Party Code
     if (!skipAutoMatchmaking) {
@@ -590,6 +593,9 @@ function leavePublicMatchmaking() {
 
 function returnToLobby() {
     activeGameMode = null;
+    if (typeof broadcastSocialPresence === 'function') {
+        broadcastSocialPresence(false);
+    }
     if (typeof closeRobloxEscMenu === 'function') closeRobloxEscMenu();
 
     // Restore the lobby UI first so it can never stay stuck, even if cleanup throws

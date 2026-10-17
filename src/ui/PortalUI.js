@@ -1377,6 +1377,19 @@ function handleIncomingSocialPacket(event, payload) {
         if (payload.username) {
             liveFriendsPresence[payload.username.toLowerCase()] = payload;
         }
+        if (typeof mpState !== 'undefined' && mpState.globalOnlinePeers && payload.id) {
+            mpState.globalOnlinePeers[payload.id] = {
+                id: payload.id,
+                username: payload.username || 'Hráč',
+                inGame: !!payload.inGame,
+                gameId: payload.gameId || null,
+                roomCode: payload.roomCode || null,
+                lastSeen: Date.now()
+            };
+            if (typeof recomputeLivePlayerCounts === 'function') {
+                recomputeLivePlayerCounts();
+            }
+        }
         if (friendsSet.has(payload.id) || (payload.username && [...friendsSet].some(fid => fid.toLowerCase().includes(payload.username.toLowerCase())))) {
             renderHomeFriendsStrip();
             if (activePortalSection === 'people') renderPeopleResultsGrid();

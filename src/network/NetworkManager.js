@@ -15,6 +15,7 @@ const mpState = {
     connections: [], // Active PeerJS DataConnections
     remotePlayers: {}, // peerId -> { id, nickname, torsoHex, outfit, weaponId, disguiseId, gameMode, pos, targetPos, rotY, walkCycle, onGround, attackTimer, meshData, lastSeen }
     localTabPeers: {}, // tabId -> { gameId, lastSeen }
+    globalOnlinePeers: {}, // peerId/userId -> { id, username, gameId, inGame, roomCode, lastSeen }
     syncTimer: 0,
     lastSupabaseSync: 0
 };
@@ -522,6 +523,31 @@ function sendSocialBroadcast(event, payload) {
     }
 }
 
+async function updateSocialPresenceTrack() {
+    if (mpState.supabaseSocialChannel) {
+        try {
+            const myUName = (typeof authState !== 'undefined' && authState.user && authState.user.username)
+                ? authState.user.username
+                : mpState.nickname;
+            const myUid = (typeof authState !== 'undefined' && authState.user && authState.user.id)
+                ? authState.user.id
+                : mpState.myId;
+
+            await mpState.supabaseSocialChannel.track({
+                id: myUid,
+                username: myUName,
+                gameId: activeGameMode || null,
+                inGame: !!activeGameMode,
+                roomCode: mpState.roomCode || null,
+                mode: mpState.mode,
+                updatedAt: Date.now()
+            });
+        } catch (e) {
+            // Ignore presence tracking errors
+        }
+    }
+}
+
 function broadcastSocialPresence(inGame = false) {
     const myUName = (typeof authState !== 'undefined' && authState.user && authState.user.username)
         ? authState.user.username
@@ -540,6 +566,8 @@ function broadcastSocialPresence(inGame = false) {
         mode: mpState.mode
     };
     sendSocialBroadcast('friend_presence', payload);
+    updateSocialPresenceTrack();
+    recomputeLivePlayerCounts();
 }
 
 // WebSocket, Supabase Realtime Social & BroadcastChannel Live Presence
@@ -569,10 +597,27 @@ function initLiveSocketAndPresence() {
     const sb = typeof getSupabaseClient === 'function' ? getSupabaseClient() : null;
     if (sb && !mpState.supabaseSocialChannel) {
         try {
+            const myUid = (typeof authState !== 'undefined' && authState.user && authState.user.id)
+                ? authState.user.id
+                : mpState.myId;
+
             const socialCh = sb.channel('boblox_social', {
-                config: { broadcast: { self: false } }
+                config: {
+                    broadcast: { self: false },
+                    presence: { key: myUid }
+                }
             });
             mpState.supabaseSocialChannel = socialCh;
+
+            socialCh.on('presence', { event: 'sync' }, () => {
+                recomputeLivePlayerCounts();
+            });
+            socialCh.on('presence', { event: 'join' }, () => {
+                recomputeLivePlayerCounts();
+            });
+            socialCh.on('presence', { event: 'leave' }, () => {
+                recomputeLivePlayerCounts();
+            });
 
             socialCh.on('broadcast', { event: 'friend_request_send' }, ({ payload }) => {
                 if (typeof handleIncomingSocialPacket === 'function') {
@@ -598,9 +643,11 @@ function initLiveSocketAndPresence() {
                 }
             });
 
-            socialCh.subscribe((status) => {
+            socialCh.subscribe(async (status) => {
                 if (status === 'SUBSCRIBED') {
+                    await updateSocialPresenceTrack();
                     broadcastSocialPresence(!!activeGameMode);
+                    recomputeLivePlayerCounts();
                 }
             });
         } catch (e) {
@@ -683,39 +730,108 @@ function sendWsPresence() {
 
 function recomputeLivePlayerCounts() {
     if (mpState.ws && mpState.ws.readyState === 1) {
-        return; // Managed by live server broadcast
+        return; // Managed by live server broadcast when websocket server is connected
     }
     const now = Date.now();
     const perGame = {};
-    GAMES_CATALOG.forEach(g => { perGame[g.id] = 0; });
-    let total = 1; // Local player
+    if (typeof GAMES_CATALOG !== 'undefined') {
+        GAMES_CATALOG.forEach(g => { perGame[g.id] = 0; });
+    }
 
+    const myUName = (typeof authState !== 'undefined' && authState.user && authState.user.username)
+        ? authState.user.username
+        : mpState.nickname;
+    const myUid = (typeof authState !== 'undefined' && authState.user && authState.user.id)
+        ? authState.user.id
+        : mpState.myId;
+
+    const countedPeerIds = new Set();
+    countedPeerIds.add(myUid);
+    countedPeerIds.add(mpState.myId);
+
+    // 1. Local player
+    let total = 1;
     if (activeGameMode && perGame[activeGameMode] !== undefined) {
         perGame[activeGameMode]++;
     }
 
-    // Count active BroadcastChannel tabs
-    Object.keys(mpState.localTabPeers).forEach(tid => {
-        const info = mpState.localTabPeers[tid];
-        if (now - info.lastSeen > 7000) {
-            delete mpState.localTabPeers[tid];
-            return;
-        }
-        total++;
-        if (info.gameId && perGame[info.gameId] !== undefined) {
-            perGame[info.gameId]++;
-        }
-    });
+    // 2. Supabase Realtime Presence State (cross-device, global across internet)
+    if (mpState.supabaseSocialChannel && typeof mpState.supabaseSocialChannel.presenceState === 'function') {
+        try {
+            const pState = mpState.supabaseSocialChannel.presenceState();
+            Object.keys(pState).forEach(key => {
+                if (countedPeerIds.has(key)) return;
+                const presences = pState[key];
+                if (!Array.isArray(presences) || presences.length === 0) return;
+                const latest = presences[presences.length - 1];
+                if (latest.id && countedPeerIds.has(latest.id)) return;
 
-    // Count active WebRTC peers not already counted
-    Object.values(mpState.remotePlayers).forEach(rp => {
-        if (performance.now() - rp.lastSeen <= 8000 && !mpState.localTabPeers[rp.id]) {
-            total++;
-            if (rp.gameMode && perGame[rp.gameMode] !== undefined) {
-                perGame[rp.gameMode]++;
-            }
+                countedPeerIds.add(key);
+                if (latest.id) countedPeerIds.add(latest.id);
+                total++;
+
+                const gId = latest.gameId;
+                if (latest.inGame && gId && perGame[gId] !== undefined) {
+                    perGame[gId]++;
+                }
+            });
+        } catch (e) {
+            console.warn('presenceState read error:', e);
         }
-    });
+    }
+
+    // 3. Global Online Peers from heartbeat broadcasts
+    if (mpState.globalOnlinePeers) {
+        Object.keys(mpState.globalOnlinePeers).forEach(pid => {
+            const peer = mpState.globalOnlinePeers[pid];
+            if (!peer || (now - (peer.lastSeen || 0) > 15000)) {
+                delete mpState.globalOnlinePeers[pid];
+                return;
+            }
+            if (countedPeerIds.has(pid) || (peer.id && countedPeerIds.has(peer.id))) {
+                return;
+            }
+            countedPeerIds.add(pid);
+            if (peer.id) countedPeerIds.add(peer.id);
+            total++;
+
+            const gId = peer.gameId;
+            if (peer.inGame && gId && perGame[gId] !== undefined) {
+                perGame[gId]++;
+            }
+        });
+    }
+
+    // 4. Local browser tabs via BroadcastChannel
+    if (mpState.localTabPeers) {
+        Object.keys(mpState.localTabPeers).forEach(tid => {
+            const info = mpState.localTabPeers[tid];
+            if (now - (info.lastSeen || 0) > 8000) {
+                delete mpState.localTabPeers[tid];
+                return;
+            }
+            if (countedPeerIds.has(tid)) return;
+            countedPeerIds.add(tid);
+            total++;
+
+            if (info.gameId && perGame[info.gameId] !== undefined) {
+                perGame[info.gameId]++;
+            }
+        });
+    }
+
+    // 5. Active WebRTC remote players inside same room/game
+    if (mpState.remotePlayers) {
+        Object.values(mpState.remotePlayers).forEach(rp => {
+            if (performance.now() - rp.lastSeen <= 8000 && !countedPeerIds.has(rp.id)) {
+                countedPeerIds.add(rp.id);
+                total++;
+                if (rp.gameMode && perGame[rp.gameMode] !== undefined) {
+                    perGame[rp.gameMode]++;
+                }
+            }
+        });
+    }
 
     liveSocialState.totalOnline = total;
     liveSocialState.perGameOnline = perGame;
@@ -726,16 +842,28 @@ function refreshOnlineCounterDOM() {
     const bannerOnline = document.getElementById('banner-online-count');
     if (bannerOnline) bannerOnline.textContent = String(liveSocialState.totalOnline);
 
-    GAMES_CATALOG.forEach(g => {
-        const cardCounter = document.getElementById(`card-online-${g.id}`);
-        const cnt = liveSocialState.perGameOnline[g.id] || 0;
-        if (cardCounter) cardCounter.textContent = `${cnt} ve hře`;
-    });
+    if (typeof GAMES_CATALOG !== 'undefined') {
+        GAMES_CATALOG.forEach(g => {
+            const cardCounter = document.getElementById(`card-online-${g.id}`);
+            const cnt = liveSocialState.perGameOnline[g.id] || 0;
+            if (cardCounter) {
+                cardCounter.textContent = String(cnt);
+                const dot = cardCounter.previousElementSibling;
+                if (dot) {
+                    dot.className = cnt > 0
+                        ? 'w-1.5 h-1.5 rounded-full bg-[#00B06F] animate-pulse'
+                        : 'w-1.5 h-1.5 rounded-full bg-gray-500';
+                }
+            }
+        });
+    }
 
-    if (selectedGameId) {
+    if (typeof selectedGameId !== 'undefined' && selectedGameId) {
         const modalPlayers = document.getElementById('modal-game-players');
         const cnt = liveSocialState.perGameOnline[selectedGameId] || 0;
-        if (modalPlayers) modalPlayers.textContent = `${cnt} aktivních hráčů`;
+        if (modalPlayers) {
+            modalPlayers.textContent = `${cnt} aktivních hráčů`;
+        }
     }
 }
 
