@@ -1610,7 +1610,7 @@ function updateSidebarFriendsBadge() {
             badge.title = `${incomingCount} příchozích žádostí o přátelství`;
             badge.classList.remove('hidden');
         } else {
-            const count = friendsSet.size;
+            const count = (typeof getPlayerFriendsCount === 'function') ? getPlayerFriendsCount({ isLocal: true }) : friendsSet.size;
             badge.textContent = String(count);
             badge.className = 'px-2 py-0.5 rounded-full bg-[#2C2F33] text-[10px] font-bold text-gray-400';
             badge.title = '';
@@ -1713,17 +1713,14 @@ function handleIncomingSocialPacket(event, payload) {
             saveSentFriendRequests();
 
             const acceptorId = (payload.fromId && payload.fromId !== 'local') ? payload.fromId : (payload.fromUsername ? `cloud_${payload.fromUsername.toLowerCase()}` : null);
-            if (acceptorId && acceptorId !== myId) {
-                friendsSet.add(acceptorId);
-                if (payload.fromUsername) {
-                    friendsSet.add(payload.fromUsername.toLowerCase());
-                    friendsSet.add(`cloud_${payload.fromUsername.toLowerCase()}`);
-                }
+            const canonicalName = (payload.fromUsername || acceptorId || '').toLowerCase().replace(/^(user_|cloud_|db_|peer_)/, '').trim();
+            if (canonicalName && canonicalName !== myUName) {
+                friendsSet.add(canonicalName);
                 saveFriendsList();
                 if (payload.acceptorProfile) {
                     saveCachedFriendProfile({
                         ...payload.acceptorProfile,
-                        id: acceptorId,
+                        id: acceptorId || canonicalName,
                         isLocal: false
                     });
                 }
@@ -1917,11 +1914,7 @@ function acceptFriendRequest(playerId) {
     delete sentFriendRequests[`user_${cleanNick}`];
     saveSentFriendRequests();
 
-    friendsSet.add(playerId);
-    if (cleanNick) {
-        friendsSet.add(cleanNick);
-        friendsSet.add(`cloud_${cleanNick}`);
-    }
+    friendsSet.add(cleanNick || pidLower);
     saveFriendsList();
 
     const profileToCache = req?.senderProfile || player;
@@ -2097,34 +2090,29 @@ function sanitizeStoredFriends() {
         });
     }
 
-    let changed = false;
-    for (const fid of [...friendsSet]) {
-        if (!fid || fid === 'local' || fid === myId) {
-            friendsSet.delete(fid);
-            changed = true;
-            continue;
+    const cleanedFriends = new Set();
+    for (const fid of friendsSet) {
+        if (!fid || fid === 'local' || fid === myId) continue;
+        let str = String(fid).toLowerCase().trim();
+        if (idToUsernameMap.has(str)) {
+            str = idToUsernameMap.get(str);
         }
-        const fLower = String(fid).toLowerCase();
-        if (isRegistered && (fLower === myUName || fLower === `db_${myUName}` || fLower === `cloud_${myUName}`)) {
-            friendsSet.delete(fid);
-            changed = true;
-            continue;
-        }
-        // If fid is a raw UUID or ID, resolve it to username or remove it:
-        if (idToUsernameMap.has(fLower)) {
-            const mappedName = idToUsernameMap.get(fLower);
-            friendsSet.delete(fid);
-            friendsSet.add(mappedName);
-            changed = true;
-            continue;
-        }
-        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(fid)) {
-            friendsSet.delete(fid);
-            changed = true;
-            continue;
+        const clean = str.replace(/^(user_|cloud_|db_|peer_)/, '').trim();
+        if (!clean) continue;
+        if (isRegistered && clean === myUName) continue;
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clean)) continue;
+        cleanedFriends.add(clean);
+    }
+
+    let changed = (cleanedFriends.size !== friendsSet.size);
+    if (!changed) {
+        for (const f of cleanedFriends) {
+            if (!friendsSet.has(f)) { changed = true; break; }
         }
     }
     if (changed) {
+        friendsSet.clear();
+        cleanedFriends.forEach(f => friendsSet.add(f));
         localStorage.setItem(STORAGE_KEY_FRIENDS, JSON.stringify([...friendsSet]));
     }
 
@@ -2181,29 +2169,149 @@ function isPlayerFriend(playerOrId) {
     if (!playerOrId) return false;
     if (typeof playerOrId === 'object') {
         const p = playerOrId;
-        const uName = (p.username || p.displayName || '').toLowerCase();
-        if (p.id && friendsSet.has(p.id)) return true;
-        if (p.dbId && friendsSet.has(p.dbId)) return true;
+        const uName = (p.username || p.displayName || '').toLowerCase().replace(/^(user_|cloud_|db_|peer_)/, '').trim();
+        if (p.id) {
+            const cleanId = String(p.id).toLowerCase().replace(/^(user_|cloud_|db_|peer_)/, '').trim();
+            if (friendsSet.has(p.id) || friendsSet.has(cleanId)) return true;
+        }
+        if (p.dbId) {
+            const cleanDb = String(p.dbId).toLowerCase().replace(/^(user_|cloud_|db_|peer_)/, '').trim();
+            if (friendsSet.has(p.dbId) || friendsSet.has(cleanDb)) return true;
+        }
         if (uName && (friendsSet.has(uName) || friendsSet.has(`user_${uName}`) || friendsSet.has(`cloud_${uName}`) || friendsSet.has(`db_${uName}`))) return true;
         for (const fid of friendsSet) {
             const fStr = String(fid).toLowerCase();
-            if (uName && (fStr === uName || fStr === `user_${uName}` || fStr === `cloud_${uName}` || fStr === `db_${uName}`)) return true;
-            if (p.id && fStr === String(p.id).toLowerCase()) return true;
-            if (p.dbId && fStr === String(p.dbId).toLowerCase()) return true;
+            const fClean = fStr.replace(/^(user_|cloud_|db_|peer_)/, '').trim();
+            if (uName && (fStr === uName || fClean === uName)) return true;
+            if (p.id && (fStr === String(p.id).toLowerCase() || fClean === String(p.id).toLowerCase())) return true;
         }
         return false;
     }
 
-    const idStr = String(playerOrId).toLowerCase();
+    const idStr = String(playerOrId).toLowerCase().trim();
     if (friendsSet.has(playerOrId) || friendsSet.has(idStr)) return true;
 
-    const cleanNick = idStr.replace(/^(user_|cloud_|db_|peer_)/, '');
+    const cleanNick = idStr.replace(/^(user_|cloud_|db_|peer_)/, '').trim();
+    if (cleanNick && friendsSet.has(cleanNick)) return true;
+
     for (const fid of friendsSet) {
         const fStr = String(fid).toLowerCase();
-        if (fStr === idStr || fStr === cleanNick) return true;
-        if (fStr.replace(/^(user_|cloud_|db_|peer_)/, '') === cleanNick) return true;
+        const fClean = fStr.replace(/^(user_|cloud_|db_|peer_)/, '').trim();
+        if (fStr === idStr || fClean === cleanNick || fStr === cleanNick) return true;
+        if (fClean && fClean === cleanNick) return true;
     }
     return false;
+}
+
+function getPlayerFriendsCount(profile) {
+    if (!profile) return 0;
+    const myProfile = getLocalRobloxPlayerProfile();
+    const myUName = (myProfile.username || myProfile.displayName || '').toLowerCase().replace(/^(user_|cloud_|db_|peer_)/, '').trim();
+    const myId = getMyUniqueSocialId();
+    const isRegistered = typeof authState !== 'undefined' && authState.user && !myUName.startsWith('guest');
+
+    const pUsername = (profile.username || profile.displayName || '').toLowerCase().replace(/^(user_|cloud_|db_|peer_)/, '').trim();
+    const pId = String(profile.id || '').toLowerCase();
+    const pDbId = profile.dbId ? String(profile.dbId).toLowerCase() : '';
+
+    const isMe = profile.isLocal || (pId === 'local') || (pId === String(myId).toLowerCase()) || (isRegistered && pUsername && pUsername === myUName);
+
+    if (isMe) {
+        const uniqueSet = new Set();
+        for (const fid of friendsSet) {
+            if (!fid || fid === 'local' || fid === myId) continue;
+            const c = String(fid).toLowerCase().replace(/^(user_|cloud_|db_|peer_)/, '').trim();
+            if (!c || (isRegistered && c === myUName)) continue;
+            if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(c)) continue;
+            uniqueSet.add(c);
+        }
+        return uniqueSet.size;
+    }
+
+    const otherFriendsSet = new Set();
+
+    // 1. If we are friends with this player, count ourselves as their friend
+    if (isPlayerFriend(profile) || isPlayerFriend(pUsername)) {
+        if (myUName && !myUName.startsWith('guest')) {
+            otherFriendsSet.add(myUName);
+        } else {
+            otherFriendsSet.add('local_player');
+        }
+    }
+
+    // 2. Check profile's own raw friends / inventory.friends if attached
+    const profileInv = profile.inventory || (profile.style ? null : profile);
+    const invFriends = Array.isArray(profile.friends) ? profile.friends : (Array.isArray(profileInv?.friends) ? profileInv.friends : []);
+    invFriends.forEach(f => {
+        if (!f || f === 'local') return;
+        const c = String(f).toLowerCase().replace(/^(user_|cloud_|db_|peer_)/, '').trim();
+        if (!c || c === pUsername) return;
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(c)) return;
+        otherFriendsSet.add(c);
+    });
+
+    // 3. Search cloud users cache for this player's inventory & friends
+    if (typeof getCloudUsersCache === 'function') {
+        const cloudUsers = getCloudUsersCache();
+        const targetUserObj = cloudUsers.find(u => {
+            if (!u) return false;
+            const uName = (u.username || '').toLowerCase();
+            return uName === pUsername || (u.id && (String(u.id).toLowerCase() === pId || String(u.id).toLowerCase() === pDbId));
+        });
+        if (targetUserObj) {
+            const inv = (typeof targetUserObj.inventory === 'object' && targetUserObj.inventory !== null)
+                ? targetUserObj.inventory
+                : (typeof targetUserObj.inventory === 'string' ? (() => { try { return JSON.parse(targetUserObj.inventory); } catch { return {}; } })() : {});
+            if (Array.isArray(inv.friends)) {
+                inv.friends.forEach(f => {
+                    if (!f || f === 'local') return;
+                    const c = String(f).toLowerCase().replace(/^(user_|cloud_|db_|peer_)/, '').trim();
+                    if (!c || c === pUsername) return;
+                    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(c)) return;
+                    otherFriendsSet.add(c);
+                });
+            }
+        }
+
+        // 4. Also check if any other cloud users have this target player in their friends
+        cloudUsers.forEach(cu => {
+            if (!cu || !cu.username) return;
+            const cuName = cu.username.toLowerCase();
+            if (cuName === pUsername) return;
+            const cuInv = (typeof cu.inventory === 'object' && cu.inventory !== null)
+                ? cu.inventory
+                : (typeof cu.inventory === 'string' ? (() => { try { return JSON.parse(cu.inventory); } catch { return {}; } })() : {});
+            if (Array.isArray(cuInv.friends)) {
+                const hasTarget = cuInv.friends.some(f => {
+                    const c = String(f).toLowerCase().replace(/^(user_|cloud_|db_|peer_)/, '').trim();
+                    return c === pUsername || (pDbId && c === pDbId) || (pId && c === pId);
+                });
+                if (hasTarget) {
+                    otherFriendsSet.add(cuName);
+                }
+            }
+        });
+    }
+
+    // 5. Check local users DB as well
+    if (typeof getLocalUsersDB === 'function') {
+        const localList = getLocalUsersDB();
+        if (Array.isArray(localList)) {
+            const localObj = localList.find(u => u && u.username && u.username.toLowerCase() === pUsername);
+            if (localObj && localObj.inventory) {
+                const inv = typeof localObj.inventory === 'object' ? localObj.inventory : {};
+                if (Array.isArray(inv.friends)) {
+                    inv.friends.forEach(f => {
+                        const c = String(f).toLowerCase().replace(/^(user_|cloud_|db_|peer_)/, '').trim();
+                        if (c && c !== pUsername) otherFriendsSet.add(c);
+                    });
+                }
+            }
+        }
+    }
+
+    const explicitCount = typeof profile.friendsCount === 'number' ? profile.friendsCount : 0;
+    return Math.max(otherFriendsSet.size, explicitCount);
 }
 
 function syncFriendRequestsWithCloudUsers(cloudUsers) {
@@ -2271,7 +2379,6 @@ function syncFriendRequestsWithCloudUsers(cloudUsers) {
                 if (u.id) delete sentFriendRequests[u.id];
                 sentChanged = true;
 
-                friendsSet.add(cleanKey);
                 friendsSet.add(uName);
                 friendsChanged = true;
 
@@ -2342,7 +2449,6 @@ function syncFriendRequestsWithCloudUsers(cloudUsers) {
                 sentChanged = true;
 
                 if (!alreadyFriends) {
-                    friendsSet.add(cleanKey);
                     friendsSet.add(uName);
                     friendsChanged = true;
                     saveCachedFriendProfile({
@@ -2408,7 +2514,7 @@ function getAllSearchablePlayers() {
             const pid = `db_${u.username.toLowerCase()}`;
             if (!map.has(pid)) {
                 const pres = getPlayerPresence({ id: pid, username: u.username });
-                map.set(pid, {
+                const playerObj = {
                     id: pid,
                     username: u.username,
                     displayName: u.username,
@@ -2416,7 +2522,8 @@ function getAllSearchablePlayers() {
                     bio: u.bio || 'Registered Boblox Player.',
                     status: pres.status,
                     presence: pres,
-                    friendsCount: 0,
+                    inventory: u.inventory || {},
+                    friends: u.inventory?.friends || [],
                     followers: 0,
                     following: 0,
                     rap: String(u.coins || 250),
@@ -2431,7 +2538,9 @@ function getAllSearchablePlayers() {
                         shirtPattern: 'plain',
                         pantsColor: '#4B974B'
                     }
-                });
+                };
+                playerObj.friendsCount = getPlayerFriendsCount(playerObj);
+                map.set(pid, playerObj);
             }
         });
     }
@@ -2444,7 +2553,7 @@ function getAllSearchablePlayers() {
             const nick = rp.nickname || 'Player';
             if (!map.has(pid)) {
                 const pres = getPlayerPresence({ id: pid, username: nick });
-                map.set(pid, {
+                const playerObj = {
                     id: pid,
                     username: nick,
                     displayName: nick,
@@ -2452,7 +2561,6 @@ function getAllSearchablePlayers() {
                     bio: 'Live multiplayer player in Boblox.',
                     status: pres.status,
                     presence: pres,
-                    friendsCount: 0,
                     followers: 0,
                     following: 0,
                     rap: '250',
@@ -2467,7 +2575,9 @@ function getAllSearchablePlayers() {
                         shirtPattern: 'plain',
                         pantsColor: '#4B974B'
                     }
-                });
+                };
+                playerObj.friendsCount = getPlayerFriendsCount(playerObj);
+                map.set(pid, playerObj);
             }
         });
     }
@@ -2488,7 +2598,7 @@ function getAllSearchablePlayers() {
                 const outfit = inv.outfit || null;
                 const torsoHex = inv.torsoHex || '#0D69AC';
                 const pres = getPlayerPresence({ id: pid, dbId: u.id, username: u.username });
-                map.set(pid, {
+                const playerObj = {
                     id: pid,
                     dbId: u.id,
                     username: u.username,
@@ -2497,7 +2607,8 @@ function getAllSearchablePlayers() {
                     bio: u.bio || `Registrovaný Boblox hráč • ${u.coins ?? 250} B$`,
                     status: pres.status,
                     presence: pres,
-                    friendsCount: 0,
+                    inventory: inv,
+                    friends: inv.friends || [],
                     followers: 0,
                     following: 0,
                     rap: String(u.coins ?? 250),
@@ -2512,7 +2623,9 @@ function getAllSearchablePlayers() {
                         shirtPattern: outfit?.shirt || 'plain',
                         pantsColor: outfit?.pants || '#4B974B'
                     }
-                });
+                };
+                playerObj.friendsCount = getPlayerFriendsCount(playerObj);
+                map.set(pid, playerObj);
             }
         });
     }
@@ -2559,7 +2672,7 @@ function getAllSearchablePlayers() {
             const cleanName = String(fid).replace(/^(db_|cloud_|peer_|user_)/, '');
             if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanName)) return;
             const pres = getPlayerPresence(fid);
-            map.set(fid, {
+            const playerObj = {
                 id: fid,
                 username: (pres && pres.username) || cleanName,
                 displayName: (pres && pres.username) || cleanName,
@@ -2567,14 +2680,15 @@ function getAllSearchablePlayers() {
                 bio: 'Přítel v Bobloxu',
                 status: pres.status,
                 presence: pres,
-                friendsCount: 0,
                 followers: 0,
                 following: 0,
                 rap: '250',
                 torsoHex: (pres && pres.torsoHex) || '#0D69AC',
                 outfit: (pres && pres.outfit) || null,
                 isLocal: false
-            });
+            };
+            playerObj.friendsCount = getPlayerFriendsCount(playerObj);
+            map.set(fid, playerObj);
         }
     });
 
@@ -2589,7 +2703,7 @@ function getPlayerById(playerId) {
 
     if (!playerId || playerId === 'local' || playerId === myId || (isRegistered && typeof playerId === 'string' && playerId.toLowerCase() === myUName)) {
         const pres = getPlayerPresence('local');
-        return { ...myProfile, status: pres.status, presence: pres, isLocal: true };
+        return { ...myProfile, status: pres.status, presence: pres, isLocal: true, friendsCount: getPlayerFriendsCount({ isLocal: true }) };
     }
 
     const pidLower = String(playerId).toLowerCase();
@@ -2607,12 +2721,14 @@ function getPlayerById(playerId) {
     );
     if (cached) {
         const pres = getPlayerPresence(cached);
-        return {
+        const playerObj = {
             ...cached,
             status: pres.status,
             presence: pres,
             isLocal: false
         };
+        playerObj.friendsCount = getPlayerFriendsCount(playerObj);
+        return playerObj;
     }
 
     // 2. Check searchable players
@@ -2632,19 +2748,21 @@ function getPlayerById(playerId) {
     if (found) {
         const isMe = (found.id === 'local') || (found.id === myId) || (isRegistered && found.username && found.username.toLowerCase() === myUName);
         const pres = getPlayerPresence(found);
-        return {
+        const playerObj = {
             ...found,
             status: pres.status,
             presence: pres,
             isLocal: isMe
         };
+        playerObj.friendsCount = getPlayerFriendsCount(playerObj);
+        return playerObj;
     }
 
     // 3. Check live presence
     const pres = getPlayerPresence(playerId);
     if (pres.isOnline) {
         const uname = pres.username || cleanNick;
-        return {
+        const playerObj = {
             id: pres.id || playerId,
             username: uname,
             displayName: uname,
@@ -2652,7 +2770,6 @@ function getPlayerById(playerId) {
             bio: 'Registrovaný Boblox hráč',
             status: pres.status,
             presence: pres,
-            friendsCount: 0,
             followers: 0,
             following: 0,
             rap: '250',
@@ -2660,10 +2777,12 @@ function getPlayerById(playerId) {
             outfit: pres.outfit || null,
             isLocal: false
         };
+        playerObj.friendsCount = getPlayerFriendsCount(playerObj);
+        return playerObj;
     }
 
     // 4. Clean fallback (offline)
-    return {
+    const fallbackObj = {
         id: playerId,
         username: cleanNick,
         displayName: cleanNick,
@@ -2671,7 +2790,6 @@ function getPlayerById(playerId) {
         bio: 'Registrovaný Boblox hráč',
         status: 'offline',
         presence: pres,
-        friendsCount: 0,
         followers: 0,
         following: 0,
         rap: '250',
@@ -2679,6 +2797,8 @@ function getPlayerById(playerId) {
         outfit: null,
         isLocal: false
     };
+    fallbackObj.friendsCount = getPlayerFriendsCount(fallbackObj);
+    return fallbackObj;
 }
 
 /* ============================================================================
@@ -3603,7 +3723,7 @@ function renderPortalProfileView() {
         }
     }
 
-    const fCount = profile.isLocal ? friendsSet.size : (profile.friendsCount || 0);
+    const fCount = getPlayerFriendsCount(profile);
     if (friendsStat) friendsStat.textContent = String(fCount);
     if (followersStat) followersStat.textContent = String(profile.followers ?? 0);
     if (followingStat) followingStat.textContent = String(profile.following ?? 0);
@@ -3846,24 +3966,25 @@ function toggleFriendStatus(playerId) {
     if (!playerId || playerId === 'local') return;
     const player = getPlayerById(playerId);
     const pName = player.username || player.displayName || 'Hráč';
-    if (friendsSet.has(playerId)) {
-        friendsSet.delete(playerId);
-        removeCachedFriendProfile(playerId);
-        if (typeof showHudToast === 'function') {
-            showHudToast(`${pName} byl odebrán z přátel.`, 'blue');
-        }
+    const cleanNick = (player.username || playerId).toLowerCase().replace(/^(user_|cloud_|db_|peer_)/, '').trim();
+
+    if (isPlayerFriend(playerId) || isPlayerFriend(cleanNick)) {
+        removeFriend(playerId);
     } else {
-        friendsSet.add(playerId);
+        friendsSet.add(cleanNick || String(playerId).toLowerCase());
         saveCachedFriendProfile(player);
+        saveFriendsList();
+        if (typeof syncAccountToServer === 'function') {
+            syncAccountToServer().catch(() => {});
+        }
         if (typeof sfx !== 'undefined' && sfx.playCoin) sfx.playCoin();
         if (typeof showHudToast === 'function') {
             showHudToast(`👥 ${pName} byl přidán do přátel!`, 'green');
         }
+        renderHomeFriendsStrip();
+        if (activePortalSection === 'profile') renderPortalProfileView();
+        if (activePortalSection === 'people') renderPeopleResultsGrid();
     }
-    saveFriendsList();
-    renderHomeFriendsStrip();
-    if (activePortalSection === 'profile') renderPortalProfileView();
-    if (activePortalSection === 'people') renderPeopleResultsGrid();
 }
 
 function openEditProfileModal() {
@@ -4951,7 +5072,7 @@ function getAppClientVersion() {
         const m = s.src.match(/\?v=([\d\.]+)/);
         if (m) return m[1];
     }
-    return '4.1';
+    return '4.2';
 }
 
 function reloadForUpdateNow() {

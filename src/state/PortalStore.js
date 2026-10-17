@@ -1,7 +1,7 @@
 /* ============================================================================
  * 2. BOBLOX PORTAL STATE, BACKEND AUTH/DB, DAILY BONUS & 10 GAMES CATALOG
  * ============================================================================ */
-const BOBLOX_CLIENT_VERSION = '4.1';
+const BOBLOX_CLIENT_VERSION = '4.2';
 const STORAGE_KEY_BOBUX = 'boblox_bobux_balance_v1';
 const STORAGE_KEY_PLAYED = 'boblox_games_played_v1';
 const STORAGE_KEY_TORSO = 'boblox_avatar_torso_v1';
@@ -1224,7 +1224,10 @@ function applyAuthenticatedUser(user) {
         if (Array.isArray(user.inventory.friends) && user.inventory.friends.length > 0 && typeof friendsSet !== 'undefined') {
             user.inventory.friends.forEach(f => {
                 if (f && typeof f === 'string') {
-                    friendsSet.add(f);
+                    const clean = f.toLowerCase().replace(/^(user_|cloud_|db_|peer_)/, '').trim();
+                    if (clean && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clean)) {
+                        friendsSet.add(clean);
+                    }
                 }
             });
             if (typeof saveFriendsList === 'function') saveFriendsList();
@@ -1259,7 +1262,9 @@ function applyAuthenticatedUser(user) {
 async function syncAccountToServer() {
     if (!authState.user) return;
     const adopt = typeof loadAdoptMeSavedData === 'function' ? loadAdoptMeSavedData() : null;
-    const friendsList = (typeof friendsSet !== 'undefined') ? [...friendsSet] : [];
+    const friendsList = (typeof friendsSet !== 'undefined')
+        ? Array.from(new Set([...friendsSet].map(f => String(f).toLowerCase().replace(/^(user_|cloud_|db_|peer_)/, '').trim()).filter(Boolean)))
+        : [];
     const sentReqsList = (typeof sentFriendRequests !== 'undefined') ? Object.values(sentFriendRequests) : [];
     await apiRequest('/api/user/sync', {
         method: 'POST',

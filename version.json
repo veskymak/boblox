@@ -1,7 +1,7 @@
 {
-  "version": "4.1",
-  "buildTime": 1792270810000,
-  "updatedAt": "2026-10-17T23:00:10Z",
-  "title": "Boblox Aktualizace v4.1",
-  "message": "Reálný direct chat pro přátele v lobby, zobrazení seznamu přátel v chatu a oznamovací tečka s počtem nepřečtených zpráv."
+  "version": "4.2",
+  "buildTime": 1792271445000,
+  "updatedAt": "2026-10-17T23:10:45Z",
+  "title": "Boblox Aktualizace v4.2",
+  "message": "Oprava reálného počtu přátel na profilech hráčů a deduplikace přátel ve vlastním profilu."
 }
