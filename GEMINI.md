@@ -31,3 +31,4 @@ Kdykoliv upravíš jakýkoliv skript v `src/` (`src/core/`, `src/state/`, `src/u
 - **Nikdy nemaž existující DOM ID** (`#three-canvas`, `#hud-hp-bar`, `#hud-game-title`, `#hud-fps`, `#hud-objective-title`, atd.) – minihry v `GameWorlds.js` na nich přímo závisí.
 - **Responzivita**: Všechny nové UI prvky musí fungovat jak na PC s myší/klávesnicí, tak na mobilních zařízeních s dotykovým ovládáním.
 - **Konzistence stylů**: Drž se Roblox 2021–současnost tmavého UI tématu (`#191B1D`, `#232527`, `#2C2F33`, `#393B3D`, modrá `#00A2FF`, zelená `#00B06F`).
+
