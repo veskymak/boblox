@@ -355,3 +355,4 @@ window.onload = function () {
     initLiveSocketAndPresence();
     renderGameCatalog();
 };
+
