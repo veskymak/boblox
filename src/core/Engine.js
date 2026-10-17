@@ -310,6 +310,72 @@ function initThreeEngine() {
     playerAvatar = createBlockyCharacterMesh({
         weaponId: playerState.activeWeapon ? playerState.activeWeapon.id : 'none'
     });
+
+    // Attach Iconic Roblox Spawn ForceField Bubble (Glowing Blue Sphere + Sparkles, matches Screenshot 1)
+    const ffGroup = new THREE.Group();
+    ffGroup.position.set(0, 1.85, 0);
+
+    // Outer translucent blue ForceField sphere
+    const ffSphereGeo = new THREE.SphereGeometry(2.55, 24, 24);
+    const ffSphereMat = new THREE.MeshBasicMaterial({
+        color: 0x38bdf8,
+        transparent: true,
+        opacity: 0.24,
+        depthWrite: false,
+        side: THREE.DoubleSide
+    });
+    const ffSphere = new THREE.Mesh(ffSphereGeo, ffSphereMat);
+    ffGroup.add(ffSphere);
+
+    // Inner bright core rim glow sphere
+    const ffInnerGeo = new THREE.SphereGeometry(2.2, 20, 20);
+    const ffInnerMat = new THREE.MeshBasicMaterial({
+        color: 0x60a5fa,
+        transparent: true,
+        opacity: 0.14,
+        depthWrite: false
+    });
+    ffGroup.add(new THREE.Mesh(ffInnerGeo, ffInnerMat));
+
+    // Ground swirl ring at feet
+    const ffRingGeo = new THREE.RingGeometry(1.3, 2.05, 32);
+    const ffRingMat = new THREE.MeshBasicMaterial({
+        color: 0x93c5fd,
+        transparent: true,
+        opacity: 0.42,
+        side: THREE.DoubleSide,
+        depthWrite: false
+    });
+    const ffRing = new THREE.Mesh(ffRingGeo, ffRingMat);
+    ffRing.rotation.x = Math.PI / 2;
+    ffRing.position.y = -1.75;
+    ffGroup.add(ffRing);
+
+    // Twinkling star sparkles inside the ForceField
+    const sparkles = [];
+    const spGeo = new THREE.OctahedronGeometry(0.11, 0);
+    for (let i = 0; i < 8; i++) {
+        const spMat = new THREE.MeshBasicMaterial({
+            color: i % 2 === 0 ? 0xffffff : 0xfbcfe8,
+            transparent: true,
+            opacity: 0.9
+        });
+        const sp = new THREE.Mesh(spGeo, spMat);
+        const angle = (i / 8) * Math.PI * 2;
+        const rad = 1.15 + (i % 3) * 0.35;
+        const yOff = -0.6 + (i % 4) * 0.55;
+        sp.position.set(Math.cos(angle) * rad, yOff, Math.sin(angle) * rad);
+        sp.userData = { baseAngle: angle, rad, baseY: yOff, phase: i * 0.9 };
+        ffGroup.add(sp);
+        sparkles.push(sp);
+    }
+
+    playerAvatar.forcefieldGroup = ffGroup;
+    playerAvatar.forcefieldSphereMat = ffSphereMat;
+    playerAvatar.forcefieldRing = ffRing;
+    playerAvatar.forcefieldSparkles = sparkles;
+    playerAvatar.root.add(ffGroup);
+
     scene.add(playerAvatar.root);
 }
 
@@ -414,6 +480,7 @@ function launchSelectedGame() {
 
 function startGame(gameId, skipAutoMatchmaking = false) {
     cleanupCurrentGame();
+    if (typeof closeRobloxEscMenu === 'function') closeRobloxEscMenu();
     activeGameMode = gameId;
 
     // 1. Default Public Global Matchmaking vs. Private Party Code
@@ -439,6 +506,15 @@ function startGame(gameId, skipAutoMatchmaking = false) {
 
     initThreeEngine();
 
+    // Automatically capture focus into the 3D game window upon launching the game
+    const gameCanvas = document.getElementById('three-canvas');
+    if (gameCanvas) {
+        gameCanvas.focus();
+    }
+    if (typeof setRobloxShiftLock === 'function') {
+        setRobloxShiftLock(false);
+    }
+
     // Reset Player State
     playerState.hp = 100;
     playerState.maxHp = 100;
@@ -450,10 +526,15 @@ function startGame(gameId, skipAutoMatchmaking = false) {
     playerState.onLadder = false;
     playerState.attackTimer = 0;
     playerState.invulnTimer = 0;
+    playerState.forcefieldTimer = (typeof robloxUiState === 'undefined' || robloxUiState.forcefieldEnabled) ? 10.0 : 0;
     camState.yaw = 0;
     camState.pitch = 0.35;
+    camState.isDragging = false;
 
     updateHealthHUD();
+    if (typeof renderRobloxTopRightPlayerList === 'function') {
+        renderRobloxTopRightPlayerList();
+    }
 
     const gameMeta = GAMES_CATALOG.find(g => g.id === gameId);
     document.getElementById('hud-game-title').textContent = gameMeta ? gameMeta.title : 'Boblox World';
@@ -499,6 +580,7 @@ function leavePublicMatchmaking() {
 
 function returnToLobby() {
     activeGameMode = null;
+    if (typeof closeRobloxEscMenu === 'function') closeRobloxEscMenu();
 
     // Restore the lobby UI first so it can never stay stuck, even if cleanup throws
     document.getElementById('game-viewport').style.display = 'none';
@@ -531,6 +613,7 @@ function respawnPlayer() {
     playerState.knockback.set(0, 0, 0);
     playerState.onGround = false;
     playerState.coyoteTimer = 0;
+    playerState.forcefieldTimer = (typeof robloxUiState === 'undefined' || robloxUiState.forcefieldEnabled) ? 8.0 : 0;
     updateHealthHUD();
     flashDamageScreen();
 }

@@ -644,6 +644,33 @@ function gameLoop(now) {
     if (playerState.invulnTimer > 0) playerState.invulnTimer -= dt;
     if (playerState.weaponCooldownTimer > 0) playerState.weaponCooldownTimer = Math.max(0, playerState.weaponCooldownTimer - dt);
 
+    // Animate Roblox Spawn ForceField Bubble & Twinkling Sparkles (Matches Screenshot 1)
+    if (playerAvatar && playerAvatar.forcefieldGroup) {
+        if (playerState.forcefieldTimer > 0) {
+            playerState.forcefieldTimer = Math.max(0, playerState.forcefieldTimer - dt);
+            playerAvatar.forcefieldGroup.visible = true;
+            if (playerAvatar.forcefieldRing) {
+                playerAvatar.forcefieldRing.rotation.z = elapsedSec * 2.2;
+                const pulse = 1.0 + Math.sin(elapsedSec * 4.5) * 0.06;
+                playerAvatar.forcefieldRing.scale.set(pulse, pulse, 1);
+            }
+            if (playerAvatar.forcefieldSparkles) {
+                for (let i = 0; i < playerAvatar.forcefieldSparkles.length; i++) {
+                    const sp = playerAvatar.forcefieldSparkles[i];
+                    const ud = sp.userData;
+                    const ang = ud.baseAngle + elapsedSec * 1.4;
+                    sp.position.x = Math.cos(ang) * ud.rad;
+                    sp.position.z = Math.sin(ang) * ud.rad;
+                    sp.position.y = ud.baseY + Math.sin(elapsedSec * 3.5 + ud.phase) * 0.25;
+                    const s = 0.65 + Math.abs(Math.sin(elapsedSec * 5.0 + ud.phase)) * 0.7;
+                    sp.scale.setScalar(s);
+                }
+            }
+        } else {
+            playerAvatar.forcefieldGroup.visible = false;
+        }
+    }
+
     // Coyote Time Timer (150ms generous jump window after walking off a ledge)
     if (playerState.onGround) {
         playerState.coyoteTimer = 0.15;
@@ -676,17 +703,20 @@ function gameLoop(now) {
     }
 
     // 2. Player Movement Input relative to Camera Yaw (Zero-GC Scratch Vectors)
+    const menuOpen = typeof robloxUiState !== 'undefined' && robloxUiState.isMenuOpen;
     let moveForward = 0;
     let moveRight = 0;
-    if (keysPressed['KeyW'] || keysPressed['ArrowUp']) moveForward += 1;
-    if (keysPressed['KeyS'] || keysPressed['ArrowDown']) moveForward -= 1;
-    if (keysPressed['KeyD'] || keysPressed['ArrowRight']) moveRight += 1;
-    if (keysPressed['KeyA'] || keysPressed['ArrowLeft']) moveRight -= 1;
+    if (!menuOpen) {
+        if (keysPressed['KeyW'] || keysPressed['ArrowUp']) moveForward += 1;
+        if (keysPressed['KeyS'] || keysPressed['ArrowDown']) moveForward -= 1;
+        if (keysPressed['KeyD'] || keysPressed['ArrowRight']) moveRight += 1;
+        if (keysPressed['KeyA'] || keysPressed['ArrowLeft']) moveRight -= 1;
 
-    // Combine analog joystick vector (-joyY is forward, +joyX is right)
-    if (Math.abs(touchState.joyX) > 0.04 || Math.abs(touchState.joyY) > 0.04) {
-        moveForward += -touchState.joyY;
-        moveRight += touchState.joyX;
+        // Combine analog joystick vector (-joyY is forward, +joyX is right)
+        if (Math.abs(touchState.joyX) > 0.04 || Math.abs(touchState.joyY) > 0.04) {
+            moveForward += -touchState.joyY;
+            moveRight += touchState.joyX;
+        }
     }
 
     _forwardVec.set(-Math.sin(camState.yaw), 0, -Math.cos(camState.yaw));
@@ -696,6 +726,7 @@ function gameLoop(now) {
         .addScaledVector(_forwardVec, moveForward)
         .addScaledVector(_rightVec, moveRight);
 
+    const isShiftLocked = typeof robloxUiState !== 'undefined' && robloxUiState.isShiftLocked;
     const inputMag = Math.min(1.0, _moveDir.length());
     const baseSpeed = 12.5 * playerState.speedMultiplier;
     if (inputMag > 0.03) {
@@ -703,13 +734,20 @@ function gameLoop(now) {
         playerState.vel.x = _moveDir.x * baseSpeed * inputMag;
         playerState.vel.z = _moveDir.z * baseSpeed * inputMag;
 
-        // Smoothly interpolate avatar rotation toward movement direction
-        const targetAngle = Math.atan2(-_moveDir.x, -_moveDir.z);
-        playerAvatar.root.rotation.y = lerpAngle(playerAvatar.root.rotation.y, targetAngle, dt * 16);
+        if (isShiftLocked) {
+            playerAvatar.root.rotation.y = lerpAngle(playerAvatar.root.rotation.y, camState.yaw, dt * 24);
+        } else {
+            // Smoothly interpolate avatar rotation toward movement direction
+            const targetAngle = Math.atan2(-_moveDir.x, -_moveDir.z);
+            playerAvatar.root.rotation.y = lerpAngle(playerAvatar.root.rotation.y, targetAngle, dt * 16);
+        }
     } else {
         // Roblox-style instant stop (zero glide / zero inertia upon releasing controls)
         playerState.vel.x = 0;
         playerState.vel.z = 0;
+        if (isShiftLocked) {
+            playerAvatar.root.rotation.y = lerpAngle(playerAvatar.root.rotation.y, camState.yaw, dt * 24);
+        }
     }
 
     // Conveyor belt push on player if standing on conveyor
@@ -724,7 +762,7 @@ function gameLoop(now) {
     // Jump & Ladder Climbing (Keyboard Space or Mobile Touch Jump Button)
     const wasOnGround = playerState.onGround;
     const prevVelY = playerState.vel.y;
-    const wantJump = keysPressed['Space'] || touchState.jumpPressed;
+    const wantJump = !menuOpen && (keysPressed['Space'] || touchState.jumpPressed);
     if (activeGameMode === 'adoptme' && gameSpecificData && gameSpecificData.isRidingPet && wantJump) {
         playerState.vel.y = 11.5;
         playerState.onGround = false;

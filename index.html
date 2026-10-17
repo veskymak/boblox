@@ -108,6 +108,12 @@
             transform: translateY(1px);
         }
 
+        /* Roblox 2021–Present Custom Cursors (Arrow & Hand Pointer with Black Outline + Drop Shadow) */
+        :root {
+            --roblox-cursor-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 32 32'%3E%3Cpath d='M7.2 4.8 L7.2 22.8 L11.8 18.8 L15.2 26.2 C15.8 27.4 17.3 27.9 18.5 27.3 C19.7 26.7 20.2 25.2 19.6 24.0 L16.2 16.6 L22.2 16.2 Z' fill='rgba(0,0,0,0.32)' transform='translate(1.6, 1.6)'/%3E%3Cpath d='M6 3.5 C6 2.5 7.2 2 7.9 2.7 L22.6 15.2 C23.4 15.9 22.9 17.2 21.8 17.3 L15.8 17.6 L19.1 24.7 C19.6 25.8 19.1 27.1 18.0 27.6 C16.9 28.1 15.6 27.6 15.1 26.5 L11.8 19.4 L7.8 23.1 C7.0 23.8 6 23.2 6 22.2 Z' fill='%23ffffff' stroke='%23000000' stroke-width='2.6' stroke-linejoin='round' stroke-linecap='round'/%3E%3C/svg%3E") 6 3, auto;
+            --roblox-cursor-pointer: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 32 32'%3E%3Cpath d='M12 4.5 C12 2.9 13.3 1.6 14.9 1.6 C16.5 1.6 17.8 2.9 17.8 4.5 L17.8 12.2 C18.3 11.7 19.1 11.4 19.9 11.4 C21.4 11.4 22.6 12.5 22.8 14.0 C23.3 13.6 24.0 13.3 24.7 13.3 C26.3 13.3 27.5 14.6 27.5 16.2 L27.5 22.5 C27.5 26.2 24.8 28.8 21.2 28.8 L13.2 28.8 C10.6 28.8 8.8 27.2 7.4 24.8 L4.3 19.5 C3.4 18.0 3.9 16.1 5.4 15.3 C6.8 14.5 8.6 15.0 9.5 16.3 L12 19.8 Z' fill='rgba(0,0,0,0.32)' transform='translate(1.6, 1.5)'/%3E%3Cpath d='M12 4.5 C12 2.9 13.3 1.6 14.9 1.6 C16.5 1.6 17.8 2.9 17.8 4.5 L17.8 14.2 M17.8 12.4 C18.3 11.8 19.1 11.4 19.9 11.4 C21.5 11.4 22.8 12.7 22.8 14.3 L22.8 16.2 M22.8 14.3 C23.3 13.7 24.0 13.3 24.8 13.3 C26.3 13.3 27.5 14.6 27.5 16.2 L27.5 22.5 C27.5 26.2 24.8 28.8 21.2 28.8 L13.2 28.8 C10.6 28.8 8.8 27.2 7.4 24.8 L4.3 19.5 C3.4 18.0 3.9 16.1 5.4 15.3 C6.8 14.5 8.6 15.0 9.5 16.3 L12 19.8 L12 4.5 Z' fill='%23ffffff' stroke='%23000000' stroke-width='2.5' stroke-linejoin='round' stroke-linecap='round'/%3E%3C/svg%3E") 14 3, pointer;
+        }
+
         /* Fullscreen 3D Canvas Container */
         #game-viewport {
             position: fixed;
@@ -122,18 +128,28 @@
             -webkit-touch-callout: none;
             user-select: none;
             -webkit-user-select: none;
+            cursor: var(--roblox-cursor-arrow);
+        }
+
+        #game-viewport button,
+        #game-viewport a,
+        #game-viewport select,
+        #game-viewport .cursor-pointer,
+        #game-viewport .hotbar-slot {
+            cursor: var(--roblox-cursor-pointer) !important;
         }
 
         #three-canvas {
             width: 100%;
             height: 100%;
             display: block;
-            cursor: grab;
+            cursor: var(--roblox-cursor-arrow);
             touch-action: none;
+            outline: none;
         }
 
         #three-canvas:active {
-            cursor: grabbing;
+            cursor: var(--roblox-cursor-arrow);
         }
 
         /* Roblox Mobile Touch Controls */
@@ -232,6 +248,21 @@
 
         .toast-anim {
             animation: floatUpFade 2.6s forwards cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        /* Roblox Backpack / Hotbar Slot Styling */
+        .hotbar-slot {
+            background: rgba(25, 27, 31, 0.78);
+            border: 1.5px solid rgba(255, 255, 255, 0.12);
+        }
+        .hotbar-slot:hover {
+            background: rgba(38, 41, 47, 0.9);
+            border-color: rgba(255, 255, 255, 0.35);
+        }
+        .hotbar-slot.active {
+            background: rgba(38, 41, 47, 0.95);
+            border: 2px solid #ffffff;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.25);
         }
     </style>
 </head>
@@ -836,76 +867,124 @@
         </div>
     </div>
 
-    <!-- FULLSCREEN 3D GAME VIEWPORT & OVERLAY -->
+    <!-- FULLSCREEN 3D GAME VIEWPORT & ROBLOX 1:1 OVERLAY -->
     <div id="game-viewport">
         <!-- Three.js WebGL Canvas -->
-        <canvas id="three-canvas"></canvas>
+        <canvas id="three-canvas" tabindex="0"></canvas>
 
         <!-- Red Damage Vignette Overlay -->
         <div id="damage-flash" class="fixed inset-0 bg-red-600/35 opacity-0"></div>
 
-        <!-- TOP-LEFT HUD: Exit Button, Game Title, FPS Counter -->
-        <div class="fixed top-3 left-3 sm:top-4 sm:left-4 z-30 flex flex-wrap items-center gap-2 pointer-events-auto">
-            <button onclick="returnToLobby()" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#191B1D]/90 hover:bg-red-600/90 border border-[#393B3D] text-white font-bold text-xs sm:text-sm shadow-lg backdrop-blur-md transition">
-                <span class="text-base leading-none">✕</span>
-                <span>Lobby [ESC]</span>
-            </button>
+        <!-- Roblox Shift Lock Center Reticle (Shown when Shift Lock is active) -->
+        <div id="roblox-shiftlock-reticle" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none hidden">
+            <svg width="26" height="26" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="14" cy="14" r="7.5" stroke="rgba(0,0,0,0.65)" stroke-width="3.2"/>
+                <circle cx="14" cy="14" r="7.5" stroke="#ffffff" stroke-width="1.8"/>
+                <circle cx="14" cy="14" r="2" fill="#ffffff" stroke="rgba(0,0,0,0.65)" stroke-width="0.8"/>
+                <path d="M14 2.5V5.5M14 22.5V25.5M2.5 14H5.5M22.5 14H25.5" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+        </div>
 
-            <div class="px-3 py-2 rounded-xl bg-[#191B1D]/85 border border-[#393B3D] backdrop-blur-md shadow-lg flex items-center gap-2.5">
-                <div class="boblox-logo-sq !w-4 !h-4">
-                    <div class="boblox-logo-hole !w-1.5 !h-1.5"></div>
+        <!-- 1. ROBLOX TOP-LEFT UNIBAR (Roblox Icon, Hamburger Menu, Chat Bubble) -->
+        <div class="fixed top-2.5 left-3 z-50 flex items-center gap-2 pointer-events-auto select-none">
+            <!-- Tilted Roblox Logo Circle Button -->
+            <button id="btn-roblox-logo" type="button" onclick="toggleRobloxEscMenu()" title="Roblox Menu [Esc]"
+                class="w-9 h-9 rounded-full bg-[#121316]/85 hover:bg-[#232529]/95 active:scale-95 backdrop-blur-md flex items-center justify-center transition shadow-md border border-white/5">
+                <div class="w-4 h-4 bg-white rotate-[14deg] rounded-[2px] flex items-center justify-center shadow-sm">
+                    <div class="w-1.5 h-1.5 bg-[#121316] rounded-[0.5px]"></div>
                 </div>
-                <span id="hud-game-title" class="font-bold text-xs sm:text-sm text-white truncate max-w-[140px] sm:max-w-none">Classic Mega Obby</span>
+            </button>
+
+            <!-- Hamburger + Chat Grouped Pill -->
+            <div class="h-9 px-1.5 rounded-full bg-[#121316]/85 backdrop-blur-md flex items-center gap-0.5 shadow-md border border-white/5">
+                <!-- Hamburger Icon -->
+                <button id="btn-roblox-hamburger" type="button" onclick="toggleRobloxEscMenu()" title="Experience Controls [Esc]"
+                    class="w-7 h-7 rounded-full hover:bg-white/15 active:scale-95 flex items-center justify-center text-white transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16"/>
+                    </svg>
+                </button>
+                <!-- Chat Icon -->
+                <button id="btn-roblox-chat" type="button" onclick="toggleRobloxChat()" title="Chat [/]"
+                    class="w-7 h-7 rounded-full hover:bg-white/15 active:scale-95 flex items-center justify-center text-white transition relative">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 5h16a1 1 0 011 1v10a1 1 0 01-1 1H8l-4 4V6a1 1 0 011-1z"/>
+                        <path stroke-linecap="round" d="M8 9.5h8M8 12.5h5"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- ROBLOX IN-GAME CHAT OVERLAY (Toggled via TopBar Chat Icon or '/' key) -->
+        <div id="roblox-chat-box" class="fixed top-14 left-3 z-30 w-72 sm:w-80 pointer-events-auto hidden flex-col bg-[#121316]/80 backdrop-blur-md rounded-xl border border-white/10 shadow-2xl overflow-hidden">
+            <div id="roblox-chat-messages" class="p-3 space-y-1.5 max-h-44 overflow-y-auto text-xs text-gray-100 font-medium">
+                <div class="text-gray-400 italic">[System] Chat připojen. Stiskni '/' pro psaní zprávy.</div>
+            </div>
+            <form onsubmit="event.preventDefault(); sendRobloxChatMessage();" class="border-t border-white/10 bg-black/40 flex items-center px-2.5 py-1.5 gap-2">
+                <input id="roblox-chat-input" type="text" maxlength="160" autocomplete="off" placeholder="To chat click here or press / key"
+                    class="flex-1 bg-transparent text-xs text-white placeholder-gray-400 focus:outline-none">
+                <button type="submit" class="text-gray-300 hover:text-white text-xs font-bold px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 transition">↵</button>
+            </form>
+        </div>
+
+        <!-- TOP-CENTER HUD: Subtle Dynamic Game Objective & Perf Stats Bar -->
+        <div class="fixed top-2.5 left-1/2 -translate-x-1/2 z-20 pointer-events-none flex flex-col items-center gap-1 w-[90%] max-w-md">
+            <div id="roblox-perf-stats-bar" class="hidden px-3 py-1 rounded-md bg-[#121316]/85 border border-white/10 text-[10px] font-mono text-gray-200 flex items-center gap-2.5 backdrop-blur-md">
+                <span id="hud-game-title" class="font-bold text-white truncate max-w-[130px]">Classic Mega Obby</span>
                 <span class="text-gray-500">|</span>
-                <span id="hud-fps" class="font-mono text-xs font-bold text-[#00B06F]">60 FPS</span>
+                <span id="hud-fps" class="font-bold text-[#00B06F]">60 FPS</span>
+                <span class="text-gray-500">|</span>
+                <span id="hud-mp-status" class="text-[#00A2FF]">Globální</span>
             </div>
-
-            <button onclick="respawnPlayerManual()" class="px-2.5 py-2 rounded-xl bg-[#191B1D]/85 hover:bg-[#2C2F33] border border-[#393B3D] text-xs font-semibold text-gray-200 backdrop-blur-md transition" title="Respawn [R]">
-                ↻ [R]
-            </button>
-
-            <button onclick="openMultiplayerModal()" class="px-2.5 py-2 rounded-xl bg-[#00B06F]/90 hover:bg-[#00B06F] border border-green-400 text-xs font-bold text-white backdrop-blur-md transition flex items-center gap-1.5">
-                <span>🌐</span>
-                <span id="hud-mp-status">Globální</span>
-            </button>
-        </div>
-
-        <!-- TOP-CENTER HUD: Dynamic Game Banner / Timer / Objective -->
-        <div class="fixed top-16 sm:top-4 left-1/2 -translate-x-1/2 z-20 pointer-events-none w-[92%] max-w-md">
-            <div class="bg-[#191B1D]/90 border border-[#393B3D] backdrop-blur-md rounded-2xl px-4 py-2 shadow-xl text-center">
-                <div id="hud-objective-title" class="text-[11px] font-bold uppercase tracking-wider text-[#00A2FF]">ÚKOL HRY</div>
-                <div id="hud-objective-text" class="text-xs sm:text-sm font-bold text-white mt-0.5">Dosáhni zlatého cíle na konci dráhy!</div>
+            <div id="hud-objective-banner" class="bg-[#121316]/75 border border-white/10 backdrop-blur-md rounded-lg px-3.5 py-1.5 shadow-lg text-center transition-opacity duration-300">
+                <div id="hud-objective-title" class="text-[10px] font-bold uppercase tracking-wider text-[#00A2FF]">ÚKOL HRY</div>
+                <div id="hud-objective-text" class="text-[11px] sm:text-xs font-semibold text-white mt-0.5">Dosáhni zlatého cíle na konci dráhy!</div>
             </div>
         </div>
 
-        <!-- TOP-RIGHT HUD: HP Bar, Score / Tycoon Cash, and Bobux -->
-        <div class="fixed top-3 right-3 sm:top-4 sm:right-4 z-20 flex flex-col items-end gap-1.5 pointer-events-none">
-            <!-- Health Bar Card -->
-            <div class="bg-[#191B1D]/90 border border-[#393B3D] backdrop-blur-md rounded-xl p-2 w-40 sm:w-56 shadow-lg">
-                <div class="flex items-center justify-between text-[11px] sm:text-xs font-bold mb-1">
-                    <span class="text-gray-300 flex items-center gap-1">❤️ HP</span>
+        <!-- 2. ROBLOX TOP-RIGHT PLAYER LIST / LEADERBOARD WIDGET (Matches Screenshot 1) -->
+        <div class="fixed top-2.5 right-3 z-30 flex flex-col items-end gap-1.5 pointer-events-auto select-none">
+            <!-- Authentic Roblox Player List Box -->
+            <div id="roblox-playerlist-card" class="bg-[#121316]/80 backdrop-blur-md rounded-md px-3 py-2 min-w-[148px] sm:min-w-[168px] shadow-lg border border-white/5">
+                <div class="flex items-center justify-between mb-1">
+                    <button type="button" onclick="toggleRobloxPlayerList()" title="Skrýt seznam hráčů [Tab]"
+                        class="text-gray-300 hover:text-white text-xs leading-none font-bold w-4 h-4 flex items-center justify-center rounded hover:bg-white/10 transition">
+                        ×
+                    </button>
+                    <span id="hud-bobux-pill-mini" class="text-[10px] font-bold text-[#FFE066] flex items-center gap-1">
+                        <span>B$</span>
+                        <span id="hud-bobux-count">250</span>
+                    </span>
+                </div>
+                <div id="roblox-playerlist-rows" class="space-y-1 text-xs font-medium text-gray-100 pl-1">
+                    <!-- Populated dynamically with local player (e.g. Vendeez) and connected peers -->
+                </div>
+            </div>
+
+            <!-- Collapsed Leaderboard Reopen Pill (Shown when Leaderboard is closed) -->
+            <button id="roblox-playerlist-reopen" type="button" onclick="toggleRobloxPlayerList()" title="Zobrazit hráče [Tab]"
+                class="hidden px-2.5 py-1 rounded-md bg-[#121316]/80 hover:bg-[#232529]/90 backdrop-blur-md text-[11px] font-semibold text-gray-200 border border-white/10 shadow">
+                👥 Players [Tab]
+            </button>
+
+            <!-- Compact Health & Game Progress Pill -->
+            <div class="bg-[#121316]/75 border border-white/5 backdrop-blur-md rounded-md px-2.5 py-1.5 w-[148px] sm:w-[168px] shadow pointer-events-none">
+                <div class="flex items-center justify-between text-[10px] font-bold mb-1">
+                    <span class="text-gray-300">HP</span>
                     <span id="hud-hp-text" class="text-[#00B06F]">100 / 100</span>
                 </div>
-                <div class="w-full h-2.5 sm:h-3 bg-gray-800 rounded-full overflow-hidden border border-gray-700">
+                <div class="w-full h-1.5 bg-black/60 rounded-full overflow-hidden">
                     <div id="hud-hp-bar" class="h-full bg-gradient-to-r from-[#00B06F] to-[#00E08E] transition-all duration-200" style="width: 100%;"></div>
                 </div>
-            </div>
-
-            <!-- Score & Bobux Pill -->
-            <div class="flex items-center gap-1.5">
-                <div id="hud-extra-stat-box" class="bg-[#191B1D]/90 border border-[#393B3D] backdrop-blur-md rounded-xl px-3 py-1.5 shadow-lg text-xs font-bold">
+                <div id="hud-extra-stat-box" class="mt-1.5 pt-1 border-t border-white/10 text-[10px] font-semibold truncate">
                     <span id="hud-extra-label" class="text-gray-400">Postup: </span>
-                    <span id="hud-extra-value" class="text-[#00A2FF]">Checkpoint 1/4</span>
-                </div>
-                <div class="bg-[#191B1D]/90 border border-[#393B3D] backdrop-blur-md rounded-xl px-2.5 py-1.5 shadow-lg flex items-center gap-1.5 text-xs font-bold">
-                    <span class="w-4 h-4 rounded bg-[#FFE066] text-black flex items-center justify-center text-[10px] font-extrabold">B$</span>
-                    <span id="hud-bobux-count" class="text-[#FFE066]">250</span>
+                    <span id="hud-extra-value" class="text-white">Checkpoint 1/4</span>
                 </div>
             </div>
         </div>
 
         <!-- CENTER FLOATING NOTIFICATIONS -->
-        <div id="hud-toast-container" class="fixed top-28 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex flex-col items-center gap-2"></div>
+        <div id="hud-toast-container" class="fixed top-24 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex flex-col items-center gap-2"></div>
 
         <!-- ROBLOX-STYLE MOBILE TOUCH CONTROLS OVERLAY -->
         <div id="mobile-touch-controls" class="fixed inset-0 z-20 pointer-events-none">
@@ -929,18 +1008,378 @@
             </div>
         </div>
 
-        <!-- BOTTOM-CENTER HUD: Dynamic Weapon & Equipment Hotbar (Keys 1-9, Mouse Wheel, Touch) -->
-        <div class="fixed bottom-3 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-1.5 w-full max-w-2xl px-3 pointer-events-none">
-            <div id="hud-weapon-status-bar" class="px-3 py-1 rounded-full bg-[#191B1D]/90 border border-[#393B3D] text-[11px] font-bold text-gray-200 backdrop-blur-md shadow flex items-center gap-2">
-                <span id="hud-active-weapon-name" class="text-[#00A2FF]">👟 Běh</span>
+        <!-- BOTTOM-CENTER HUD: Roblox Backpack / Hotbar (Keys 1-9, Mouse Wheel, Touch) -->
+        <div id="hud-backpack-container" class="fixed bottom-3 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-1 w-full max-w-2xl px-3 pointer-events-none">
+            <div id="hud-weapon-status-bar" class="px-2.5 py-0.5 rounded-md bg-[#121316]/80 border border-white/10 text-[10px] font-semibold text-gray-200 backdrop-blur-md shadow flex items-center gap-2">
+                <span id="hud-active-weapon-name" class="text-white font-bold">👟 Běh</span>
                 <span class="text-gray-500">•</span>
-                <span id="hud-active-weapon-stats" class="text-gray-300">Klávesy 1–9 nebo kolečko myši přepínají vybavení</span>
+                <span id="hud-active-weapon-stats" class="text-gray-300">Klávesy 1–9 nebo kolečko myši</span>
             </div>
 
-            <div class="flex items-center gap-2 bg-[#191B1D]/92 border border-[#393B3D] backdrop-blur-md px-3 py-2 rounded-2xl shadow-2xl pointer-events-auto">
-                <div id="hud-hotbar-slots" class="flex items-center gap-1.5 sm:gap-2">
+            <div class="flex items-center gap-1.5 bg-[#121316]/80 border border-white/10 backdrop-blur-md px-2 py-1.5 rounded-xl shadow-2xl pointer-events-auto">
+                <div id="hud-hotbar-slots" class="flex items-center gap-1.5">
                     <!-- Dynamically populated weapon slots 1..N -->
                 </div>
+            </div>
+        </div>
+
+        <!-- =======================================================================
+             3. ROBLOX ESC EXPERIENCE MENU MODAL (1:1 FROM SCREENSHOTS 2, 3, 4)
+             ======================================================================= -->
+        <div id="roblox-esc-menu" onclick="if(event.target === this) closeRobloxEscMenu();"
+            class="fixed inset-0 z-40 hidden items-center justify-center p-3 sm:p-6 bg-black/55 backdrop-blur-[3px] select-none">
+
+            <!-- Main Dark Modal Container -->
+            <div class="w-full max-w-[760px] h-[510px] max-h-[85vh] bg-[#121316]/95 border border-white/10 rounded-xl shadow-[0_24px_64px_rgba(0,0,0,0.85)] flex flex-col overflow-hidden text-white">
+
+                <!-- TOP TABS NAVIGATION (People, Settings, Gallery, Report, Help) -->
+                <div class="grid grid-cols-5 border-b border-white/15 px-3 pt-1.5 shrink-0 bg-[#141619]">
+                    <button type="button" onclick="switchRobloxMenuTab('people')" data-rblx-tab="people"
+                        class="rblx-menu-tab py-2.5 flex items-center justify-center gap-2 text-xs sm:text-sm font-semibold text-white border-b-2 border-white transition">
+                        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-1a4 4 0 00-5-3.87M9 20H2v-1a6 6 0 0112 0v1zm6-12a4 4 0 11-8 0 4 4 0 018 0zm6 2a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        </svg>
+                        <span>People</span>
+                    </button>
+
+                    <button type="button" onclick="switchRobloxMenuTab('settings')" data-rblx-tab="settings"
+                        class="rblx-menu-tab py-2.5 flex items-center justify-center gap-2 text-xs sm:text-sm font-medium text-gray-400 hover:text-white border-b-2 border-transparent transition">
+                        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                        <span>Settings</span>
+                    </button>
+
+                    <button type="button" onclick="switchRobloxMenuTab('gallery')" data-rblx-tab="gallery"
+                        class="rblx-menu-tab py-2.5 flex items-center justify-center gap-2 text-xs sm:text-sm font-medium text-gray-400 hover:text-white border-b-2 border-transparent transition">
+                        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+                            <rect x="3" y="4" width="18" height="16" rx="2"/>
+                            <circle cx="8.5" cy="9.5" r="1.5"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 15l-5-5L5 20"/>
+                        </svg>
+                        <span>Gallery</span>
+                    </button>
+
+                    <button type="button" onclick="switchRobloxMenuTab('report')" data-rblx-tab="report"
+                        class="rblx-menu-tab py-2.5 flex items-center justify-center gap-2 text-xs sm:text-sm font-medium text-gray-400 hover:text-white border-b-2 border-transparent transition">
+                        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 21V4m0 0h13l-2 4.5 2 4.5H4"/>
+                        </svg>
+                        <span>Report</span>
+                    </button>
+
+                    <button type="button" onclick="switchRobloxMenuTab('help')" data-rblx-tab="help"
+                        class="rblx-menu-tab py-2.5 flex items-center justify-center gap-2 text-xs sm:text-sm font-medium text-gray-400 hover:text-white border-b-2 border-transparent transition">
+                        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="9"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9.5 9a2.5 2.5 0 015 0c0 1.5-2.5 2-2.5 3.5m0 3h.01"/>
+                        </svg>
+                        <span>Help</span>
+                    </button>
+                </div>
+
+                <!-- TAB CONTENT AREA -->
+                <div class="flex-1 min-h-0 overflow-y-auto px-4 py-3.5">
+
+                    <!-- A. PEOPLE TAB (Matches Screenshot 2) -->
+                    <div id="rblx-panel-people" class="space-y-4">
+                        <!-- Invite Friends Bar -->
+                        <button type="button" onclick="closeRobloxEscMenu(); openMultiplayerModal();"
+                            class="w-full bg-[#2a2c30] hover:bg-[#34373c] transition rounded-lg px-3.5 py-2.5 flex items-center justify-between text-left">
+                            <div class="flex items-center gap-2.5 text-gray-200 text-xs sm:text-sm font-medium">
+                                <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+                                    <circle cx="8.5" cy="7" r="4"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M20 8v6M23 11h-6"/>
+                                </svg>
+                                <span>Invite Friends</span>
+                            </div>
+                            <span id="rblx-invite-subtext" class="text-[11px] text-gray-400">Multiplayer & Party</span>
+                        </button>
+
+                        <!-- In this server header + Grid/List switch -->
+                        <div class="flex items-center justify-between">
+                            <h4 class="text-sm sm:text-base font-bold text-white">In this server</h4>
+                            <div class="bg-[#232529] p-0.5 rounded-lg flex items-center gap-0.5 border border-white/5">
+                                <button type="button" id="rblx-btn-view-grid" onclick="setRobloxPeopleViewMode('grid')"
+                                    class="w-7 h-7 rounded-md bg-[#393b40] text-white flex items-center justify-center transition" title="Grid View">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <rect x="3" y="3" width="7" height="7" rx="1"/>
+                                        <rect x="14" y="3" width="7" height="7" rx="1"/>
+                                        <rect x="3" y="14" width="7" height="7" rx="1"/>
+                                        <rect x="14" y="14" width="7" height="7" rx="1"/>
+                                    </svg>
+                                </button>
+                                <button type="button" id="rblx-btn-view-list" onclick="setRobloxPeopleViewMode('list')"
+                                    class="w-7 h-7 rounded-md text-gray-400 hover:text-white flex items-center justify-center transition" title="List View">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Server Players Grid / List -->
+                        <div id="rblx-people-grid" class="flex flex-wrap gap-3">
+                            <!-- Dynamically populated player cards with 3D avatar pose, DisplayName, @username -->
+                        </div>
+                    </div>
+
+                    <!-- B. SETTINGS TAB -->
+                    <div id="rblx-panel-settings" class="hidden space-y-2 text-xs">
+                        <div class="bg-[#2b2d31] rounded-lg px-4 py-2.5 flex items-center justify-between">
+                            <span class="font-bold text-white">Shift Lock Switch</span>
+                            <button type="button" id="rblx-setting-shiftlock" onclick="toggleRobloxSetting('shiftLock')"
+                                class="px-4 py-1 rounded bg-[#1e2024] hover:bg-[#383b42] text-gray-200 font-semibold border border-white/10">On</button>
+                        </div>
+                        <div class="bg-[#2b2d31] rounded-lg px-4 py-2.5 flex items-center justify-between">
+                            <span class="font-bold text-white">Camera Mode</span>
+                            <span class="px-4 py-1 rounded bg-[#1e2024] text-gray-200 font-semibold border border-white/10">Classic (Orbital)</span>
+                        </div>
+                        <div class="bg-[#2b2d31] rounded-lg px-4 py-2.5 flex items-center justify-between gap-4">
+                            <span class="font-bold text-white">Sound Effects (Audio)</span>
+                            <button type="button" id="rblx-setting-audio" onclick="toggleAudioMute(); updateRobloxSettingsUI();"
+                                class="px-4 py-1 rounded bg-[#1e2024] hover:bg-[#383b42] text-gray-200 font-semibold border border-white/10">Zapnuto</button>
+                        </div>
+                        <div class="bg-[#2b2d31] rounded-lg px-4 py-2.5 flex items-center justify-between">
+                            <span class="font-bold text-white">Fullscreen [F11]</span>
+                            <button type="button" id="rblx-setting-fullscreen" onclick="toggleRobloxFullscreen()"
+                                class="px-4 py-1 rounded bg-[#1e2024] hover:bg-[#383b42] text-gray-200 font-semibold border border-white/10">Off</button>
+                        </div>
+                        <div class="bg-[#2b2d31] rounded-lg px-4 py-2.5 flex items-center justify-between">
+                            <span class="font-bold text-white">Performance Stats [Ctrl + Shift + F7]</span>
+                            <button type="button" id="rblx-setting-perf" onclick="toggleRobloxPerfStats()"
+                                class="px-4 py-1 rounded bg-[#1e2024] hover:bg-[#383b42] text-gray-200 font-semibold border border-white/10">Off</button>
+                        </div>
+                        <div class="bg-[#2b2d31] rounded-lg px-4 py-2.5 flex items-center justify-between">
+                            <span class="font-bold text-white">Spawn ForceField Bubble</span>
+                            <button type="button" id="rblx-setting-forcefield" onclick="toggleRobloxForceField()"
+                                class="px-4 py-1 rounded bg-[#1e2024] hover:bg-[#383b42] text-[#00A2FF] font-semibold border border-white/10">Active</button>
+                        </div>
+                    </div>
+
+                    <!-- C. GALLERY TAB -->
+                    <div id="rblx-panel-gallery" class="hidden space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h4 class="text-sm font-bold text-white">Captures & Screenshots</h4>
+                                <p class="text-[11px] text-gray-400">Pořiď snímek přímo z 3D světa</p>
+                            </div>
+                            <button type="button" onclick="captureRobloxScreenshot()"
+                                class="px-3.5 py-2 rounded-lg bg-[#2a2c30] hover:bg-[#35383e] text-xs font-bold text-white border border-white/10 transition flex items-center gap-2">
+                                <span>📸 Capture Screenshot</span>
+                            </button>
+                        </div>
+                        <div id="rblx-gallery-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1">
+                            <div id="rblx-gallery-empty" class="col-span-full py-12 text-center text-xs text-gray-400 bg-[#1c1e22] rounded-xl border border-white/5">
+                                Zatím žádné snímky. Klikni na "Capture Screenshot" pro uložení snímku ze hry.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- D. REPORT TAB -->
+                    <div id="rblx-panel-report" class="hidden space-y-3 text-xs max-w-lg mx-auto pt-1">
+                        <div class="space-y-1">
+                            <label class="font-bold text-gray-300">Experience or Person?</label>
+                            <select class="w-full bg-[#2a2c30] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none">
+                                <option>Experience (Herní svět)</option>
+                                <option>Person (Hráč na serveru)</option>
+                            </select>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="font-bold text-gray-300">Reason for Report</label>
+                            <select class="w-full bg-[#2a2c30] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none">
+                                <option>Cheating / Exploiting</option>
+                                <option>Inappropriate Content</option>
+                                <option>Bug or Glitch in World</option>
+                            </select>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="font-bold text-gray-300">Short Description</label>
+                            <textarea rows="3" placeholder="Popiš problém..." class="w-full bg-[#2a2c30] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none"></textarea>
+                        </div>
+                        <div class="flex justify-end">
+                            <button type="button" onclick="showHudToast('Hlášení bylo odesláno moderátorům.', 'green'); closeRobloxEscMenu();"
+                                class="px-5 py-2 rounded-lg bg-[#2a2c30] hover:bg-[#383b40] font-bold text-white border border-white/15 transition">
+                                Submit
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- E. HELP TAB (1:1 Exact Match to Screenshots 3 & 4) -->
+                    <div id="rblx-panel-help" class="hidden">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-[11px]">
+
+                            <!-- Column 1: Avatar controls + Camera movement -->
+                            <div class="space-y-4">
+                                <div>
+                                    <h5 class="font-bold text-white text-xs mb-1.5">Avatar controls</h5>
+                                    <div class="rounded-md overflow-hidden divide-y divide-[#1a1c20] bg-[#2b2d31]">
+                                        <div class="px-3 py-2.5 flex items-center justify-between">
+                                            <span class="font-bold text-white">Move forward</span>
+                                            <span class="text-gray-300 w-[48%]">W/Up arrow</span>
+                                        </div>
+                                        <div class="px-3 py-2.5 flex items-center justify-between">
+                                            <span class="font-bold text-white">Move backward</span>
+                                            <span class="text-gray-300 w-[48%]">S/Down arrow</span>
+                                        </div>
+                                        <div class="px-3 py-2.5 flex items-center justify-between">
+                                            <span class="font-bold text-white">Move left</span>
+                                            <span class="text-gray-300 w-[48%]">A/Left arrow</span>
+                                        </div>
+                                        <div class="px-3 py-2.5 flex items-center justify-between">
+                                            <span class="font-bold text-white">Move right</span>
+                                            <span class="text-gray-300 w-[48%]">D/Right arrow</span>
+                                        </div>
+                                        <div class="px-3 py-2.5 flex items-center justify-between">
+                                            <span class="font-bold text-white">Jump</span>
+                                            <span class="text-gray-300 w-[48%]">Space</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <h5 class="font-bold text-white text-xs mb-1.5">Camera movement</h5>
+                                    <div class="rounded-md overflow-hidden divide-y divide-[#1a1c20] bg-[#2b2d31]">
+                                        <div class="px-3 py-2.5 flex items-center justify-between">
+                                            <span class="font-bold text-white">Rotate</span>
+                                            <span class="text-gray-300 w-[48%]">Right mouse button</span>
+                                        </div>
+                                        <div class="px-3 py-2.5 flex items-center justify-between">
+                                            <span class="font-bold text-white">Zoom in/out</span>
+                                            <span class="text-gray-300 w-[48%]">Mouse wheel</span>
+                                        </div>
+                                        <div class="px-3 py-2.5 flex items-center justify-between">
+                                            <span class="font-bold text-white">Zoom in</span>
+                                            <span class="text-gray-300 w-[48%]">I</span>
+                                        </div>
+                                        <div class="px-3 py-2.5 flex items-center justify-between">
+                                            <span class="font-bold text-white">Zoom out</span>
+                                            <span class="text-gray-300 w-[48%]">O</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Column 2: Accessories + Menu items -->
+                            <div class="space-y-4">
+                                <div>
+                                    <h5 class="font-bold text-white text-xs mb-1.5">Accessories</h5>
+                                    <div class="rounded-md overflow-hidden divide-y divide-[#1a1c20] bg-[#2b2d31]">
+                                        <div class="px-3 py-2 flex items-center justify-between">
+                                            <span class="font-bold text-white leading-tight w-[48%]">Equip/unequip tools</span>
+                                            <span class="text-gray-300 w-[48%]">1,2,3..</span>
+                                        </div>
+                                        <div class="px-3 py-2.5 flex items-center justify-between">
+                                            <span class="font-bold text-white">Drop tool</span>
+                                            <span class="text-gray-300 w-[48%]">Backspace</span>
+                                        </div>
+                                        <div class="px-3 py-2.5 flex items-center justify-between">
+                                            <span class="font-bold text-white">Use tool</span>
+                                            <span class="text-gray-300 w-[48%]">Left mouse button</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="pt-[74px] hidden md:block"></div>
+
+                                <div>
+                                    <h5 class="font-bold text-white text-xs mb-1.5">Menu items</h5>
+                                    <div class="rounded-md overflow-hidden divide-y divide-[#1a1c20] bg-[#2b2d31]">
+                                        <div class="px-3 py-2.5 flex items-center justify-between">
+                                            <span class="font-bold text-white">Roblox menu</span>
+                                            <span class="text-gray-300 w-[48%]">Esc</span>
+                                        </div>
+                                        <div class="px-3 py-2.5 flex items-center justify-between">
+                                            <span class="font-bold text-white">Backpack</span>
+                                            <span class="text-gray-300 w-[48%]">;</span>
+                                        </div>
+                                        <div class="px-3 py-2.5 flex items-center justify-between">
+                                            <span class="font-bold text-white">Leaderboard</span>
+                                            <span class="text-gray-300 w-[48%]">Tab</span>
+                                        </div>
+                                        <div class="px-3 py-2.5 flex items-center justify-between">
+                                            <span class="font-bold text-white">Chat</span>
+                                            <span class="text-gray-300 w-[48%]">-</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Column 3: Miscellaneous -->
+                            <div>
+                                <h5 class="font-bold text-white text-xs mb-1.5">Miscellaneous</h5>
+                                <div class="rounded-md overflow-hidden divide-y divide-[#1a1c20] bg-[#2b2d31]">
+                                    <div class="px-3 py-2.5 flex items-center justify-between">
+                                        <span class="font-bold text-white">UI selection toggle</span>
+                                        <span class="text-gray-300 w-[44%]">\</span>
+                                    </div>
+                                    <div class="px-3 py-2.5 flex items-center justify-between">
+                                        <span class="font-bold text-white">Screenshot</span>
+                                        <span class="text-gray-300 w-[44%]">Alt + +</span>
+                                    </div>
+                                    <div class="px-3 py-2.5 flex items-center justify-between">
+                                        <span class="font-bold text-white">Record video</span>
+                                        <span class="text-gray-300 w-[44%]">F12</span>
+                                    </div>
+                                    <div class="px-3 py-2.5 flex items-center justify-between">
+                                        <span class="font-bold text-white">Dev console</span>
+                                        <span class="text-gray-300 w-[44%]">F9</span>
+                                    </div>
+                                    <div class="px-3 py-2.5 flex items-center justify-between">
+                                        <span class="font-bold text-white">Mouse lock</span>
+                                        <span class="text-gray-300 w-[44%]">Shift</span>
+                                    </div>
+                                    <div class="px-3 py-2.5 flex items-center justify-between">
+                                        <span class="font-bold text-white">Graphics level</span>
+                                        <span class="text-gray-300 w-[44%]">F10</span>
+                                    </div>
+                                    <div class="px-3 py-2.5 flex items-center justify-between">
+                                        <span class="font-bold text-white">Fullscreen</span>
+                                        <span class="text-gray-300 w-[44%]">F11</span>
+                                    </div>
+                                    <div class="px-3 py-2.5 flex items-center justify-between">
+                                        <span class="font-bold text-white">Perf. stats</span>
+                                        <span class="text-gray-300 w-[44%]">Ctrl + Shift + F7</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- 3. MODAL FOOTER BUTTONS: [L] Leave, [R] Respawn, [ESC] Resume -->
+                <div class="px-4 py-3 bg-[#141619] border-t border-white/10 grid grid-cols-3 gap-2.5 sm:gap-3 shrink-0">
+                    <!-- [L] Leave -->
+                    <button type="button" id="rblx-btn-leave" onclick="leaveFromRobloxMenu()"
+                        class="py-2.5 px-3 rounded-lg bg-[#232529] hover:bg-[#2f3237] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 border border-white/10 focus:outline-none focus:ring-2 focus:ring-white transition">
+                        <span class="w-5 h-5 rounded-[4px] border border-white/75 flex items-center justify-center text-[10px] font-bold leading-none">L</span>
+                        <span>Leave</span>
+                    </button>
+
+                    <!-- [R] Respawn -->
+                    <button type="button" id="rblx-btn-respawn" onclick="respawnFromRobloxMenu()"
+                        class="py-2.5 px-3 rounded-lg bg-[#232529] hover:bg-[#2f3237] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 border border-white/10 focus:outline-none focus:ring-2 focus:ring-white transition">
+                        <span class="w-5 h-5 rounded-[4px] border border-white/75 flex items-center justify-center text-[10px] font-bold leading-none">R</span>
+                        <span>Respawn</span>
+                    </button>
+
+                    <!-- [ESC] Resume (Blue Highlighted Primary Button with White Focus Ring) -->
+                    <button type="button" id="rblx-btn-resume" onclick="closeRobloxEscMenu()"
+                        class="py-2.5 px-3 rounded-lg bg-[#1d3978] hover:bg-[#254796] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 border-2 border-white shadow-[0_0_0_1px_rgba(255,255,255,0.4)] focus:outline-none transition">
+                        <span class="px-1 h-5 rounded-[4px] border border-white/85 flex items-center justify-center text-[9px] font-bold leading-none">ESC</span>
+                        <span>Resume</span>
+                    </button>
+                </div>
+
+            </div>
+
+            <!-- 4. DIAGNOSTIC VERSION BAR AT VERY BOTTOM OF SCREEN (Matches Screenshots 3 & 4) -->
+            <div class="fixed bottom-1 left-1/2 -translate-x-1/2 z-50 text-[10px] text-white/75 whitespace-nowrap pointer-events-none font-sans tracking-tight hidden sm:block">
+                Client Version: 0.743.0.7431134 (63d706) Server Version: 0.743.0.7431129 (e1b03a) Server Channel: production Place Version: 57Client CoreScript Version: 8047191465350415123
             </div>
         </div>
     </div>

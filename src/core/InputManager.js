@@ -2,12 +2,12 @@
  * 14. EVENT LISTENERS: ROBLOX-STYLE MOBILE TOUCH, WEAPON SWITCHING & CAMERA
  * ============================================================================ */
 function initMobileTouchControls() {
-    const joyZone = document.getElementById('roblox-joystick-zone');
-    const joyBase = document.getElementById('roblox-joystick-base');
-    const joyKnob = document.getElementById('roblox-joystick-knob');
+    const joyZone = document.getElementById('touch-joystick-zone') || document.getElementById('roblox-joystick-zone');
+    const joyBase = document.getElementById('touch-joystick-base') || document.getElementById('roblox-joystick-base');
+    const joyKnob = document.getElementById('touch-joystick-knob') || document.getElementById('roblox-joystick-knob');
     const lookZone = document.getElementById('roblox-camera-touch-zone');
-    const jumpBtn = document.getElementById('roblox-jump-btn');
-    const actionBtn = document.getElementById('roblox-action-btn');
+    const jumpBtn = document.getElementById('touch-jump-btn') || document.getElementById('roblox-jump-btn');
+    const actionBtn = document.getElementById('touch-action-btn') || document.getElementById('roblox-action-btn');
 
     const maxRadius = 46;
 
@@ -19,7 +19,7 @@ function initMobileTouchControls() {
         const ky = Math.sin(angle) * clampedDist;
 
         if (joyKnob) {
-            joyKnob.style.transform = `translate(${kx}px, ${ky}px)`;
+            joyKnob.style.transform = `translate(calc(-50% + ${kx}px), calc(-50% + ${ky}px))`;
         }
         // Normalized X/Y vector (-1..1) with amplitude proportional to tilt
         touchState.joyX = kx / maxRadius;
@@ -30,12 +30,7 @@ function initMobileTouchControls() {
         touchState.joyTouchId = null;
         touchState.joyX = 0;
         touchState.joyY = 0;
-        if (joyKnob) joyKnob.style.transform = 'translate(0px, 0px)';
-        if (joyBase) {
-            joyBase.style.left = '24px';
-            joyBase.style.bottom = '24px';
-            joyBase.style.top = 'auto';
-        }
+        if (joyKnob) joyKnob.style.transform = 'translate(-50%, -50%)';
     }
 
     if (joyZone) {
@@ -165,16 +160,86 @@ function initMobileTouchControls() {
 }
 
 window.addEventListener('keydown', (e) => {
-    // Do not hijack keys when typing in an input or textarea
-    const tag = document.activeElement ? document.activeElement.tagName : '';
-    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-
-    keysPressed[e.code] = true;
-    if (e.code === 'Escape' && activeGameMode) {
-        returnToLobby();
+    // Allow Escape to close chat input or toggle ESC menu
+    const activeEl = document.activeElement;
+    const tag = activeEl ? activeEl.tagName : '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA') {
+        if (e.code === 'Escape') {
+            activeEl.blur();
+        }
         return;
     }
+
     if (!activeGameMode) return;
+
+    // 1. Escape key opens/closes authentic Roblox ESC Experience Menu
+    if (e.code === 'Escape') {
+        e.preventDefault();
+        toggleRobloxEscMenu();
+        return;
+    }
+
+    // 2. When Roblox ESC Menu is open: handle [L] Leave and [R] Respawn shortcuts
+    if (typeof robloxUiState !== 'undefined' && robloxUiState.isMenuOpen) {
+        if (e.code === 'KeyL') {
+            e.preventDefault();
+            leaveFromRobloxMenu();
+        } else if (e.code === 'KeyR') {
+            e.preventDefault();
+            respawnFromRobloxMenu();
+        }
+        return;
+    }
+
+    keysPressed[e.code] = true;
+
+    // 3. Shift Lock Switch (Pressing Left/Right Shift locks/unlocks mouse pointer)
+    if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat) {
+        e.preventDefault();
+        if (typeof toggleRobloxShiftLock === 'function') {
+            toggleRobloxShiftLock();
+        }
+        return;
+    }
+
+    // 4. Roblox Help Tab Shortcuts (Tab = Leaderboard, / or - = Chat, ; or ` = Backpack, I/O = Zoom)
+    if (e.code === 'Tab') {
+        e.preventDefault();
+        toggleRobloxPlayerList();
+        return;
+    }
+    if (e.code === 'Slash' || e.code === 'Minus') {
+        e.preventDefault();
+        if (!robloxUiState.isChatOpen) {
+            toggleRobloxChat(true);
+        } else {
+            document.getElementById('roblox-chat-input')?.focus();
+        }
+        return;
+    }
+    if (e.code === 'Semicolon' || e.code === 'Backquote') {
+        const bp = document.getElementById('hud-backpack-container');
+        if (bp) bp.classList.toggle('hidden');
+        return;
+    }
+    if (e.code === 'KeyI') {
+        camState.distance = Math.max(4, camState.distance - 2.0);
+        return;
+    }
+    if (e.code === 'KeyO') {
+        camState.distance = Math.min(28, camState.distance + 2.0);
+        return;
+    }
+    if (e.code === 'F10' || (e.ctrlKey && e.shiftKey && e.code === 'F7')) {
+        e.preventDefault();
+        toggleRobloxPerfStats();
+        return;
+    }
+    if (e.altKey && (e.code === 'Equal' || e.code === 'NumpadAdd')) {
+        e.preventDefault();
+        captureRobloxScreenshot();
+        return;
+    }
 
     // Weapon Switching via Keys 1–9 and Numpad 1–9 (Task #7 Bugfix)
     if (e.code.startsWith('Digit') || e.code.startsWith('Numpad')) {
@@ -202,27 +267,60 @@ window.addEventListener('keyup', (e) => {
 
 const canvasEl = document.getElementById('three-canvas');
 
-canvasEl.addEventListener('mousedown', (e) => {
-    if (!activeGameMode) return;
-    camState.isDragging = true;
-    camState.lastMouseX = e.clientX;
-    camState.lastMouseY = e.clientY;
-
-    if (e.button === 0) {
-        triggerPrimaryAction();
+// Keep Shift Lock state & reticle synced with browser Pointer Lock state
+document.addEventListener('pointerlockchange', () => {
+    const isLocked = document.pointerLockElement === canvasEl;
+    if (typeof robloxUiState !== 'undefined') {
+        robloxUiState.isShiftLocked = isLocked;
+        const reticle = document.getElementById('roblox-shiftlock-reticle');
+        if (reticle) {
+            reticle.classList.toggle('hidden', !isLocked);
+        }
     }
 });
 
-window.addEventListener('mouseup', () => {
-    camState.isDragging = false;
+canvasEl.addEventListener('contextmenu', (e) => {
+    if (activeGameMode) e.preventDefault();
+});
+
+canvasEl.addEventListener('pointerdown', (e) => {
+    if (!activeGameMode) return;
+    if (typeof robloxUiState !== 'undefined' && robloxUiState.isMenuOpen) return;
+    canvasEl.focus();
+
+    if (e.button === 0) {
+        // Left Mouse Button: Use equipped tool / attack ONLY (never drags camera)
+        triggerPrimaryAction();
+    } else if (e.button === 2) {
+        // Right Mouse Button: Hold & drag to rotate camera when not in Shift Lock
+        camState.isDragging = true;
+        camState.lastMouseX = e.clientX;
+        camState.lastMouseY = e.clientY;
+        if (canvasEl.setPointerCapture && e.pointerId !== undefined) {
+            try { canvasEl.setPointerCapture(e.pointerId); } catch (err) {}
+        }
+    }
+});
+
+window.addEventListener('pointerup', (e) => {
+    if (e.button === 2 || e.buttons === 0) {
+        camState.isDragging = false;
+        if (canvasEl.releasePointerCapture && e.pointerId !== undefined) {
+            try { canvasEl.releasePointerCapture(e.pointerId); } catch (err) {}
+        }
+    }
 });
 
 window.addEventListener('mousemove', (e) => {
     if (!activeGameMode) return;
+    if (typeof robloxUiState !== 'undefined' && robloxUiState.isMenuOpen) return;
+
     if (document.pointerLockElement === canvasEl) {
+        // Shift Lock active: mouse movement directly rotates camera
         camState.yaw -= e.movementX * 0.0045;
         camState.pitch = Math.max(0.08, Math.min(1.35, camState.pitch + e.movementY * 0.0045));
     } else if (camState.isDragging) {
+        // Right Mouse Button held: drag rotates camera while cursor remains visible
         const dx = e.clientX - camState.lastMouseX;
         const dy = e.clientY - camState.lastMouseY;
         camState.lastMouseX = e.clientX;
@@ -232,21 +330,11 @@ window.addEventListener('mousemove', (e) => {
     }
 });
 
-canvasEl.addEventListener('dblclick', () => {
-    if (activeGameMode && canvasEl.requestPointerLock) {
-        canvasEl.requestPointerLock();
-    }
-});
-
-// Mouse Wheel: Switch Weapons in Hotbar (or hold Shift + Wheel to zoom camera)
+// Mouse Wheel: Zoom camera in/out
 canvasEl.addEventListener('wheel', (e) => {
     if (!activeGameMode) return;
-    if (e.shiftKey) {
-        camState.distance = Math.max(6, Math.min(28, camState.distance + e.deltaY * 0.01));
-    } else if (playerState.weaponLoadout && playerState.weaponLoadout.length > 1) {
-        const dir = e.deltaY > 0 ? 1 : -1;
-        equipWeaponSlot(playerState.activeWeaponSlot + dir);
-    }
+    if (typeof robloxUiState !== 'undefined' && robloxUiState.isMenuOpen) return;
+    camState.distance = Math.max(4, Math.min(28, camState.distance + e.deltaY * 0.012));
 }, { passive: true });
 
 window.addEventListener('resize', () => {

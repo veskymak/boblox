@@ -8,7 +8,7 @@ const mpState = {
     bc: typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('boblox_live_presence_v2') : null,
     isHost: false,
     roomCode: '',
-    nickname: localStorage.getItem('boblox_mp_nick') || ('Noob_' + Math.floor(100 + Math.random() * 899)),
+    nickname: localStorage.getItem('boblox_mp_nick') || 'Vendeez',
     myId: 'peer_' + Math.random().toString(36).slice(2, 10),
     connections: [], // Active PeerJS DataConnections
     remotePlayers: {}, // peerId -> { id, nickname, torsoHex, outfit, weaponId, disguiseId, gameMode, pos, targetPos, rotY, walkCycle, onGround, attackTimer, meshData, lastSeen }
@@ -295,7 +295,7 @@ function initLiveSocketAndPresence() {
             if (data.type === 'tabHeartbeat' && data.tabId !== mpState.myId) {
                 mpState.localTabPeers[data.tabId] = { gameId: data.gameId, lastSeen: Date.now() };
                 recomputeLivePlayerCounts();
-            } else if ((data.type === 'playerState' || data.type === 'weaponSwitch') && data.id !== mpState.myId) {
+            } else if ((data.type === 'playerState' || data.type === 'weaponSwitch' || data.type === 'chatMessage') && data.id !== mpState.myId) {
                 const samePublic = mpState.mode === 'public' && data.mode === 'public' && activeGameMode && data.gameMode === activeGameMode;
                 const samePrivate = mpState.mode === 'private' && data.mode === 'private' && mpState.roomCode && data.roomCode === mpState.roomCode;
                 if (samePublic || samePrivate) {
@@ -350,7 +350,7 @@ function initLiveSocketAndPresence() {
                     }
                 } else if (msg.type === 'peerLeft' && msg.id) {
                     removeRemotePlayer(msg.id);
-                } else if (msg.type === 'playerState' || msg.type === 'weaponSwitch' || msg.type === 'hostGameSelect') {
+                } else if (msg.type === 'playerState' || msg.type === 'weaponSwitch' || msg.type === 'hostGameSelect' || msg.type === 'chatMessage') {
                     handleMultiplayerPacket(msg, null);
                 }
             };
@@ -443,6 +443,12 @@ function updateMpCounters() {
     const modeText = mpState.mode === 'private' && mpState.roomCode ? `Párty ${mpState.roomCode}` : 'Globální';
     if (navBadge) navBadge.textContent = count > 1 ? `${count} Hráčů (${modeText})` : modeText;
     if (hudBadge) hudBadge.textContent = count > 1 ? `${count} Hráčů (${modeText})` : modeText;
+    if (typeof renderRobloxTopRightPlayerList === 'function') {
+        renderRobloxTopRightPlayerList();
+    }
+    if (typeof robloxUiState !== 'undefined' && robloxUiState.isMenuOpen && typeof renderRobloxPeopleList === 'function') {
+        renderRobloxPeopleList();
+    }
     recomputeLivePlayerCounts();
 }
 
@@ -485,6 +491,13 @@ function handleMultiplayerPacket(packet, sourceConn) {
         if (activeGameMode !== packet.gameMode) {
             showHudToast(`Hostitel spustil hru: ${packet.gameMode.toUpperCase()}! Připojuji...`, 'blue');
             startGame(packet.gameMode);
+        }
+        return;
+    }
+
+    if (packet.type === 'chatMessage' && packet.id !== mpState.myId && packet.text) {
+        if (typeof appendRobloxChatMessage === 'function') {
+            appendRobloxChatMessage(sanitizeTextClient(packet.nickname || 'Hráč', 16), sanitizeTextClient(packet.text, 160));
         }
         return;
     }

@@ -689,3 +689,540 @@ function setAvatarTorsoColor(hex) {
     syncAccountToServer();
 }
 
+/* ============================================================================
+ * 4B. ROBLOX 1:1 IN-GAME UI CONTROLLER (TOPBAR, ESC MENU, PEOPLE, HELP, CHAT)
+ * ============================================================================ */
+const robloxUiState = {
+    isMenuOpen: false,
+    activeTab: 'people', // 'people' | 'settings' | 'gallery' | 'report' | 'help'
+    peopleViewMode: 'grid', // 'grid' | 'list'
+    isPlayerListOpen: true,
+    isChatOpen: false,
+    isBackpackOpen: true,
+    isPerfStatsOpen: false,
+    shiftLockEnabled: true,
+    forcefieldEnabled: true,
+    captures: []
+};
+
+function getLocalRobloxPlayerProfile() {
+    const rawName = (authState && authState.user && authState.user.username)
+        ? authState.user.username
+        : (typeof mpState !== 'undefined' && mpState.nickname ? mpState.nickname : 'Vendeez');
+    const displayName = rawName;
+    const handle = authState && authState.user && authState.user.username
+        ? `@${authState.user.username}`
+        : '@RusticOdpadlik';
+    return {
+        id: 'local',
+        displayName,
+        handle,
+        torsoHex: avatarTorsoHex || '#1e293b',
+        outfit: typeof avatarOutfit !== 'undefined' ? avatarOutfit : null,
+        isLocal: true
+    };
+}
+
+function getServerPlayersList() {
+    const list = [getLocalRobloxPlayerProfile()];
+    if (typeof mpState !== 'undefined' && mpState.remotePlayers) {
+        const now = performance.now();
+        Object.values(mpState.remotePlayers).forEach(rp => {
+            if (now - rp.lastSeen <= 8500 && (!activeGameMode || rp.gameMode === activeGameMode)) {
+                list.push({
+                    id: rp.id,
+                    displayName: rp.nickname || 'Player',
+                    handle: `@${(rp.nickname || 'player').replace(/\s+/g, '')}`,
+                    torsoHex: rp.torsoHex || '#0D69AC',
+                    outfit: rp.outfit || null,
+                    isLocal: false
+                });
+            }
+        });
+    }
+    return list;
+}
+
+function drawRobloxAvatarCardPortrait(canvas, player) {
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    ctx.save();
+    ctx.translate(w * 0.5, h * 0.54);
+
+    // Subtle ground shadow ellipse
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.38)';
+    ctx.beginPath();
+    ctx.ellipse(0, 38, 22, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Slightly angled 3D-style R15/Blocky character pose (like Screenshot 2)
+    const shirtItem = player.outfit && player.outfit.shirt && typeof SHOP_ITEM_MAP !== 'undefined'
+        ? SHOP_ITEM_MAP[player.outfit.shirt]
+        : null;
+    const pantsItem = player.outfit && player.outfit.pants && typeof SHOP_ITEM_MAP !== 'undefined'
+        ? SHOP_ITEM_MAP[player.outfit.pants]
+        : null;
+
+    const torsoCol = (shirtItem && shirtItem.color) || player.torsoHex || '#1f2937';
+    const legCol = (pantsItem && pantsItem.color) || '#111827';
+
+    // Legs (dark pants + white sneakers like Screenshot 2)
+    ctx.fillStyle = legCol;
+    ctx.fillRect(-13, 12, 11, 22);
+    ctx.fillRect(2, 12, 11, 22);
+
+    // White shoes
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(-14, 30, 12, 6);
+    ctx.fillRect(2, 30, 12, 6);
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillRect(-14, 34, 12, 2);
+    ctx.fillRect(2, 34, 12, 2);
+
+    // Left & Right Arms (slightly angled out)
+    ctx.save();
+    ctx.translate(-15, -14);
+    ctx.rotate(0.14);
+    ctx.fillStyle = torsoCol;
+    ctx.fillRect(-8, 0, 9, 21);
+    ctx.fillStyle = '#eac086'; // hand
+    ctx.fillRect(-8, 21, 9, 5);
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(15, -14);
+    ctx.rotate(-0.14);
+    ctx.fillStyle = torsoCol;
+    ctx.fillRect(-1, 0, 9, 21);
+    ctx.fillStyle = '#eac086'; // hand
+    ctx.fillRect(-1, 21, 9, 5);
+    ctx.restore();
+
+    // Torso with plaid/flannel texture pattern
+    ctx.fillStyle = torsoCol;
+    ctx.fillRect(-14, -15, 28, 28);
+
+    // Subtle plaid grid lines on torso
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.lineWidth = 1.5;
+    for (let x = -9; x <= 9; x += 6) {
+        ctx.beginPath();
+        ctx.moveTo(x, -15);
+        ctx.lineTo(x, 13);
+        ctx.stroke();
+    }
+    for (let y = -10; y <= 10; y += 6) {
+        ctx.beginPath();
+        ctx.moveTo(-14, y);
+        ctx.lineTo(14, y);
+        ctx.stroke();
+    }
+
+    // Head
+    ctx.fillStyle = '#eac086';
+    ctx.beginPath();
+    ctx.roundRect(-11, -35, 22, 20, 4);
+    ctx.fill();
+
+    // Cool Sunglasses
+    ctx.fillStyle = '#090a0c';
+    ctx.fillRect(-10, -28, 9, 6);
+    ctx.fillRect(1, -28, 9, 6);
+    ctx.fillRect(-2, -27, 4, 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.28)';
+    ctx.fillRect(-8, -27, 3, 2);
+    ctx.fillRect(3, -27, 3, 2);
+
+    // Slight confident smirk
+    ctx.strokeStyle = '#1f2937';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.arc(0, -20, 4, 0.15 * Math.PI, 0.85 * Math.PI);
+    ctx.stroke();
+
+    // Styled spiky brown hair on top (matching Screenshot 2)
+    ctx.fillStyle = '#5c3317';
+    ctx.beginPath();
+    ctx.moveTo(-13, -32);
+    ctx.lineTo(-10, -42);
+    ctx.lineTo(-4, -38);
+    ctx.lineTo(0, -44);
+    ctx.lineTo(5, -39);
+    ctx.lineTo(11, -42);
+    ctx.lineTo(13, -32);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+}
+
+function renderRobloxTopRightPlayerList() {
+    const rowsEl = document.getElementById('roblox-playerlist-rows');
+    if (!rowsEl) return;
+    rowsEl.innerHTML = '';
+
+    const players = getServerPlayersList();
+    players.forEach(p => {
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between py-0.5 text-xs font-medium text-white truncate';
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'truncate';
+        nameSpan.textContent = p.displayName;
+        row.appendChild(nameSpan);
+        rowsEl.appendChild(row);
+    });
+}
+
+function toggleRobloxPlayerList() {
+    robloxUiState.isPlayerListOpen = !robloxUiState.isPlayerListOpen;
+    const card = document.getElementById('roblox-playerlist-card');
+    const reopen = document.getElementById('roblox-playerlist-reopen');
+    if (card) card.classList.toggle('hidden', !robloxUiState.isPlayerListOpen);
+    if (reopen) reopen.classList.toggle('hidden', robloxUiState.isPlayerListOpen);
+}
+
+function renderRobloxPeopleList() {
+    const container = document.getElementById('rblx-people-grid');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const sub = document.getElementById('rblx-invite-subtext');
+    if (sub && typeof mpState !== 'undefined') {
+        sub.textContent = mpState.mode === 'private' && mpState.roomCode
+            ? `Party Code: ${mpState.roomCode}`
+            : 'Invite Friends to Server';
+    }
+
+    const players = getServerPlayersList();
+    const isGrid = robloxUiState.peopleViewMode === 'grid';
+    container.className = isGrid
+        ? 'flex flex-wrap gap-3'
+        : 'flex flex-col gap-2';
+
+    players.forEach((p, idx) => {
+        if (isGrid) {
+            const card = document.createElement('div');
+            card.className = 'w-[136px] bg-[#222428] hover:bg-[#2b2e34] rounded-xl p-2.5 flex flex-col justify-between border border-white/5 transition cursor-pointer';
+            const canvasId = `rblx-avatar-card-${idx}`;
+            card.innerHTML = `
+                <div class="w-full h-[108px] flex items-center justify-center overflow-hidden">
+                    <canvas id="${canvasId}" width="110" height="108" class="block"></canvas>
+                </div>
+                <div class="mt-1 min-w-0">
+                    <div class="font-bold text-xs text-white truncate"></div>
+                    <div class="text-[11px] text-gray-400 truncate"></div>
+                </div>
+            `;
+            const nameDiv = card.querySelector('.font-bold');
+            const handleDiv = card.querySelector('.text-gray-400');
+            if (nameDiv) nameDiv.textContent = p.displayName;
+            if (handleDiv) handleDiv.textContent = p.handle;
+            container.appendChild(card);
+
+            const c = document.getElementById(canvasId);
+            drawRobloxAvatarCardPortrait(c, p);
+        } else {
+            const row = document.createElement('div');
+            row.className = 'w-full bg-[#222428] hover:bg-[#2b2e34] rounded-xl px-3.5 py-2 flex items-center justify-between border border-white/5 transition';
+            const canvasId = `rblx-avatar-list-${idx}`;
+            row.innerHTML = `
+                <div class="flex items-center gap-3 min-w-0">
+                    <canvas id="${canvasId}" width="48" height="48" class="w-11 h-11 rounded-lg bg-[#191b1f] shrink-0"></canvas>
+                    <div class="min-w-0">
+                        <div class="font-bold text-xs sm:text-sm text-white truncate"></div>
+                        <div class="text-[11px] text-gray-400 truncate"></div>
+                    </div>
+                </div>
+                <span class="text-[11px] text-gray-400 font-medium px-2.5 py-1 rounded bg-[#18191c]">In Server</span>
+            `;
+            const nameDiv = row.querySelector('.font-bold');
+            const handleDiv = row.querySelector('.text-gray-400');
+            if (nameDiv) nameDiv.textContent = p.displayName;
+            if (handleDiv) handleDiv.textContent = p.handle;
+            container.appendChild(row);
+
+            const c = document.getElementById(canvasId);
+            drawRobloxAvatarCardPortrait(c, p);
+        }
+    });
+}
+
+function setRobloxPeopleViewMode(mode) {
+    robloxUiState.peopleViewMode = mode === 'list' ? 'list' : 'grid';
+    const btnGrid = document.getElementById('rblx-btn-view-grid');
+    const btnList = document.getElementById('rblx-btn-view-list');
+    if (btnGrid && btnList) {
+        btnGrid.className = robloxUiState.peopleViewMode === 'grid'
+            ? 'w-7 h-7 rounded-md bg-[#393b40] text-white flex items-center justify-center transition'
+            : 'w-7 h-7 rounded-md text-gray-400 hover:text-white flex items-center justify-center transition';
+        btnList.className = robloxUiState.peopleViewMode === 'list'
+            ? 'w-7 h-7 rounded-md bg-[#393b40] text-white flex items-center justify-center transition'
+            : 'w-7 h-7 rounded-md text-gray-400 hover:text-white flex items-center justify-center transition';
+    }
+    renderRobloxPeopleList();
+}
+
+function switchRobloxMenuTab(tabId) {
+    const validTabs = ['people', 'settings', 'gallery', 'report', 'help'];
+    const target = validTabs.includes(tabId) ? tabId : 'people';
+    robloxUiState.activeTab = target;
+
+    document.querySelectorAll('.rblx-menu-tab').forEach(btn => {
+        const isAct = btn.getAttribute('data-rblx-tab') === target;
+        btn.className = isAct
+            ? 'rblx-menu-tab py-2.5 flex items-center justify-center gap-2 text-xs sm:text-sm font-semibold text-white border-b-2 border-white transition'
+            : 'rblx-menu-tab py-2.5 flex items-center justify-center gap-2 text-xs sm:text-sm font-medium text-gray-400 hover:text-white border-b-2 border-transparent transition';
+    });
+
+    validTabs.forEach(t => {
+        const panel = document.getElementById(`rblx-panel-${t}`);
+        if (panel) {
+            panel.classList.toggle('hidden', t !== target);
+        }
+    });
+
+    if (target === 'people') renderRobloxPeopleList();
+    if (target === 'settings') updateRobloxSettingsUI();
+}
+
+function openRobloxEscMenu(initialTab) {
+    if (!activeGameMode) return;
+    robloxUiState.isMenuOpen = true;
+    robloxUiState.isShiftLocked = false;
+
+    const reticle = document.getElementById('roblox-shiftlock-reticle');
+    if (reticle) reticle.classList.add('hidden');
+
+    if (document.pointerLockElement) {
+        document.exitPointerLock();
+    }
+    if (typeof keysPressed !== 'undefined') {
+        Object.keys(keysPressed).forEach(k => { keysPressed[k] = false; });
+    }
+    if (typeof camState !== 'undefined') {
+        camState.isDragging = false;
+    }
+
+    const menuEl = document.getElementById('roblox-esc-menu');
+    if (menuEl) {
+        menuEl.classList.remove('hidden');
+        menuEl.classList.add('flex');
+    }
+
+    if (initialTab) {
+        switchRobloxMenuTab(initialTab);
+    } else {
+        switchRobloxMenuTab(robloxUiState.activeTab || 'people');
+    }
+    renderRobloxTopRightPlayerList();
+}
+
+function closeRobloxEscMenu() {
+    robloxUiState.isMenuOpen = false;
+    const menuEl = document.getElementById('roblox-esc-menu');
+    if (menuEl) {
+        menuEl.classList.add('hidden');
+        menuEl.classList.remove('flex');
+    }
+    const c = document.getElementById('three-canvas');
+    if (c && activeGameMode) {
+        c.focus();
+    }
+}
+
+function setRobloxShiftLock(locked) {
+    if (!activeGameMode || robloxUiState.isMenuOpen) return;
+    const c = document.getElementById('three-canvas');
+    const reticle = document.getElementById('roblox-shiftlock-reticle');
+
+    if (locked && robloxUiState.shiftLockEnabled) {
+        robloxUiState.isShiftLocked = true;
+        if (reticle) reticle.classList.remove('hidden');
+        if (c && c.requestPointerLock && document.pointerLockElement !== c) {
+            try { c.requestPointerLock(); } catch (e) {}
+        }
+    } else {
+        robloxUiState.isShiftLocked = false;
+        if (reticle) reticle.classList.add('hidden');
+        if (document.pointerLockElement) {
+            try { document.exitPointerLock(); } catch (e) {}
+        }
+    }
+}
+
+function toggleRobloxShiftLock() {
+    if (!activeGameMode || robloxUiState.isMenuOpen) return;
+    if (!robloxUiState.shiftLockEnabled) return;
+    setRobloxShiftLock(!robloxUiState.isShiftLocked);
+}
+
+function toggleRobloxEscMenu() {
+    if (!activeGameMode) return;
+    if (robloxUiState.isMenuOpen) {
+        closeRobloxEscMenu();
+    } else {
+        openRobloxEscMenu();
+    }
+}
+
+function leaveFromRobloxMenu() {
+    closeRobloxEscMenu();
+    returnToLobby();
+}
+
+function respawnFromRobloxMenu() {
+    closeRobloxEscMenu();
+    respawnPlayerManual();
+}
+
+function toggleRobloxChat(focusInput = false) {
+    const box = document.getElementById('roblox-chat-box');
+    if (!box) return;
+    robloxUiState.isChatOpen = !robloxUiState.isChatOpen;
+    box.classList.toggle('hidden', !robloxUiState.isChatOpen);
+    box.classList.toggle('flex', robloxUiState.isChatOpen);
+
+    if (robloxUiState.isChatOpen && focusInput) {
+        setTimeout(() => {
+            const inp = document.getElementById('roblox-chat-input');
+            if (inp) inp.focus();
+        }, 20);
+    }
+}
+
+function appendRobloxChatMessage(senderName, text) {
+    const list = document.getElementById('roblox-chat-messages');
+    if (!list) return;
+    const row = document.createElement('div');
+    row.className = 'leading-snug break-words';
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'font-bold text-[#00A2FF] mr-1.5';
+    nameSpan.textContent = `[${senderName}]:`;
+
+    const msgSpan = document.createElement('span');
+    msgSpan.className = 'text-white';
+    msgSpan.textContent = text;
+
+    row.appendChild(nameSpan);
+    row.appendChild(msgSpan);
+    list.appendChild(row);
+    list.scrollTop = list.scrollHeight;
+}
+
+function sendRobloxChatMessage() {
+    const inp = document.getElementById('roblox-chat-input');
+    if (!inp) return;
+    const clean = sanitizeTextClient(inp.value, 160);
+    inp.value = '';
+    inp.blur();
+    if (!clean) return;
+
+    const myProfile = getLocalRobloxPlayerProfile();
+    appendRobloxChatMessage(myProfile.displayName, clean);
+
+    if (typeof sendMultiplayerPacket === 'function') {
+        sendMultiplayerPacket({
+            type: 'chatMessage',
+            id: mpState.myId,
+            nickname: myProfile.displayName,
+            text: clean,
+            gameMode: activeGameMode
+        });
+    }
+}
+
+function updateRobloxSettingsUI() {
+    const shiftBtn = document.getElementById('rblx-setting-shiftlock');
+    if (shiftBtn) {
+        shiftBtn.textContent = robloxUiState.shiftLockEnabled ? 'On' : 'Off';
+    }
+    const audioBtn = document.getElementById('rblx-setting-audio');
+    if (audioBtn && typeof sfx !== 'undefined') {
+        audioBtn.textContent = sfx.muted ? 'Vypnuto (Muted)' : 'Zapnuto (On)';
+    }
+    const fsBtn = document.getElementById('rblx-setting-fullscreen');
+    if (fsBtn) {
+        fsBtn.textContent = document.fullscreenElement ? 'On' : 'Off';
+    }
+    const perfBtn = document.getElementById('rblx-setting-perf');
+    if (perfBtn) {
+        perfBtn.textContent = robloxUiState.isPerfStatsOpen ? 'On' : 'Off';
+    }
+    const ffBtn = document.getElementById('rblx-setting-forcefield');
+    if (ffBtn) {
+        ffBtn.textContent = robloxUiState.forcefieldEnabled ? 'Active' : 'Off';
+    }
+}
+
+function toggleRobloxSetting(key) {
+    if (key === 'shiftLock') {
+        robloxUiState.shiftLockEnabled = !robloxUiState.shiftLockEnabled;
+        if (!robloxUiState.shiftLockEnabled) {
+            setRobloxShiftLock(false);
+        }
+        const btn = document.getElementById('rblx-setting-shiftlock');
+        if (btn) btn.textContent = robloxUiState.shiftLockEnabled ? 'On' : 'Off';
+    }
+}
+
+function toggleRobloxFullscreen() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen?.().catch(() => {});
+    } else {
+        document.exitFullscreen?.().catch(() => {});
+    }
+    setTimeout(updateRobloxSettingsUI, 150);
+}
+
+function toggleRobloxPerfStats() {
+    robloxUiState.isPerfStatsOpen = !robloxUiState.isPerfStatsOpen;
+    const bar = document.getElementById('roblox-perf-stats-bar');
+    if (bar) {
+        bar.classList.toggle('hidden', !robloxUiState.isPerfStatsOpen);
+    }
+    updateRobloxSettingsUI();
+}
+
+function toggleRobloxForceField() {
+    robloxUiState.forcefieldEnabled = !robloxUiState.forcefieldEnabled;
+    if (typeof playerState !== 'undefined') {
+        playerState.forcefieldTimer = robloxUiState.forcefieldEnabled ? 12.0 : 0;
+    }
+    updateRobloxSettingsUI();
+}
+
+function captureRobloxScreenshot() {
+    if (!renderer || !scene || !camera) return;
+    try {
+        renderer.render(scene, camera);
+        const dataUrl = renderer.domElement.toDataURL('image/png');
+        robloxUiState.captures.unshift({
+            url: dataUrl,
+            time: new Date().toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        });
+        const grid = document.getElementById('rblx-gallery-grid');
+        const empty = document.getElementById('rblx-gallery-empty');
+        if (empty) empty.remove();
+        if (grid) {
+            const card = document.createElement('div');
+            card.className = 'bg-[#222428] rounded-xl overflow-hidden border border-white/10 shadow';
+            card.innerHTML = `
+                <img src="${dataUrl}" alt="Capture" class="w-full h-28 object-cover">
+                <div class="px-2.5 py-1.5 flex items-center justify-between text-[10px] text-gray-300">
+                    <span>Screenshot</span>
+                    <span class="font-mono text-gray-400">${robloxUiState.captures[0].time}</span>
+                </div>
+            `;
+            grid.prepend(card);
+        }
+        sfx.playCoin();
+        showHudToast('📸 Screenshot uložen do záložky Gallery!', 'blue');
+    } catch (e) {}
+}
+
+
