@@ -1318,21 +1318,44 @@ function updateSidebarFriendsBadge() {
     }
 }
 
+function getMyUniqueSocialId() {
+    const myProfile = getLocalRobloxPlayerProfile();
+    const uName = (myProfile.username || '').toLowerCase();
+    if (typeof authState !== 'undefined' && authState.user && authState.user.id) {
+        return authState.user.id;
+    }
+    if (uName && uName !== 'guest') {
+        return `cloud_${uName}`;
+    }
+    if (typeof mpState !== 'undefined' && mpState.myId && mpState.myId !== 'local') {
+        return mpState.myId;
+    }
+    let guestId = localStorage.getItem('boblox_guest_social_id');
+    if (!guestId) {
+        guestId = 'guest_' + Math.random().toString(36).slice(2, 10);
+        localStorage.setItem('boblox_guest_social_id', guestId);
+    }
+    return guestId;
+}
+
 function handleIncomingSocialPacket(event, payload) {
     if (!payload) return;
     const myProfile = getLocalRobloxPlayerProfile();
-    const myId = myProfile.id;
+    const myId = getMyUniqueSocialId();
     const myUName = (myProfile.username || myProfile.displayName || '').toLowerCase();
 
     if (event === 'friend_request_send') {
-        const toIdMatch = payload.toId && (payload.toId === myId || payload.toId === `db_${myUName}`);
+        const toIdMatch = payload.toId && (payload.toId === myId || payload.toId === `db_${myUName}` || payload.toId === `cloud_${myUName}`);
         const toNameMatch = payload.toUsername && payload.toUsername.toLowerCase() === myUName;
         if (toIdMatch || toNameMatch) {
-            receivedFriendRequests[payload.fromId] = {
-                id: payload.fromId,
+            const senderId = (payload.fromId && payload.fromId !== 'local') ? payload.fromId : (payload.fromUsername ? `cloud_${payload.fromUsername.toLowerCase()}` : null);
+            if (!senderId || senderId === myId || (payload.fromUsername && payload.fromUsername.toLowerCase() === myUName)) return;
+
+            receivedFriendRequests[senderId] = {
+                id: senderId,
                 username: payload.fromUsername || 'Hráč',
                 receivedAt: Date.now(),
-                senderProfile: payload.senderProfile || null
+                senderProfile: payload.senderProfile ? { ...payload.senderProfile, id: senderId, isLocal: false } : null
             };
             saveReceivedFriendRequests();
             if (typeof sfx !== 'undefined' && sfx.playCoin) sfx.playCoin();
@@ -1344,15 +1367,23 @@ function handleIncomingSocialPacket(event, payload) {
             if (activePortalSection === 'people') renderPeopleResultsGrid();
         }
     } else if (event === 'friend_request_accept') {
-        const toIdMatch = payload.toId && (payload.toId === myId || payload.toId === `db_${myUName}`);
+        const toIdMatch = payload.toId && (payload.toId === myId || payload.toId === `db_${myUName}` || payload.toId === `cloud_${myUName}`);
         const toNameMatch = payload.toUsername && payload.toUsername.toLowerCase() === myUName;
         if (toIdMatch || toNameMatch) {
             delete sentFriendRequests[payload.fromId];
             saveSentFriendRequests();
-            friendsSet.add(payload.fromId);
-            saveFriendsList();
-            if (payload.acceptorProfile) {
-                saveCachedFriendProfile(payload.acceptorProfile);
+
+            const acceptorId = (payload.fromId && payload.fromId !== 'local') ? payload.fromId : (payload.fromUsername ? `cloud_${payload.fromUsername.toLowerCase()}` : null);
+            if (acceptorId && acceptorId !== myId && (!payload.fromUsername || payload.fromUsername.toLowerCase() !== myUName)) {
+                friendsSet.add(acceptorId);
+                saveFriendsList();
+                if (payload.acceptorProfile) {
+                    saveCachedFriendProfile({
+                        ...payload.acceptorProfile,
+                        id: acceptorId,
+                        isLocal: false
+                    });
+                }
             }
             if (typeof sfx !== 'undefined' && sfx.playWinFanfare) sfx.playWinFanfare();
             if (typeof showHudToast === 'function') {
@@ -1363,7 +1394,9 @@ function handleIncomingSocialPacket(event, payload) {
             if (activePortalSection === 'people') renderPeopleResultsGrid();
         }
     } else if (event === 'friend_request_cancel') {
-        if (payload.toId === myId || (payload.toUsername && payload.toUsername.toLowerCase() === myUName)) {
+        const toIdMatch = payload.toId && (payload.toId === myId || payload.toId === `db_${myUName}` || payload.toId === `cloud_${myUName}`);
+        const toNameMatch = payload.toUsername && payload.toUsername.toLowerCase() === myUName;
+        if (toIdMatch || toNameMatch) {
             delete receivedFriendRequests[payload.fromId];
             saveReceivedFriendRequests();
             renderHomeFriendsStrip();
@@ -1402,6 +1435,7 @@ function sendFriendRequest(playerId) {
     const player = getPlayerById(playerId);
     const pName = player.username || player.displayName || 'Hráč';
     const myProfile = getLocalRobloxPlayerProfile();
+    const mySenderId = getMyUniqueSocialId();
 
     sentFriendRequests[playerId] = {
         id: playerId,
@@ -1412,11 +1446,15 @@ function sendFriendRequest(playerId) {
 
     if (typeof sendSocialBroadcast === 'function') {
         sendSocialBroadcast('friend_request_send', {
-            fromId: myProfile.id,
+            fromId: mySenderId,
             fromUsername: myProfile.username,
             toId: playerId,
             toUsername: pName,
-            senderProfile: myProfile
+            senderProfile: {
+                ...myProfile,
+                id: mySenderId,
+                isLocal: false
+            }
         });
     }
 
@@ -1431,13 +1469,13 @@ function sendFriendRequest(playerId) {
 
 function cancelFriendRequest(playerId) {
     if (!playerId) return;
-    const myProfile = getLocalRobloxPlayerProfile();
+    const mySenderId = getMyUniqueSocialId();
     delete sentFriendRequests[playerId];
     saveSentFriendRequests();
 
     if (typeof sendSocialBroadcast === 'function') {
         sendSocialBroadcast('friend_request_cancel', {
-            fromId: myProfile.id,
+            fromId: mySenderId,
             toId: playerId
         });
     }
@@ -1452,8 +1490,9 @@ function cancelFriendRequest(playerId) {
 }
 
 function acceptFriendRequest(playerId) {
-    if (!playerId) return;
+    if (!playerId || playerId === 'local') return;
     const myProfile = getLocalRobloxPlayerProfile();
+    const mySenderId = getMyUniqueSocialId();
     const req = receivedFriendRequests[playerId];
     const player = getPlayerById(playerId);
     const pName = req?.username || player.username || player.displayName || 'Hráč';
@@ -1465,18 +1504,30 @@ function acceptFriendRequest(playerId) {
     saveFriendsList();
 
     if (req?.senderProfile) {
-        saveCachedFriendProfile(req.senderProfile);
+        saveCachedFriendProfile({
+            ...req.senderProfile,
+            id: playerId,
+            isLocal: false
+        });
     } else if (player) {
-        saveCachedFriendProfile(player);
+        saveCachedFriendProfile({
+            ...player,
+            id: playerId,
+            isLocal: false
+        });
     }
 
     if (typeof sendSocialBroadcast === 'function') {
         sendSocialBroadcast('friend_request_accept', {
-            fromId: myProfile.id,
+            fromId: mySenderId,
             fromUsername: myProfile.username,
             toId: playerId,
             toUsername: pName,
-            acceptorProfile: myProfile
+            acceptorProfile: {
+                ...myProfile,
+                id: mySenderId,
+                isLocal: false
+            }
         });
     }
 
@@ -1555,9 +1606,13 @@ function getCachedFriendsProfiles() {
 }
 
 function saveCachedFriendProfile(profile) {
-    if (!profile || !profile.id || String(profile.id).startsWith('p_') || DEMO_FRIEND_ID_PREFIXES.includes(profile.id)) return;
-    const list = getCachedFriendsProfiles().filter(p => p.id !== profile.id);
-    list.push(profile);
+    if (!profile || !profile.id || profile.id === 'local' || String(profile.id).startsWith('p_') || DEMO_FRIEND_ID_PREFIXES.includes(profile.id)) return;
+    const cleanProfile = {
+        ...profile,
+        isLocal: false
+    };
+    const list = getCachedFriendsProfiles().filter(p => p.id !== cleanProfile.id);
+    list.push(cleanProfile);
     localStorage.setItem(STORAGE_KEY_FRIENDS_CACHE, JSON.stringify(list));
 }
 
@@ -1570,13 +1625,51 @@ let friendsSet = new Set((() => {
     try {
         const saved = JSON.parse(localStorage.getItem(STORAGE_KEY_FRIENDS));
         if (Array.isArray(saved)) {
-            return saved.filter(id => !DEMO_FRIEND_ID_PREFIXES.includes(id) && !String(id).startsWith('p_'));
+            return saved.filter(id => id && id !== 'local' && !DEMO_FRIEND_ID_PREFIXES.includes(id) && !String(id).startsWith('p_'));
         }
     } catch (e) {}
     return [];
 })());
 
+function sanitizeStoredFriends() {
+    const myProfile = getLocalRobloxPlayerProfile();
+    const myUName = (myProfile.username || '').toLowerCase();
+    const myId = getMyUniqueSocialId();
+
+    let changed = false;
+    for (const fid of [...friendsSet]) {
+        if (!fid || fid === 'local' || fid === myId || (typeof fid === 'string' && (fid.toLowerCase() === `db_${myUName}` || fid.toLowerCase() === `cloud_${myUName}` || fid.toLowerCase() === myUName))) {
+            friendsSet.delete(fid);
+            changed = true;
+        }
+    }
+    if (changed) {
+        localStorage.setItem(STORAGE_KEY_FRIENDS, JSON.stringify([...friendsSet]));
+    }
+
+    let reqChanged = false;
+    for (const rid of Object.keys(receivedFriendRequests)) {
+        if (!rid || rid === 'local' || rid === myId || (typeof rid === 'string' && (rid.toLowerCase() === `db_${myUName}` || rid.toLowerCase() === `cloud_${myUName}` || rid.toLowerCase() === myUName))) {
+            delete receivedFriendRequests[rid];
+            reqChanged = true;
+        }
+    }
+    if (reqChanged) {
+        saveReceivedFriendRequests();
+    }
+
+    try {
+        const cached = getCachedFriendsProfiles();
+        const cleanedCached = cached.filter(p => p && p.id && p.id !== 'local' && p.id !== myId && (p.username || '').toLowerCase() !== myUName);
+        if (cleanedCached.length !== cached.length) {
+            localStorage.setItem(STORAGE_KEY_FRIENDS_CACHE, JSON.stringify(cleanedCached));
+        }
+    } catch (e) {}
+}
+sanitizeStoredFriends();
+
 function saveFriendsList() {
+    sanitizeStoredFriends();
     localStorage.setItem(STORAGE_KEY_FRIENDS, JSON.stringify([...friendsSet]));
     updateSidebarFriendsBadge();
 }
@@ -1714,18 +1807,83 @@ function getAllSearchablePlayers() {
 }
 
 function getPlayerById(playerId) {
-    if (!playerId || playerId === 'local') {
-        return getLocalRobloxPlayerProfile();
+    const myProfile = getLocalRobloxPlayerProfile();
+    const myUName = (myProfile.username || '').toLowerCase();
+    const myId = getMyUniqueSocialId();
+
+    if (!playerId || playerId === 'local' || playerId === myId || (typeof playerId === 'string' && playerId.toLowerCase() === myUName)) {
+        return { ...myProfile, isLocal: true };
     }
-    const all = getAllSearchablePlayers();
+
     const pidLower = String(playerId).toLowerCase();
-    return all.find(p =>
+    const all = getAllSearchablePlayers();
+    const found = all.find(p =>
         p.id === playerId ||
         (p.dbId && p.dbId === playerId) ||
         (p.username && p.username.toLowerCase() === pidLower) ||
         (p.displayName && p.displayName.toLowerCase() === pidLower) ||
         (p.handle && p.handle.toLowerCase() === `@${pidLower}`)
-    ) || getLocalRobloxPlayerProfile();
+    );
+
+    if (found) {
+        const isMe = (found.id === 'local') || (found.id === myId) || (found.username && found.username.toLowerCase() === myUName);
+        return {
+            ...found,
+            isLocal: isMe
+        };
+    }
+
+    // Check cached friends
+    const cached = getCachedFriendsProfiles().find(p =>
+        p.id === playerId ||
+        (p.username && p.username.toLowerCase() === pidLower) ||
+        (p.displayName && p.displayName.toLowerCase() === pidLower)
+    );
+    if (cached) {
+        return {
+            ...cached,
+            isLocal: false
+        };
+    }
+
+    // Check live presence
+    const pres = liveFriendsPresence[playerId] || liveFriendsPresence[pidLower];
+    if (pres) {
+        const uname = pres.username || playerId.replace(/^(db_|cloud_|peer_)/, '');
+        return {
+            id: pres.id || playerId,
+            username: uname,
+            displayName: uname,
+            handle: `@${uname}`,
+            bio: 'Registrovaný Boblox hráč',
+            status: pres.inGame ? 'in_game' : 'online',
+            friendsCount: 0,
+            followers: 0,
+            following: 0,
+            rap: '250',
+            torsoHex: pres.torsoHex || '#0D69AC',
+            outfit: pres.outfit || null,
+            isLocal: false
+        };
+    }
+
+    // Fallback: construct friend profile with appropriate clean name instead of returning myself!
+    const cleanName = playerId.replace(/^(db_|cloud_|peer_)/, '');
+    return {
+        id: playerId,
+        username: cleanName,
+        displayName: cleanName,
+        handle: `@${cleanName}`,
+        bio: 'Registrovaný Boblox hráč',
+        status: 'online',
+        friendsCount: 0,
+        followers: 0,
+        following: 0,
+        rap: '250',
+        torsoHex: '#0D69AC',
+        outfit: null,
+        isLocal: false
+    };
 }
 
 /* ============================================================================
@@ -2329,7 +2487,18 @@ function refreshPortalAvatarVisuals() {
  * ============================================================================ */
 function openPlayerProfile(playerId) {
     hideTopSearchDropdown();
-    currentInspectedProfile = getPlayerById(playerId);
+    const myProfile = getLocalRobloxPlayerProfile();
+    const myUName = (myProfile.username || '').toLowerCase();
+    const myId = getMyUniqueSocialId();
+    const isMe = !playerId || playerId === 'local' || playerId === myId || (typeof playerId === 'string' && playerId.toLowerCase() === myUName);
+
+    if (isMe) {
+        currentInspectedProfile = { ...myProfile, isLocal: true };
+    } else {
+        const p = getPlayerById(playerId);
+        currentInspectedProfile = { ...p, isLocal: false };
+    }
+
     switchPortalSection('profile');
     renderPortalProfileView();
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2500,7 +2669,16 @@ function getProfileWearingItems(profile) {
 }
 
 function renderPortalProfileView() {
-    const profile = currentInspectedProfile || getLocalRobloxPlayerProfile();
+    const myProfile = getLocalRobloxPlayerProfile();
+    const myUName = (myProfile.username || '').toLowerCase();
+    const myId = getMyUniqueSocialId();
+    let profile = currentInspectedProfile || myProfile;
+
+    const isMe = (profile.id === 'local') ||
+                 (profile.id === myId) ||
+                 (profile.username && profile.username.toLowerCase() === myUName);
+
+    profile = isMe ? { ...myProfile, isLocal: true } : { ...profile, isLocal: false };
     currentInspectedProfile = profile;
 
     const nameEl = document.getElementById('profile-display-name');
@@ -3439,10 +3617,14 @@ document.addEventListener('pointerdown', e => {
 // Initialize Portal Visuals & Friends Strip
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
+        sanitizeStoredFriends();
         refreshPortalAvatarVisuals();
     });
 } else {
-    setTimeout(refreshPortalAvatarVisuals, 0);
+    setTimeout(() => {
+        sanitizeStoredFriends();
+        refreshPortalAvatarVisuals();
+    }, 0);
 }
 
 
