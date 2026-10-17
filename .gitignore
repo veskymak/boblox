@@ -1,0 +1,7 @@
+node_modules/
+boblox.db
+boblox.db-journal
+boblox.db-wal
+boblox.db-shm
+.env
+

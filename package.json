@@ -1,0 +1,24 @@
+{
+  "name": "boblox",
+  "version": "2.0.0",
+  "description": "BOBLOX 3D Multiplayer Platform - Three.js, WebRTC/WebSocket & Node.js/SQLite Backend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/veskymak/boblox.git"
+  },
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "ws": "^8.18.0"
+  }
+}
