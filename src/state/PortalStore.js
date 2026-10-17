@@ -274,12 +274,39 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
     const now = Date.now();
 
     async function getCurrentSupabaseProfile() {
-        const { data: authUserRes } = await sb.auth.getUser();
-        const uid = authUserRes?.user?.id || (authState.token && authState.token.startsWith('sb_jwt_') ? authState.token.replace('sb_jwt_', '') : null);
+        let uid = null;
+        let authUser = null;
+        try {
+            const { data: authUserRes } = await sb.auth.getUser();
+            authUser = authUserRes?.user || null;
+            if (authUser) uid = authUser.id;
+        } catch (e) {}
+
+        const tokenUid = (authState.token && authState.token.startsWith('sb_jwt_'))
+            ? authState.token.replace('sb_jwt_', '')
+            : null;
+
+        if (!uid) uid = tokenUid;
         if (!uid) return null;
-        const { data, error } = await sb.from('profiles').select('*').eq('id', uid).maybeSingle();
-        if (error || !data) return null;
-        return data;
+
+        // 1. Zkusit najít přímo podle UUID (nové Supabase Auth ID)
+        let { data, error } = await sb.from('profiles').select('*').eq('id', uid).maybeSingle();
+        if (data) return data;
+
+        // 2. Pokud se UUID ještě neshoduje (starší profil před migrací), zkusit najít podle tokenUid
+        if (tokenUid && tokenUid !== uid) {
+            const { data: byToken } = await sb.from('profiles').select('*').eq('id', tokenUid).maybeSingle();
+            if (byToken) return byToken;
+        }
+
+        // 3. Zkusit najít podle uživatelského jména z Auth metadat nebo emailu
+        const usernameFromAuth = authUser?.user_metadata?.username || (authUser?.email ? authUser.email.split('@')[0] : null);
+        if (usernameFromAuth) {
+            const { data: byName } = await sb.from('profiles').select('*').ilike('username', usernameFromAuth).maybeSingle();
+            if (byName) return byName;
+        }
+
+        return null;
     }
 
     if (path === '/api/auth/register' && method === 'POST') {
@@ -374,10 +401,18 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
         });
 
         if (authData?.user) {
-            const { data: userRow } = await sb.from('profiles')
+            let { data: userRow } = await sb.from('profiles')
                 .select('*')
                 .eq('id', authData.user.id)
                 .maybeSingle();
+
+            if (!userRow) {
+                const { data: byName } = await sb.from('profiles')
+                    .select('*')
+                    .ilike('username', uname)
+                    .maybeSingle();
+                userRow = byName;
+            }
 
             if (userRow) {
                 const token = 'sb_jwt_' + userRow.id;
@@ -394,31 +429,17 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
         if (legacyRow) {
             const hash = await hashPasswordClientFallback(pass);
             if (legacyRow.password_hash === hash) {
-                // Automatická migrace: zaregistrovat do Supabase Auth se stejným heslem a přenést data
+                // Přihlásit nebo registrovat do Supabase Auth:
                 try {
-                    const { data: newAuth } = await sb.auth.signUp({
-                        email,
-                        password: pass,
-                        options: { data: { username: legacyRow.username } }
-                    });
-                    if (newAuth?.user) {
-                        const migratedProfile = {
-                            id: newAuth.user.id,
-                            username: legacyRow.username,
-                            password_hash: legacyRow.password_hash,
-                            coins: legacyRow.coins || 250,
-                            inventory: legacyRow.inventory || { owned: [] },
-                            adoptme_pets: legacyRow.adoptme_pets || [],
-                            adoptme_bucks: legacyRow.adoptme_bucks || 120,
-                            daily_claim_date: legacyRow.daily_claim_date || 0
-                        };
-                        const { data: migratedRow } = await sb.from('profiles').upsert(migratedProfile).select().single();
-                        const finalRow = migratedRow || legacyRow;
-                        const token = 'sb_jwt_' + finalRow.id;
-                        return { ok: true, status: 200, data: { token, user: finalRow, serverTime: now } };
-                    }
-                } catch (migErr) {
-                    console.warn('Auto-migrace účtu selhala, pokračuji legacy fallbackem:', migErr);
+                    await sb.auth.signInWithPassword({ email, password: pass });
+                } catch (e) {
+                    try {
+                        await sb.auth.signUp({
+                            email,
+                            password: pass,
+                            options: { data: { username: legacyRow.username } }
+                        });
+                    } catch (e2) {}
                 }
 
                 const token = 'sb_jwt_' + legacyRow.id;
@@ -1024,6 +1045,9 @@ function applyAuthenticatedUser(user) {
     updateBobuxUI();
     updateAuthUI();
     updateDailyBonusUI();
+    try {
+        localStorage.setItem('boblox_auth_user_cache', JSON.stringify(user));
+    } catch (e) {}
 }
 
 async function syncAccountToServer() {
@@ -1106,6 +1130,12 @@ function closeAuthModal() {
     const modal = document.getElementById('auth-modal');
     modal.classList.add('hidden');
     modal.classList.remove('flex');
+    const searchInput = document.getElementById('game-search-input');
+    const uInput = document.getElementById('auth-username-input');
+    if (searchInput && uInput && searchInput.value && uInput.value && searchInput.value.trim().toLowerCase() === uInput.value.trim().toLowerCase()) {
+        searchInput.value = '';
+        renderGameCatalog();
+    }
 }
 
 function switchAuthTab(mode) {
@@ -1151,11 +1181,18 @@ async function submitAuthForm() {
         return;
     }
 
+    // Vyčistit pole vyhledávání, pokud do něj prohlížeč omylem vložil přihlašovací jméno
+    const searchInput = document.getElementById('game-search-input');
+    if (searchInput && searchInput.value && username && searchInput.value.trim().toLowerCase() === username.toLowerCase()) {
+        searchInput.value = '';
+    }
+
     authState.token = res.data.token;
     localStorage.setItem(STORAGE_KEY_JWT, authState.token);
     applyAuthenticatedUser(res.data.user);
     sfx.playWinFanfare();
     showAuthAlert(authState.mode === 'register' ? 'Účet úspěšně vytvořen!' : 'Úspěšně přihlášeno!', false);
+    renderGameCatalog();
     fetchAllGamesSummary();
 }
 
@@ -1165,6 +1202,7 @@ async function logoutAccount() {
     authState.user = null;
     localStorage.removeItem(STORAGE_KEY_JWT);
     localStorage.removeItem('boblox_mp_nick');
+    localStorage.removeItem('boblox_auth_user_cache');
     document.cookie = 'boblox_token=; Max-Age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
 
     // Reset guest nickname & form inputs
@@ -1182,21 +1220,36 @@ async function logoutAccount() {
 }
 
 async function initAuthSession() {
+    // 1. Okamžitá obnova přihlášeného uživatele z mezipaměti před síťovým voláním (zabraňuje odhlášení při reloadu)
+    const cachedUserJson = localStorage.getItem('boblox_auth_user_cache');
+    if (cachedUserJson) {
+        try {
+            const cachedUser = JSON.parse(cachedUserJson);
+            if (cachedUser && cachedUser.username) {
+                applyAuthenticatedUser(cachedUser);
+            }
+        } catch (e) {}
+    }
+
     if (!authState.token) {
         mpState.nickname = 'Host_CZ';
         localStorage.removeItem('boblox_mp_nick');
+        localStorage.removeItem('boblox_auth_user_cache');
         updateAuthUI();
         fetchAllGamesSummary();
         return;
     }
+
     const res = await apiRequest('/api/auth/me');
     if (res.ok && res.data?.user) {
+        localStorage.setItem('boblox_auth_user_cache', JSON.stringify(res.data.user));
         applyAuthenticatedUser(res.data.user);
-    } else {
+    } else if (!cachedUserJson) {
         authState.token = null;
         authState.user = null;
         localStorage.removeItem(STORAGE_KEY_JWT);
         localStorage.removeItem('boblox_mp_nick');
+        localStorage.removeItem('boblox_auth_user_cache');
         mpState.nickname = 'Host_CZ';
         updateAuthUI();
     }

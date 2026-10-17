@@ -270,7 +270,12 @@
         <div class="flex-1 max-w-md relative hidden sm:block">
             <input
                 id="game-search-input"
-                type="text"
+                name="game_catalog_search"
+                type="search"
+                autocomplete="off"
+                autocorrect="off"
+                autocapitalize="off"
+                spellcheck="false"
                 placeholder="Hledat 10 her (Tower of Hell, Zombie, Bedwars, Speed Run...)"
                 oninput="renderGameCatalog()"
                 class="w-full bg-[#191B1D] text-sm text-white placeholder-gray-400 pl-10 pr-4 py-2 rounded-lg border border-[#393B3D] focus:outline-none focus:border-[#00A2FF] focus:ring-1 focus:ring-[#00A2FF] transition"
@@ -641,7 +646,7 @@
             </div>
 
             <!-- Login / Register Form View -->
-            <div id="auth-form-view" class="space-y-4">
+            <form id="auth-form-view" class="space-y-4" autocomplete="on" onsubmit="event.preventDefault(); submitAuthForm();">
                 <div class="grid grid-cols-2 gap-2 bg-[#191B1D] p-1 rounded-xl border border-[#393B3D]">
                     <button type="button" id="auth-tab-login" onclick="switchAuthTab('login')" class="py-2 rounded-lg text-xs font-bold bg-[#00A2FF] text-white transition">
                         Přihlášení
@@ -655,22 +660,21 @@
 
                 <div class="space-y-3">
                     <div>
-                        <label class="text-xs font-bold uppercase text-gray-400">Uživatelské jméno (3–20 znaků)</label>
-                        <input id="auth-username-input" type="text" maxlength="20" placeholder="např. NoobMaster_CZ"
+                        <label class="text-xs font-bold uppercase text-gray-400" for="auth-username-input">Uživatelské jméno (3–20 znaků)</label>
+                        <input id="auth-username-input" name="username" type="text" maxlength="20" placeholder="např. NoobMaster_CZ" autocomplete="username"
                             class="w-full mt-1 bg-[#191B1D] text-white text-sm font-semibold px-3.5 py-2.5 rounded-xl border border-[#393B3D] focus:outline-none focus:border-[#00A2FF]">
                     </div>
                     <div>
-                        <label class="text-xs font-bold uppercase text-gray-400">Heslo (min. 6 znaků)</label>
-                        <input id="auth-password-input" type="password" maxlength="64" placeholder="••••••••"
-                            onkeydown="if(event.key==='Enter'){event.preventDefault();submitAuthForm();}"
+                        <label class="text-xs font-bold uppercase text-gray-400" for="auth-password-input">Heslo (min. 6 znaků)</label>
+                        <input id="auth-password-input" name="password" type="password" maxlength="64" placeholder="••••••••" autocomplete="current-password"
                             class="w-full mt-1 bg-[#191B1D] text-white text-sm font-semibold px-3.5 py-2.5 rounded-xl border border-[#393B3D] focus:outline-none focus:border-[#00A2FF]">
                     </div>
                 </div>
 
-                <button id="auth-submit-btn" type="button" onclick="submitAuthForm()" class="w-full py-3 rounded-xl btn-play-green text-white font-bold text-sm shadow-lg">
+                <button id="auth-submit-btn" type="submit" class="w-full py-3 rounded-xl btn-play-green text-white font-bold text-sm shadow-lg">
                     Přihlásit se k účtu
                 </button>
-            </div>
+            </form>
         </div>
     </div>
 
