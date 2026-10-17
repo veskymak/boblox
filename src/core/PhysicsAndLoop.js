@@ -673,9 +673,9 @@ function gameLoop(now) {
         const targetAngle = Math.atan2(-_moveDir.x, -_moveDir.z);
         playerAvatar.root.rotation.y = lerpAngle(playerAvatar.root.rotation.y, targetAngle, dt * 16);
     } else {
-        const damping = Math.pow(0.0005, dt);
-        playerState.vel.x *= damping;
-        playerState.vel.z *= damping;
+        // Roblox-style instant stop (zero glide / zero inertia upon releasing controls)
+        playerState.vel.x = 0;
+        playerState.vel.z = 0;
     }
 
     // Conveyor belt push on player if standing on conveyor
@@ -745,9 +745,9 @@ function gameLoop(now) {
         playerAvatar.rightLegPivot.rotation.x = -swing;
         playerAvatar.leftArmPivot.rotation.x = -swing * 0.8;
     } else {
-        playerAvatar.leftLegPivot.rotation.x *= 0.8;
-        playerAvatar.rightLegPivot.rotation.x *= 0.8;
-        playerAvatar.leftArmPivot.rotation.x *= 0.8;
+        playerAvatar.leftLegPivot.rotation.x = 0;
+        playerAvatar.rightLegPivot.rotation.x = 0;
+        playerAvatar.leftArmPivot.rotation.x = 0;
     }
 
     const holdingGun = playerState.activeWeapon && playerState.activeWeapon.type === 'gun';
@@ -761,7 +761,7 @@ function gameLoop(now) {
     } else if (horizSpeed > 0.8) {
         playerAvatar.rightArmPivot.rotation.x = Math.sin(playerState.walkCycle) * 0.75;
     } else {
-        playerAvatar.rightArmPivot.rotation.x *= 0.8;
+        playerAvatar.rightArmPivot.rotation.x = 0;
     }
 
     // 4. Run Game-Specific Frame Logic (All 11 Games)
