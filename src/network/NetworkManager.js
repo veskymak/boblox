@@ -791,6 +791,12 @@ function initLiveSocketAndPresence() {
                 }
             });
 
+            socialCh.on('broadcast', { event: 'direct_chat_message' }, ({ payload }) => {
+                if (typeof handleIncomingSocialPacket === 'function') {
+                    handleIncomingSocialPacket('direct_chat_message', payload);
+                }
+            });
+
             socialCh.subscribe(async (status) => {
                 if (status === 'SUBSCRIBED') {
                     await updateSocialPresenceTrack();

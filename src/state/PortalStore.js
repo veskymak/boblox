@@ -1,7 +1,7 @@
 /* ============================================================================
  * 2. BOBLOX PORTAL STATE, BACKEND AUTH/DB, DAILY BONUS & 10 GAMES CATALOG
  * ============================================================================ */
-const BOBLOX_CLIENT_VERSION = '4.0';
+const BOBLOX_CLIENT_VERSION = '4.1';
 const STORAGE_KEY_BOBUX = 'boblox_bobux_balance_v1';
 const STORAGE_KEY_PLAYED = 'boblox_games_played_v1';
 const STORAGE_KEY_TORSO = 'boblox_avatar_torso_v1';

@@ -1789,6 +1789,10 @@ function handleIncomingSocialPacket(event, payload) {
         renderHomeFriendsStrip();
         if (typeof activePortalSection !== 'undefined' && activePortalSection === 'people') renderPeopleResultsGrid();
         if (typeof activePortalSection !== 'undefined' && activePortalSection === 'profile') renderPortalProfileView();
+    } else if (event === 'direct_chat_message') {
+        if (typeof handleIncomingDirectChatMessage === 'function') {
+            handleIncomingDirectChatMessage(payload);
+        }
     }
 }
 
@@ -4502,7 +4506,66 @@ function renderPeopleResultsGrid() {
  * BOTTOM-RIGHT LOBBY DIRECT CHAT WIDGET
  * ============================================================================ */
 let activeLobbyChatPartnerId = '';
-const lobbyDirectMessages = {};
+const STORAGE_KEY_DIRECT_MESSAGES = 'boblox_direct_messages_v2';
+const STORAGE_KEY_UNREAD_MESSAGES = 'boblox_unread_messages_v2';
+
+let lobbyDirectMessages = (() => {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY_DIRECT_MESSAGES);
+        return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+})();
+
+let unreadDirectMessages = (() => {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY_UNREAD_MESSAGES);
+        return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+})();
+
+function saveLobbyDirectMessages() {
+    try {
+        localStorage.setItem(STORAGE_KEY_DIRECT_MESSAGES, JSON.stringify(lobbyDirectMessages));
+    } catch (e) {}
+}
+
+function saveUnreadDirectMessages() {
+    try {
+        localStorage.setItem(STORAGE_KEY_UNREAD_MESSAGES, JSON.stringify(unreadDirectMessages));
+    } catch (e) {}
+    updateLobbyChatBadge();
+}
+
+function getConversationKey(playerOrId) {
+    if (!playerOrId) return '';
+    if (typeof playerOrId === 'object') {
+        const name = playerOrId.username || playerOrId.displayName || playerOrId.id || '';
+        return String(name).toLowerCase().replace(/^(cloud_|db_|user_|peer_)/, '');
+    }
+    return String(playerOrId).toLowerCase().replace(/^(cloud_|db_|user_|peer_)/, '');
+}
+
+function updateLobbyChatBadge() {
+    const badge = document.getElementById('lobby-chat-unread-badge');
+    if (!badge) return;
+    let totalUnread = 0;
+    Object.values(unreadDirectMessages).forEach(c => {
+        totalUnread += (Number(c) || 0);
+    });
+    if (totalUnread > 0) {
+        badge.textContent = totalUnread > 99 ? '99+' : String(totalUnread);
+        badge.classList.remove('hidden');
+        badge.classList.add('inline-flex');
+    } else {
+        badge.classList.add('hidden');
+        badge.classList.remove('inline-flex');
+    }
+}
+
+function isLobbyChatDrawerOpen() {
+    const body = document.getElementById('lobby-chat-drawer-body');
+    return body && !body.classList.contains('hidden');
+}
 
 function toggleLobbyChatDrawer(forceState) {
     const body = document.getElementById('lobby-chat-drawer-body');
@@ -4511,29 +4574,189 @@ function toggleLobbyChatDrawer(forceState) {
     const nextOpen = typeof forceState === 'boolean' ? forceState : isHidden;
     body.classList.toggle('hidden', !nextOpen);
     body.classList.toggle('flex', nextOpen);
+
     if (nextOpen) {
-        renderLobbyDirectChatMessages();
-        setTimeout(() => document.getElementById('lobby-chat-input')?.focus(), 30);
+        if (activeLobbyChatPartnerId) {
+            showLobbyChatConversationView();
+        } else {
+            showLobbyChatFriendsView();
+        }
     }
+    updateLobbyChatBadge();
+}
+
+function showLobbyChatFriendsView() {
+    const friendsView = document.getElementById('lobby-chat-friends-view');
+    const convView = document.getElementById('lobby-chat-conversation-view');
+    if (friendsView) friendsView.classList.remove('hidden');
+    if (convView) convView.classList.add('hidden');
+    renderLobbyChatFriendsList();
+}
+
+function showLobbyChatConversationView() {
+    const friendsView = document.getElementById('lobby-chat-friends-view');
+    const convView = document.getElementById('lobby-chat-conversation-view');
+    if (friendsView) friendsView.classList.add('hidden');
+    if (convView) {
+        convView.classList.remove('hidden');
+        convView.classList.add('flex');
+    }
+    renderLobbyDirectChatMessages();
+    setTimeout(() => document.getElementById('lobby-chat-input')?.focus(), 50);
+}
+
+function backToLobbyChatFriendsList() {
+    activeLobbyChatPartnerId = '';
+    showLobbyChatFriendsView();
 }
 
 function openBottomChatWithPlayer(playerId) {
+    if (!playerId) return;
     activeLobbyChatPartnerId = playerId;
+    const key = getConversationKey(playerId);
+    if (unreadDirectMessages[key]) {
+        delete unreadDirectMessages[key];
+        saveUnreadDirectMessages();
+    }
     toggleLobbyChatDrawer(true);
+    showLobbyChatConversationView();
+}
+
+function renderLobbyChatFriendsList() {
+    const listEl = document.getElementById('lobby-chat-friends-list');
+    if (!listEl) return;
+
+    const allPlayers = getAllSearchablePlayers();
+    const rawFriends = allPlayers.filter(p => isPlayerFriend(p));
+    const seenUsernames = new Set();
+    const friendList = [];
+
+    for (const f of rawFriends) {
+        const u = (f.username || f.displayName || '').toLowerCase();
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(u)) continue;
+        if (u && !seenUsernames.has(u)) {
+            seenUsernames.add(u);
+            friendList.push(f);
+        }
+    }
+
+    listEl.innerHTML = '';
+
+    if (friendList.length === 0) {
+        listEl.innerHTML = `
+            <div class="p-6 text-center text-gray-400 space-y-2">
+                <div class="text-2xl">👥</div>
+                <div class="text-white font-bold text-xs">Zatím nemáš žádné přátele</div>
+                <p class="text-[11px] text-gray-400">Přidej si kamarády v sekci Přátelé a budeš si s nimi moci psát!</p>
+                <button type="button" onclick="openPeopleSearchResults(''); toggleLobbyChatDrawer(false);" class="mt-2 px-3 py-1.5 rounded-lg bg-[#00A2FF] text-white text-xs font-bold hover:bg-[#008BDB] transition">
+                    + Najít přátele
+                </button>
+            </div>
+        `;
+        return;
+    }
+
+    friendList.forEach((friend, idx) => {
+        const key = getConversationKey(friend);
+        const pres = getPlayerPresence(friend);
+        const unread = Number(unreadDirectMessages[key]) || 0;
+        const msgs = lobbyDirectMessages[key] || [];
+        const lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : null;
+
+        let lastMsgSnippet = '';
+        if (lastMsg) {
+            const prefix = lastMsg.isMe ? 'Vy: ' : '';
+            lastMsgSnippet = `${prefix}${lastMsg.text}`;
+        } else if (pres.inGame && pres.gameId) {
+            const partyLabel = pres.isParty ? ' (Party)' : '';
+            lastMsgSnippet = `🎮 Hraje: ${pres.gameTitle}${partyLabel}`;
+        } else if (pres.isOnline) {
+            lastMsgSnippet = 'Online na webu';
+        } else {
+            lastMsgSnippet = 'Offline';
+        }
+
+        let dotHtml = '';
+        if (pres.inGame && pres.gameId) {
+            dotHtml = `<span class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-[#00B06F] border border-[#191B1D] flex items-center justify-center text-white shadow animate-pulse" title="Hraje: ${escapeHtml(pres.gameTitle)}"><svg class="w-2 h-2 fill-white" viewBox="0 0 24 24"><path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-10 7H8v3H6v-3H3v-2h3V8h2v3h3v2zm4.5 2c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm3-3c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg></span>`;
+        } else if (pres.isOnline) {
+            dotHtml = `<span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#00A2FF] border border-[#191B1D]" title="Online na webu"></span>`;
+        }
+
+        const friendName = friend.username || friend.displayName;
+        const cid = `lobby-chat-avatar-${idx}`;
+
+        const unreadBadgeHtml = unread > 0
+            ? `<span class="px-2 py-0.5 rounded-full bg-red-500 text-white font-black text-[10px] leading-none shrink-0 shadow animate-pulse">${unread > 99 ? '99+' : unread}</span>`
+            : '';
+
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.onclick = () => openBottomChatWithPlayer(friend.id);
+        item.className = 'w-full px-3.5 py-2.5 flex items-center justify-between gap-2.5 hover:bg-[#232527] transition text-left focus:outline-none';
+        item.innerHTML = `
+            <div class="flex items-center gap-2.5 min-w-0">
+                <div class="relative shrink-0">
+                    <canvas id="${cid}" width="40" height="40" class="w-9 h-9 rounded-full bg-[#232527] border border-[#393B3D] block"></canvas>
+                    ${dotHtml}
+                </div>
+                <div class="min-w-0">
+                    <div class="text-xs font-bold text-white truncate">${escapeHtml(friendName)}</div>
+                    <div class="text-[10px] ${unread > 0 ? 'text-white font-bold' : (pres.inGame ? 'text-[#00B06F] font-semibold' : 'text-gray-400')} truncate max-w-[150px] sm:max-w-[170px]">${escapeHtml(lastMsgSnippet)}</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+                ${unreadBadgeHtml}
+                <span class="text-gray-500 text-xs font-bold">›</span>
+            </div>
+        `;
+        listEl.appendChild(item);
+
+        const canvasEl = document.getElementById(cid);
+        drawPlayerHeadshotCanvas(canvasEl, friend);
+    });
 }
 
 function renderLobbyDirectChatMessages() {
     const partner = getPlayerById(activeLobbyChatPartnerId);
     const titleEl = document.getElementById('lobby-chat-active-partner');
+    const statusEl = document.getElementById('lobby-chat-active-partner-status');
     const listEl = document.getElementById('lobby-chat-messages-list');
-    if (titleEl) titleEl.textContent = `Chat • ${partner.displayName}`;
     if (!listEl) return;
 
-    const msgs = lobbyDirectMessages[activeLobbyChatPartnerId] || [];
+    const partnerName = partner.displayName || partner.username || 'Přítel';
+    if (titleEl) titleEl.textContent = partnerName;
+
+    if (statusEl) {
+        const pres = getPlayerPresence(partner);
+        if (pres.inGame && pres.gameId) {
+            const partyLabel = pres.isParty ? ' (Party)' : '';
+            statusEl.className = 'text-[10px] text-[#00B06F] font-bold truncate';
+            statusEl.textContent = `🎮 ${pres.gameTitle}${partyLabel}`;
+            statusEl.title = `Hraje: ${pres.gameTitle}${pres.isParty ? ' (Soukromá party)' : ''}`;
+        } else if (pres.isOnline) {
+            statusEl.className = 'w-2 h-2 rounded-full bg-[#00A2FF] inline-block';
+            statusEl.textContent = '';
+            statusEl.title = 'Online na webu';
+        } else {
+            statusEl.className = 'text-[10px] text-gray-500';
+            statusEl.textContent = 'Offline';
+            statusEl.title = 'Offline';
+        }
+    }
+
+    const key = getConversationKey(partner);
+    const msgs = lobbyDirectMessages[key] || [];
     listEl.innerHTML = '';
 
     if (msgs.length === 0) {
-        listEl.innerHTML = `<div class="text-gray-400 text-center py-4">Napiš první zprávu hráči <strong>${escapeHtml(partner.displayName)}</strong>!</div>`;
+        listEl.innerHTML = `
+            <div class="p-6 text-center text-gray-400 space-y-1">
+                <div class="text-2xl">👋</div>
+                <div class="text-white font-bold text-xs">Začni chat s hráčem ${escapeHtml(partnerName)}</div>
+                <p class="text-[11px] text-gray-400">Napiš zprávu do pole níže a odešli ji klávesou Enter.</p>
+            </div>
+        `;
         return;
     }
 
@@ -4542,12 +4765,21 @@ function renderLobbyDirectChatMessages() {
         row.className = m.isMe ? 'flex flex-col items-end' : 'flex flex-col items-start';
         const bubble = document.createElement('div');
         bubble.className = m.isMe
-            ? 'px-3 py-1.5 rounded-xl bg-[#00A2FF] text-white max-w-[85%] break-words'
-            : 'px-3 py-1.5 rounded-xl bg-[#2C2F33] text-gray-100 max-w-[85%] break-words';
+            ? 'px-3 py-1.5 rounded-xl rounded-tr-none bg-[#00A2FF] text-white max-w-[85%] break-words shadow-sm text-xs'
+            : 'px-3 py-1.5 rounded-xl rounded-tl-none bg-[#2C2F33] text-gray-100 max-w-[85%] break-words border border-[#393B3D] shadow-sm text-xs';
         bubble.textContent = m.text;
+
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'text-[9px] text-gray-400 mt-0.5 px-1';
+        if (m.timestamp) {
+            const d = new Date(m.timestamp);
+            timeSpan.textContent = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
         row.appendChild(bubble);
+        if (m.timestamp) row.appendChild(timeSpan);
         listEl.appendChild(row);
     });
+
     listEl.scrollTop = listEl.scrollHeight;
 }
 
@@ -4558,45 +4790,124 @@ function sendLobbyDirectChatMessage() {
     inp.value = '';
     if (!clean) return;
 
-    if (!lobbyDirectMessages[activeLobbyChatPartnerId]) {
-        lobbyDirectMessages[activeLobbyChatPartnerId] = [];
+    if (!activeLobbyChatPartnerId) {
+        showLobbyChatFriendsView();
+        return;
     }
-    lobbyDirectMessages[activeLobbyChatPartnerId].push({
-        from: getLocalRobloxPlayerProfile().displayName,
+
+    const partner = getPlayerById(activeLobbyChatPartnerId);
+    const myProfile = getLocalRobloxPlayerProfile();
+    const mySenderId = getMyUniqueSocialId();
+    const mySenderName = myProfile.username || myProfile.displayName || 'Hráč';
+    const partnerName = partner.username || partner.displayName || 'Přítel';
+    const targetId = partner.dbId || partner.id;
+    const key = getConversationKey(partner);
+
+    const msgObj = {
+        id: 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+        from: mySenderName,
         text: clean,
-        isMe: true
-    });
+        isMe: true,
+        timestamp: Date.now()
+    };
+
+    if (!lobbyDirectMessages[key]) {
+        lobbyDirectMessages[key] = [];
+    }
+    lobbyDirectMessages[key].push(msgObj);
+    saveLobbyDirectMessages();
+
+    // Broadcast across Realtime network to the recipient
+    const packet = {
+        id: msgObj.id,
+        fromId: mySenderId,
+        fromUsername: mySenderName,
+        toId: targetId,
+        toUsername: partnerName,
+        text: clean,
+        timestamp: msgObj.timestamp
+    };
+
+    if (typeof sendSocialBroadcast === 'function') {
+        sendSocialBroadcast('direct_chat_message', packet);
+    }
+
     renderLobbyDirectChatMessages();
 
-    // Also broadcast over P2P if connected
+    if (typeof sfx !== 'undefined' && sfx.playCoin) {
+        sfx.playCoin();
+    }
+}
+
+function handleIncomingDirectChatMessage(payload) {
+    if (!payload || !payload.text) return;
     const myProfile = getLocalRobloxPlayerProfile();
-    if (typeof sendMultiplayerPacket === 'function') {
-        sendMultiplayerPacket({
-            type: 'chatMessage',
-            id: mpState.myId,
-            nickname: myProfile.displayName,
-            text: clean,
-            gameMode: activeGameMode
-        });
+    const myUName = (myProfile.username || myProfile.displayName || '').toLowerCase();
+    const myId = getMyUniqueSocialId();
+
+    const targetUser = (payload.toUsername || '').toLowerCase();
+    const targetId = payload.toId ? String(payload.toId).toLowerCase() : '';
+    const myIdLower = myId ? String(myId).toLowerCase() : '';
+
+    const isForMe = (
+        (targetUser && targetUser === myUName) ||
+        (targetId && (targetId === myIdLower || targetId === myUName || targetId === `cloud_${myUName}`))
+    );
+
+    if (!isForMe) return;
+
+    // Do not process messages sent by ourselves
+    const senderName = payload.fromUsername || 'Přítel';
+    if (senderName.toLowerCase() === myUName) return;
+
+    const senderKey = getConversationKey(payload.fromUsername || payload.fromId);
+    if (!senderKey) return;
+
+    if (!lobbyDirectMessages[senderKey]) {
+        lobbyDirectMessages[senderKey] = [];
     }
 
-    // Friendly simulated reply from preset friend
-    const partner = getPlayerById(activeLobbyChatPartnerId);
-    setTimeout(() => {
-        const replies = [
-            'Super, pojďme do hry! 🎮',
-            'Jasně, připoj se ke mně přes veřejný matchmaking!',
-            'Dobrý nápad! 👍',
-            'Haha, přesně tak! 😄'
-        ];
-        const reply = replies[Math.floor(Math.random() * replies.length)];
-        lobbyDirectMessages[activeLobbyChatPartnerId].push({
-            from: partner.displayName,
-            text: reply,
-            isMe: false
-        });
+    // Deduplicate by message id if already received
+    if (payload.id && lobbyDirectMessages[senderKey].some(m => m.id === payload.id)) {
+        return;
+    }
+
+    const msgObj = {
+        id: payload.id || ('msg_' + Date.now()),
+        from: senderName,
+        text: payload.text,
+        isMe: false,
+        timestamp: payload.timestamp || Date.now()
+    };
+    lobbyDirectMessages[senderKey].push(msgObj);
+    saveLobbyDirectMessages();
+
+    // Check if user is currently looking at this active conversation
+    const drawerOpen = isLobbyChatDrawerOpen();
+    const activeKey = getConversationKey(activeLobbyChatPartnerId);
+    const isCurrentlyChatting = drawerOpen && activeKey && (activeKey === senderKey);
+
+    if (isCurrentlyChatting) {
         renderLobbyDirectChatMessages();
-    }, 900);
+        if (typeof sfx !== 'undefined' && sfx.playCoin) {
+            sfx.playCoin();
+        }
+    } else {
+        unreadDirectMessages[senderKey] = (unreadDirectMessages[senderKey] || 0) + 1;
+        saveUnreadDirectMessages();
+        updateLobbyChatBadge();
+
+        if (drawerOpen) {
+            renderLobbyChatFriendsList();
+        }
+
+        if (typeof showHudToast === 'function') {
+            showHudToast(`💬 ${senderName}: ${payload.text}`, 'blue');
+        }
+        if (typeof sfx !== 'undefined' && sfx.playCoin) {
+            sfx.playCoin();
+        }
+    }
 }
 
 // Close search dropdown when clicking outside
@@ -4615,11 +4926,13 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         sanitizeStoredFriends();
         refreshPortalAvatarVisuals();
+        updateLobbyChatBadge();
     });
 } else {
     setTimeout(() => {
         sanitizeStoredFriends();
         refreshPortalAvatarVisuals();
+        updateLobbyChatBadge();
     }, 0);
 }
 
@@ -4638,7 +4951,7 @@ function getAppClientVersion() {
         const m = s.src.match(/\?v=([\d\.]+)/);
         if (m) return m[1];
     }
-    return '4.0';
+    return '4.1';
 }
 
 function reloadForUpdateNow() {

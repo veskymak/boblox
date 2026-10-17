@@ -704,24 +704,54 @@
 
         </div>
 
-        <!-- BOTTOM-RIGHT DOCKED ROBLOX CHAT WIDGET (Matches Screenshots 2, 3, 4, 5) -->
-        <div id="lobby-bottom-chat-widget" class="fixed bottom-0 right-4 z-40 w-72 select-none">
-            <div id="lobby-chat-drawer-body" class="hidden bg-[#191B1D] border border-b-0 border-[#393B3D] rounded-t-xl shadow-2xl flex-col h-72 overflow-hidden">
-                <div class="px-3.5 py-2 bg-[#232527] border-b border-[#393B3D] flex items-center justify-between text-xs font-bold text-white">
-                    <span id="lobby-chat-active-partner">Chat s přáteli</span>
-                    <button type="button" onclick="toggleLobbyChatDrawer(false)" class="text-gray-400 hover:text-white">✕</button>
+        <!-- BOTTOM-RIGHT DOCKED ROBLOX CHAT WIDGET -->
+        <div id="lobby-bottom-chat-widget" class="fixed bottom-0 right-4 z-40 w-80 sm:w-84 select-none">
+            <!-- DRAWER BODY -->
+            <div id="lobby-chat-drawer-body" class="hidden bg-[#191B1D] border border-b-0 border-[#393B3D] rounded-t-xl shadow-2xl flex-col h-84 sm:h-96 overflow-hidden">
+                <!-- VIEW 1: FRIENDS LIST VIEW -->
+                <div id="lobby-chat-friends-view" class="flex flex-col h-full">
+                    <div class="px-3.5 py-2.5 bg-[#232527] border-b border-[#393B3D] flex items-center justify-between text-xs font-bold text-white shrink-0">
+                        <div class="flex items-center gap-2">
+                            <span>💬</span>
+                            <span>Chat s přáteli</span>
+                        </div>
+                        <button type="button" onclick="toggleLobbyChatDrawer(false)" class="text-gray-400 hover:text-white p-1" title="Zavřít chat">✕</button>
+                    </div>
+                    <div id="lobby-chat-friends-list" class="flex-1 overflow-y-auto divide-y divide-[#2C2F33] text-xs">
+                        <!-- Populated dynamically via JS -->
+                    </div>
                 </div>
-                <div id="lobby-chat-messages-list" class="flex-1 p-3 space-y-2 overflow-y-auto text-xs">
-                    <div class="text-gray-400 text-center py-4">Vyber přítele nebo napiš zprávu!</div>
+
+                <!-- VIEW 2: ACTIVE CONVERSATION VIEW -->
+                <div id="lobby-chat-conversation-view" class="hidden flex-col h-full">
+                    <div class="px-3 py-2 bg-[#232527] border-b border-[#393B3D] flex items-center justify-between text-xs font-bold text-white shrink-0">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <button type="button" onclick="backToLobbyChatFriendsList()" class="text-gray-300 hover:text-white flex items-center gap-1 font-bold px-1.5 py-0.5 rounded hover:bg-[#393B3D] transition shrink-0" title="Zpět na přátele">
+                                <span>←</span>
+                                <span>Zpět</span>
+                            </button>
+                            <span id="lobby-chat-active-partner" class="truncate font-bold">Přítel</span>
+                            <span id="lobby-chat-active-partner-status" class="shrink-0"></span>
+                        </div>
+                        <button type="button" onclick="toggleLobbyChatDrawer(false)" class="text-gray-400 hover:text-white p-1" title="Zavřít chat">✕</button>
+                    </div>
+                    <div id="lobby-chat-messages-list" class="flex-1 p-3 space-y-2 overflow-y-auto text-xs bg-[#191B1D]">
+                        <div class="text-gray-400 text-center py-4">Načítám zprávy...</div>
+                    </div>
+                    <form onsubmit="event.preventDefault(); sendLobbyDirectChatMessage();" class="p-2 bg-[#121315] border-t border-[#393B3D] flex items-center gap-1.5 shrink-0">
+                        <input id="lobby-chat-input" type="text" maxlength="160" placeholder="Napiš zprávu..."
+                            class="flex-1 bg-[#232527] text-xs text-white px-2.5 py-1.5 rounded-lg border border-[#393B3D] focus:outline-none focus:border-[#00A2FF]">
+                        <button type="submit" class="px-3 py-1.5 rounded-lg bg-[#00A2FF] hover:bg-[#008BDB] text-white text-xs font-bold">↵</button>
+                    </form>
                 </div>
-                <form onsubmit="event.preventDefault(); sendLobbyDirectChatMessage();" class="p-2 bg-[#121315] border-t border-[#393B3D] flex items-center gap-1.5">
-                    <input id="lobby-chat-input" type="text" maxlength="160" placeholder="Napiš zprávu..."
-                        class="flex-1 bg-[#232527] text-xs text-white px-2.5 py-1.5 rounded-lg border border-[#393B3D] focus:outline-none focus:border-[#00A2FF]">
-                    <button type="submit" class="px-2.5 py-1.5 rounded-lg bg-[#00A2FF] hover:bg-[#008BDB] text-white text-xs font-bold">↵</button>
-                </form>
             </div>
-            <button type="button" onclick="toggleLobbyChatDrawer()" class="w-full bg-[#232527] hover:bg-[#2C2F33] border border-b-0 border-[#393B3D] rounded-t-lg px-3.5 py-2 flex items-center justify-between text-xs font-bold text-white shadow-lg transition">
-                <span>Chat</span>
+
+            <!-- TOGGLE BAR -->
+            <button type="button" onclick="toggleLobbyChatDrawer()" class="w-full bg-[#232527] hover:bg-[#2C2F33] border border-b-0 border-[#393B3D] rounded-t-lg px-3.5 py-2.5 flex items-center justify-between text-xs font-bold text-white shadow-lg transition">
+                <div class="flex items-center gap-2">
+                    <span>Chat</span>
+                    <span id="lobby-chat-unread-badge" class="hidden px-1.5 py-0.5 rounded-full bg-red-500 text-white font-extrabold text-[10px] leading-none animate-pulse">0</span>
+                </div>
                 <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                 </svg>
@@ -2171,14 +2201,14 @@
     </div>
 
     <!-- BOBLOX Modular Architecture (Core Engine, State, Network, Games & UI with Cache-Busting) -->
-    <script src="src/core/SoundEngine.js?v=4.0" defer></script>
-    <script src="src/state/PortalStore.js?v=4.0" defer></script>
-    <script src="src/network/NetworkManager.js?v=4.0" defer></script>
-    <script src="src/ui/PortalUI.js?v=4.0" defer></script>
-    <script src="src/core/AvatarAndShop.js?v=4.0" defer></script>
-    <script src="src/core/Engine.js?v=4.0" defer></script>
-    <script src="src/games/GameWorlds.js?v=4.0" defer></script>
-    <script src="src/core/PhysicsAndLoop.js?v=4.0" defer></script>
-    <script src="src/core/InputManager.js?v=4.0" defer></script>
+    <script src="src/core/SoundEngine.js?v=4.1" defer></script>
+    <script src="src/state/PortalStore.js?v=4.1" defer></script>
+    <script src="src/network/NetworkManager.js?v=4.1" defer></script>
+    <script src="src/ui/PortalUI.js?v=4.1" defer></script>
+    <script src="src/core/AvatarAndShop.js?v=4.1" defer></script>
+    <script src="src/core/Engine.js?v=4.1" defer></script>
+    <script src="src/games/GameWorlds.js?v=4.1" defer></script>
+    <script src="src/core/PhysicsAndLoop.js?v=4.1" defer></script>
+    <script src="src/core/InputManager.js?v=4.1" defer></script>
 </body>
 </html>

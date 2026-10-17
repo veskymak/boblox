@@ -1,7 +1,7 @@
 {
-  "version": "4.0",
-  "buildTime": 1729202500000,
-  "updatedAt": "2026-10-17T22:55:00Z",
-  "title": "Boblox Aktualizace v4.0",
-  "message": "Oprava reálné aktivity hráčů, zelená ikonka s joystickem při hraní hry, název hry a soukromá party v tooltipu."
+  "version": "4.1",
+  "buildTime": 1792270810000,
+  "updatedAt": "2026-10-17T23:00:10Z",
+  "title": "Boblox Aktualizace v4.1",
+  "message": "Reálný direct chat pro přátele v lobby, zobrazení seznamu přátel v chatu a oznamovací tečka s počtem nepřečtených zpráv."
 }
