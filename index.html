@@ -2165,6 +2165,7 @@
 
         function updateAuthUI() {
             const isLogged = !!authState.user;
+            const navName = document.getElementById('nav-player-name');
             const navLabel = document.getElementById('nav-auth-label');
             const navDot = document.getElementById('nav-auth-dot');
             const bannerName = document.getElementById('banner-player-name');
@@ -2182,6 +2183,7 @@
             }
 
             if (isLogged) {
+                if (navName) navName.textContent = authState.user.username;
                 if (navLabel) navLabel.textContent = 'Účet aktivní';
                 if (navDot) navDot.className = 'w-1.5 h-1.5 rounded-full bg-[#00B06F]';
                 if (bannerName) bannerName.textContent = authState.user.username;
@@ -2200,9 +2202,11 @@
                 if (pCoins) pCoins.textContent = `${bobuxBalance.toLocaleString('cs-CZ')} B$`;
                 if (pItems) pItems.textContent = String(ownedShopItems.size);
             } else {
+                const guestName = 'Host_CZ';
+                if (navName) navName.textContent = guestName;
                 if (navLabel) navLabel.textContent = 'Přihlásit účet';
                 if (navDot) navDot.className = 'w-1.5 h-1.5 rounded-full bg-[#00A2FF]';
-                if (bannerName) bannerName.textContent = mpState.nickname;
+                if (bannerName) bannerName.textContent = guestName;
                 if (bannerBtn) bannerBtn.textContent = '🔐 Přihlásit / Registrovat účet';
                 document.getElementById('auth-logged-in-view')?.classList.add('hidden');
                 document.getElementById('auth-form-view')?.classList.remove('hidden');
@@ -2279,16 +2283,40 @@
             authState.token = null;
             authState.user = null;
             localStorage.removeItem(STORAGE_KEY_JWT);
+            localStorage.removeItem('boblox_mp_nick');
+            document.cookie = 'boblox_token=; Max-Age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+
+            // Reset guest nickname & form inputs
+            mpState.nickname = 'Host_CZ';
+            const mpInput = document.getElementById('mp-nickname-input');
+            if (mpInput) mpInput.value = 'Host_CZ';
+            const passInput = document.getElementById('auth-password-input');
+            if (passInput) passInput.value = '';
+            const alertBox = document.getElementById('auth-alert');
+            if (alertBox) alertBox.className = 'hidden';
+
             updateAuthUI();
             renderGameCatalog();
-            showHudToast('Byl jsi odhlášen z účtu.', 'blue');
+            showHudToast('Byl jsi odhlášen z účtu (režim Host_CZ).', 'blue');
         }
 
         async function initAuthSession() {
+            if (!authState.token) {
+                mpState.nickname = 'Host_CZ';
+                localStorage.removeItem('boblox_mp_nick');
+                updateAuthUI();
+                fetchAllGamesSummary();
+                return;
+            }
             const res = await apiRequest('/api/auth/me');
             if (res.ok && res.data?.user) {
                 applyAuthenticatedUser(res.data.user);
             } else {
+                authState.token = null;
+                authState.user = null;
+                localStorage.removeItem(STORAGE_KEY_JWT);
+                localStorage.removeItem('boblox_mp_nick');
+                mpState.nickname = 'Host_CZ';
                 updateAuthUI();
             }
             fetchAllGamesSummary();
