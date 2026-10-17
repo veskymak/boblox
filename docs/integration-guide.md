@@ -27,8 +27,14 @@ CREATE TABLE public.profiles (
   username TEXT UNIQUE NOT NULL,
   score INTEGER DEFAULT 0,
   coins INTEGER DEFAULT 0,
+  last_login_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+  last_active_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Migrace pro již existující tabulky:
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ DEFAULT NOW();
 
 -- Zapnutí zabezpečení RLS
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;

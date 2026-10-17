@@ -500,6 +500,9 @@ function startGame(gameId, skipAutoMatchmaking = false) {
     gamesPlayedCount++;
     localStorage.setItem(STORAGE_KEY_PLAYED, String(gamesPlayedCount));
     updateBobuxUI();
+    if (typeof touchUserActivity === 'function') {
+        touchUserActivity(true);
+    }
 
     document.getElementById('lobby-view').classList.add('hidden');
     document.getElementById('game-viewport').style.display = 'block';
@@ -595,6 +598,9 @@ function returnToLobby() {
         sendWsPresence();
         updateBobuxUI();
         renderGameCatalog();
+        if (typeof touchUserActivity === 'function') {
+            touchUserActivity(true);
+        }
     } catch (err) {
         console.error('returnToLobby cleanup error:', err);
     }

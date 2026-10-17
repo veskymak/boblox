@@ -367,13 +367,27 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
             },
             adoptme_pets: adoptData.pets,
             adoptme_bucks: adoptData.bucks,
-            daily_claim_date: lastClaimTimestamp || 0
+            daily_claim_date: lastClaimTimestamp || 0,
+            last_login_at: new Date(now).toISOString(),
+            last_active_at: new Date(now).toISOString()
         };
 
-        const { data: inserted, error: insErr } = await sb.from('profiles')
+        let { data: inserted, error: insErr } = await sb.from('profiles')
             .insert(newProfile)
             .select()
             .single();
+
+        // Defensive fallback: if database table hasn't added last_login_at/last_active_at columns yet
+        if (insErr && (insErr.message?.toLowerCase().includes('column') || insErr.code === 'PGRST204')) {
+            const fallbackProfile = { ...newProfile };
+            delete fallbackProfile.last_login_at;
+            delete fallbackProfile.last_active_at;
+            const retryRes = await sb.from('profiles').insert(fallbackProfile).select().single();
+            if (!retryRes.error && retryRes.data) {
+                inserted = retryRes.data;
+                insErr = null;
+            }
+        }
 
         if (insErr || !inserted) {
             if (insErr?.code === '42501' || String(insErr?.message).includes('row-level security')) {
@@ -415,6 +429,12 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
             }
 
             if (userRow) {
+                const nowIso = new Date(now).toISOString();
+                try {
+                    await sb.from('profiles').update({ last_login_at: nowIso, last_active_at: nowIso }).eq('id', userRow.id);
+                    userRow.last_login_at = nowIso;
+                    userRow.last_active_at = nowIso;
+                } catch (e) {}
                 const token = 'sb_jwt_' + userRow.id;
                 return { ok: true, status: 200, data: { token, user: userRow, serverTime: now } };
             }
@@ -441,6 +461,13 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
                         });
                     } catch (e2) {}
                 }
+
+                const nowIso = new Date(now).toISOString();
+                try {
+                    await sb.from('profiles').update({ last_login_at: nowIso, last_active_at: nowIso }).eq('id', legacyRow.id);
+                    legacyRow.last_login_at = nowIso;
+                    legacyRow.last_active_at = nowIso;
+                } catch (e) {}
 
                 const token = 'sb_jwt_' + legacyRow.id;
                 return { ok: true, status: 200, data: { token, user: legacyRow, serverTime: now } };
@@ -501,11 +528,35 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
             currentUser.daily_claim_date = body.daily_claim_date;
         }
 
-        const { error: updErr } = await sb.from('profiles').update(updatePayload).eq('id', currentUser.id);
+        const nowIso = new Date(now).toISOString();
+        updatePayload.last_active_at = nowIso;
+        currentUser.last_active_at = nowIso;
+
+        let { error: updErr } = await sb.from('profiles').update(updatePayload).eq('id', currentUser.id);
+        if (updErr && (updErr.message?.toLowerCase().includes('column') || updErr.code === 'PGRST204')) {
+            const fallbackPayload = { ...updatePayload };
+            delete fallbackPayload.last_active_at;
+            const retryRes = await sb.from('profiles').update(fallbackPayload).eq('id', currentUser.id);
+            updErr = retryRes.error;
+        }
         if (updErr) {
             console.warn('Supabase sync upozornění:', updErr);
         }
         return { ok: true, status: 200, data: { user: currentUser, serverTime: now } };
+    }
+
+    if (path === '/api/user/active' && method === 'POST') {
+        if (!authState.token || !authState.token.startsWith('sb_jwt_')) {
+            return null;
+        }
+        const currentUser = await getCurrentSupabaseProfile();
+        if (!currentUser) return { ok: false, status: 401, data: { error: 'Nepřihlášen' } };
+        const nowIso = new Date(now).toISOString();
+        currentUser.last_active_at = nowIso;
+        try {
+            await sb.from('profiles').update({ last_active_at: nowIso }).eq('id', currentUser.id);
+        } catch (e) {}
+        return { ok: true, status: 200, data: { ok: true, last_active_at: nowIso, serverTime: now } };
     }
 
     if (path === '/api/daily-claim' && method === 'POST') {
@@ -830,6 +881,8 @@ async function handleOfflineApiFallback(path, options = {}) {
             },
             coins: startCoins,
             daily_claim_date: lastClaimTimestamp,
+            last_login_at: now,
+            last_active_at: now,
             game_ratings: {},
             comments: [],
             last_comment_at: 0
@@ -848,6 +901,9 @@ async function handleOfflineApiFallback(path, options = {}) {
         if (!u || u.password_hash !== hash) {
             return { ok: false, status: 401, data: { error: 'Nesprávné uživatelské jméno nebo heslo.' } };
         }
+        u.last_login_at = now;
+        u.last_active_at = now;
+        saveLocalUsersDB(users);
         const token = 'local_jwt_' + u.id;
         return { ok: true, status: 200, data: { token, user: u, serverTime: now } };
     }
@@ -864,6 +920,7 @@ async function handleOfflineApiFallback(path, options = {}) {
     if (path === '/api/user/sync' && method === 'POST') {
         if (!currentUser) return { ok: false, status: 401, data: { error: 'Nepřihlášen' } };
         if (typeof body.coins === 'number') currentUser.coins = Math.floor(body.coins);
+        currentUser.last_active_at = now;
         currentUser.inventory = {
             owned: Array.isArray(body.owned) ? body.owned : currentUser.inventory.owned,
             outfit: body.outfit || currentUser.inventory.outfit,
@@ -872,6 +929,13 @@ async function handleOfflineApiFallback(path, options = {}) {
         };
         saveLocalUsersDB(users);
         return { ok: true, status: 200, data: { user: currentUser, serverTime: now } };
+    }
+
+    if (path === '/api/user/active' && method === 'POST') {
+        if (!currentUser) return { ok: false, status: 401, data: { error: 'Nepřihlášen' } };
+        currentUser.last_active_at = now;
+        saveLocalUsersDB(users);
+        return { ok: true, status: 200, data: { ok: true, last_active_at: now, serverTime: now } };
     }
 
     if (path === '/api/daily-claim' && method === 'POST') {
@@ -1041,6 +1105,8 @@ function applyAuthenticatedUser(user) {
     if (Array.isArray(user.adoptme_pets) && user.adoptme_pets.length > 0) {
         localStorage.setItem(STORAGE_KEY_ADOPTME_PETS, JSON.stringify(user.adoptme_pets));
     }
+    if (user.last_login_at !== undefined) authState.user.last_login_at = user.last_login_at;
+    if (user.last_active_at !== undefined) authState.user.last_active_at = user.last_active_at;
     updateNickname(user.username);
     updateBobuxUI();
     updateAuthUI();
@@ -1066,6 +1132,63 @@ async function syncAccountToServer() {
             daily_claim_date: lastClaimTimestamp
         }
     });
+}
+
+function formatDateTimeUserFriendly(val, isCurrentOnlineCheck = false) {
+    if (!val) return 'Právě teď (Online)';
+    let date = null;
+    if (typeof val === 'number') {
+        date = new Date(val);
+    } else if (typeof val === 'string') {
+        date = new Date(val);
+    }
+    if (!date || isNaN(date.getTime())) return 'Není k dispozici';
+
+    const diffMs = Math.max(0, Date.now() - date.getTime());
+    if (isCurrentOnlineCheck && diffMs < 120000) {
+        return '🟢 Právě teď (Online)';
+    }
+    if (diffMs < 60000) return 'Před chvílí';
+    if (diffMs < 3600000) {
+        const mins = Math.floor(diffMs / 60000);
+        return `Před ${mins} min`;
+    }
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const mins = String(date.getMinutes()).padStart(2, '0');
+    return `${day}.${month}. v ${hours}:${mins}`;
+}
+
+let lastUserActivitySentTs = 0;
+let pendingUserActivityTimer = null;
+
+async function touchUserActivity(forceImmediate = false) {
+    if (!authState.user || !authState.token) return;
+    const now = Date.now();
+    const minInterval = forceImmediate ? 5000 : 60000;
+    if (now - lastUserActivitySentTs < minInterval) {
+        if (!pendingUserActivityTimer && !forceImmediate) {
+            pendingUserActivityTimer = setTimeout(() => {
+                pendingUserActivityTimer = null;
+                touchUserActivity(false);
+            }, minInterval - (now - lastUserActivitySentTs));
+        }
+        return;
+    }
+    lastUserActivitySentTs = now;
+    if (pendingUserActivityTimer) {
+        clearTimeout(pendingUserActivityTimer);
+        pendingUserActivityTimer = null;
+    }
+    try {
+        const res = await apiRequest('/api/user/active', { method: 'POST' });
+        if (res && res.ok && authState.user) {
+            authState.user.last_active_at = res.data?.last_active_at || now;
+            const pLastActive = document.getElementById('auth-profile-last-active');
+            if (pLastActive) pLastActive.textContent = formatDateTimeUserFriendly(authState.user.last_active_at, true);
+        }
+    } catch (e) {}
 }
 
 function updateAuthUI() {
@@ -1099,6 +1222,8 @@ function updateAuthUI() {
         const pId = document.getElementById('auth-profile-id');
         const pCoins = document.getElementById('auth-profile-coins');
         const pItems = document.getElementById('auth-profile-items');
+        const pLastLogin = document.getElementById('auth-profile-last-login');
+        const pLastActive = document.getElementById('auth-profile-last-active');
         if (pName) pName.textContent = authState.user.username;
         if (pId) {
             const uid = String(authState.user.id || '');
@@ -1106,6 +1231,8 @@ function updateAuthUI() {
         }
         if (pCoins) pCoins.textContent = `${bobuxBalance.toLocaleString('cs-CZ')} B$`;
         if (pItems) pItems.textContent = String(ownedShopItems.size);
+        if (pLastLogin) pLastLogin.textContent = formatDateTimeUserFriendly(authState.user.last_login_at);
+        if (pLastActive) pLastActive.textContent = formatDateTimeUserFriendly(authState.user.last_active_at || Date.now(), true);
     } else {
         const guestName = 'Host_CZ';
         if (navName) navName.textContent = guestName;
@@ -1244,6 +1371,7 @@ async function initAuthSession() {
     if (res.ok && res.data?.user) {
         localStorage.setItem('boblox_auth_user_cache', JSON.stringify(res.data.user));
         applyAuthenticatedUser(res.data.user);
+        touchUserActivity(true);
     } else if (!cachedUserJson) {
         authState.token = null;
         authState.user = null;
@@ -1363,5 +1491,27 @@ async function giveDailyBonus() {
         sfx.playWinFanfare();
         updateDailyBonusUI();
     }
+}
+
+// Automatically track user activity on interaction, tab visibility and heartbeat
+if (typeof window !== 'undefined') {
+    let lastPulseEventTs = 0;
+    const pulseActive = () => {
+        const now = Date.now();
+        if (now - lastPulseEventTs > 30000) {
+            lastPulseEventTs = now;
+            if (typeof touchUserActivity === 'function') touchUserActivity(false);
+        }
+    };
+    window.addEventListener('pointerdown', pulseActive, { passive: true });
+    window.addEventListener('keydown', pulseActive, { passive: true });
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && typeof touchUserActivity === 'function') touchUserActivity(false);
+    });
+    setInterval(() => {
+        if (!document.hidden || (typeof activeGameMode !== 'undefined' && activeGameMode)) {
+            if (typeof touchUserActivity === 'function') touchUserActivity(false);
+        }
+    }, 60000);
 }
 

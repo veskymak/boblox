@@ -45,6 +45,8 @@ db.exec(`
         game_ratings TEXT NOT NULL DEFAULT '{}',
         comments TEXT NOT NULL DEFAULT '[]',
         last_comment_at INTEGER NOT NULL DEFAULT 0,
+        last_login_at INTEGER NOT NULL DEFAULT 0,
+        last_active_at INTEGER NOT NULL DEFAULT 0,
         created_at INTEGER NOT NULL
     );
 
@@ -70,6 +72,10 @@ db.exec(`
     CREATE INDEX IF NOT EXISTS idx_comments_game_id ON comments(game_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_ratings_game_id ON game_ratings(game_id);
 `);
+
+// Migration for existing databases
+try { db.exec(`ALTER TABLE users ADD COLUMN last_login_at INTEGER NOT NULL DEFAULT 0;`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN last_active_at INTEGER NOT NULL DEFAULT 0;`); } catch (e) {}
 
 /* ============================================================================
  * 2. SECURITY & SANITIZATION HELPERS (XSS & SQL/NoSQL INJECTION PROTECTION)
@@ -125,6 +131,8 @@ function serializeUserForClient(row) {
             gamesPlayed: 0
         }),
         daily_claim_date: Number(row.daily_claim_date) || 0,
+        last_login_at: Number(row.last_login_at) || 0,
+        last_active_at: Number(row.last_active_at) || 0,
         game_ratings: safeParseJSON(row.game_ratings, {}),
         comments: safeParseJSON(row.comments, [])
     };
@@ -218,10 +226,10 @@ app.post('/api/auth/register', async (req, res) => {
         });
 
         const insertStmt = db.prepare(`
-            INSERT INTO users (username, password_hash, inventory, coins, daily_claim_date, game_ratings, comments, last_comment_at, created_at)
-            VALUES (?, ?, ?, 250, 0, '{}', '[]', 0, ?)
+            INSERT INTO users (username, password_hash, inventory, coins, daily_claim_date, game_ratings, comments, last_comment_at, last_login_at, last_active_at, created_at)
+            VALUES (?, ?, ?, 250, 0, '{}', '[]', 0, ?, ?, ?)
         `);
-        const info = insertStmt.run(username, passwordHash, defaultInv, now);
+        const info = insertStmt.run(username, passwordHash, defaultInv, now, now, now);
         const userRow = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
 
         const token = signUserToken(userRow);
@@ -258,13 +266,18 @@ app.post('/api/auth/login', async (req, res) => {
             return res.status(401).json({ error: 'Nesprávné uživatelské jméno nebo heslo.' });
         }
 
+        const now = Date.now();
+        db.prepare('UPDATE users SET last_login_at = ?, last_active_at = ? WHERE id = ?').run(now, now, userRow.id);
+        userRow.last_login_at = now;
+        userRow.last_active_at = now;
+
         const token = signUserToken(userRow);
         setAuthCookie(res, token);
 
         return res.json({
             token,
             user: serializeUserForClient(userRow),
-            serverTime: Date.now()
+            serverTime: now
         });
     } catch (err) {
         console.error('Login error:', err);
@@ -313,14 +326,25 @@ app.post('/api/user/sync', requireAuth, (req, res) => {
             gamesPlayed: (typeof body.gamesPlayed === 'number' && body.gamesPlayed >= 0) ? Math.floor(body.gamesPlayed) : (currentInv.gamesPlayed || 0)
         };
 
-        db.prepare('UPDATE users SET coins = ?, inventory = ? WHERE id = ?')
-            .run(nextCoins, JSON.stringify(updatedInv), req.userRow.id);
+        const now = Date.now();
+        db.prepare('UPDATE users SET coins = ?, inventory = ?, last_active_at = ? WHERE id = ?')
+            .run(nextCoins, JSON.stringify(updatedInv), now, req.userRow.id);
 
         const fresh = db.prepare('SELECT * FROM users WHERE id = ?').get(req.userRow.id);
-        return res.json({ user: serializeUserForClient(fresh), serverTime: Date.now() });
+        return res.json({ user: serializeUserForClient(fresh), serverTime: now });
     } catch (err) {
         console.error('Sync error:', err);
         return res.status(500).json({ error: 'Chyba při ukládání účtu.' });
+    }
+});
+
+app.post('/api/user/active', requireAuth, (req, res) => {
+    try {
+        const now = Date.now();
+        db.prepare('UPDATE users SET last_active_at = ? WHERE id = ?').run(now, req.userRow.id);
+        return res.json({ ok: true, last_active_at: now, serverTime: now });
+    } catch (err) {
+        return res.status(500).json({ error: 'Chyba při aktualizaci aktivity.' });
     }
 });
 
