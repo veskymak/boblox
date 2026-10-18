@@ -3330,17 +3330,40 @@ function updateGreetingByTimeOfDay() {
     else el.textContent = 'Evening';
 }
 
-function toggleMobileSidebar() {
-    const sb = document.getElementById('portal-sidebar');
-    if (!sb) return;
-    const isHidden = sb.classList.contains('hidden');
-    if (isHidden) {
-        sb.classList.remove('hidden');
-        sb.classList.add('flex', 'fixed', 'top-12', 'bottom-0', 'left-0', 'shadow-2xl');
+const MOBILE_SIDEBAR_CLASSES = ['flex', 'fixed', 'top-12', 'bottom-0', 'left-0', 'z-50', 'shadow-2xl'];
+
+function toggleMobileSidebar(forceOpen) {
+    const sidebarEl = document.getElementById('portal-sidebar');
+    const backdropEl = document.getElementById('portal-sidebar-backdrop');
+    if (!sidebarEl) return;
+    const isCurrentlyHidden = sidebarEl.classList.contains('hidden');
+    const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : isCurrentlyHidden;
+
+    if (shouldOpen) {
+        sidebarEl.classList.remove('hidden');
+        sidebarEl.classList.add(...MOBILE_SIDEBAR_CLASSES);
+        if (backdropEl) {
+            backdropEl.classList.remove('hidden');
+        }
     } else {
-        sb.classList.add('hidden');
-        sb.classList.remove('flex', 'fixed', 'top-12', 'bottom-0', 'left-0', 'shadow-2xl');
+        if (!sidebarEl.classList.contains('fixed')) return;
+        sidebarEl.classList.add('hidden');
+        sidebarEl.classList.remove(...MOBILE_SIDEBAR_CLASSES);
+        if (backdropEl) {
+            backdropEl.classList.add('hidden');
+        }
     }
+}
+
+function initPortalSidebarMobileEvents() {
+    const sidebarEl = document.getElementById('portal-sidebar');
+    if (!sidebarEl) return;
+    sidebarEl.addEventListener('click', (e) => {
+        const btnOrLink = e.target && typeof e.target.closest === 'function' ? e.target.closest('button, a') : null;
+        if (btnOrLink && sidebarEl.classList.contains('fixed')) {
+            toggleMobileSidebar(false);
+        }
+    });
 }
 
 function switchPortalSection(sectionName) {
@@ -3368,11 +3391,19 @@ function switchPortalSection(sectionName) {
             : 'portal-nav-btn w-full flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-[#232527] text-gray-300 hover:text-white transition';
     });
 
-    // Close mobile sidebar if open
-    const sb = document.getElementById('portal-sidebar');
-    if (sb && sb.classList.contains('fixed')) {
-        sb.classList.add('hidden');
-        sb.classList.remove('flex', 'fixed', 'top-12', 'bottom-0', 'left-0', 'shadow-2xl');
+    // Close mobile sidebar and backdrop if open
+    toggleMobileSidebar(false);
+
+    // Update mobile bottom navigation buttons highlighting
+    const mobileNavHome = document.getElementById('mobile-nav-home');
+    const mobileNavFriends = document.getElementById('mobile-nav-friends');
+    if (mobileNavHome) {
+        mobileNavHome.classList.toggle('text-white', sectionName === 'home');
+        mobileNavHome.classList.toggle('text-gray-400', sectionName !== 'home');
+    }
+    if (mobileNavFriends) {
+        mobileNavFriends.classList.toggle('text-white', sectionName === 'people');
+        mobileNavFriends.classList.toggle('text-gray-400', sectionName !== 'people');
     }
 
     if (sectionName === 'home') {
@@ -5688,12 +5719,14 @@ if (document.readyState === 'loading') {
         sanitizeStoredFriends();
         refreshPortalAvatarVisuals();
         updateLobbyChatBadge();
+        initPortalSidebarMobileEvents();
     });
 } else {
     setTimeout(() => {
         sanitizeStoredFriends();
         refreshPortalAvatarVisuals();
         updateLobbyChatBadge();
+        initPortalSidebarMobileEvents();
     }, 0);
 }
 
@@ -5861,7 +5894,10 @@ if (typeof module !== 'undefined' && module.exports) {
         setAvatarTorsoColor,
         openAvatarPreviewModal,
         drawPlayerHeadshotCanvas,
-        refreshPortalAvatarVisuals
+        refreshPortalAvatarVisuals,
+        toggleMobileSidebar,
+        switchPortalSection,
+        initPortalSidebarMobileEvents
     };
 }
 

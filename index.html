@@ -433,6 +433,9 @@
     <!-- MAIN PORTAL SHELL (LEFT SIDEBAR + SWITCHABLE VIEWS: HOME / PROFILE / PEOPLE SEARCH) -->
     <main id="lobby-view" class="flex-1 flex min-h-[calc(100vh-3rem)] bg-[#191B1D] relative">
 
+        <!-- Mobile Sidebar Backdrop (< md) -->
+        <div id="portal-sidebar-backdrop" onclick="toggleMobileSidebar(false)" class="hidden fixed inset-0 top-12 bg-black/60 backdrop-blur-sm z-30 md:hidden transition-opacity"></div>
+
         <!-- 1. ROBLOX LEFT SIDEBAR -->
         <aside id="portal-sidebar" class="hidden md:flex flex-col justify-between w-44 lg:w-48 bg-[#121315] border-r border-[#27292D] shrink-0 py-3 px-2 select-none z-30">
             <div class="space-y-0.5 text-xs font-semibold text-gray-300">
@@ -505,7 +508,7 @@
         </aside>
 
         <!-- 2. MAIN CONTENT CONTAINER -->
-        <div class="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 py-5 space-y-7 pb-16">
+        <div class="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 py-5 space-y-7 pb-24 md:pb-16">
 
             <!-- ===================================================================
                  VIEW A: HOME PAGE (Matches Screenshot 2)
@@ -543,6 +546,30 @@
                             Účet
                         </button>
                     </div>
+                </section>
+
+                <!-- Mobile Quick Actions Strip (< md) -->
+                <section id="home-mobile-quick-actions" class="md:hidden flex items-center gap-2 overflow-x-auto pb-1 pt-0.5 select-none no-scrollbar">
+                    <button type="button" id="quick-action-shop" onclick="openShopModal('all')" class="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#232527] hover:bg-[#2C2F33] border border-[#393B3D] text-xs font-bold text-gray-200 hover:text-white transition shadow-sm">
+                        <span>🛍️</span>
+                        <span>Obchod</span>
+                    </button>
+                    <button type="button" id="quick-action-inventory" onclick="openShopModal('owned')" class="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#232527] hover:bg-[#2C2F33] border border-[#393B3D] text-xs font-bold text-gray-200 hover:text-white transition shadow-sm">
+                        <span>🎒</span>
+                        <span>Inventář</span>
+                    </button>
+                    <button type="button" id="quick-action-multiplayer" onclick="openMultiplayerModal()" class="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#232527] hover:bg-[#2C2F33] border border-[#393B3D] text-xs font-bold text-gray-200 hover:text-white transition shadow-sm">
+                        <span class="w-2 h-2 rounded-full bg-[#00B06F] animate-pulse"></span>
+                        <span>Multiplayer</span>
+                    </button>
+                    <button type="button" id="quick-action-transactions" onclick="openBobuxTransactionsModal()" class="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#232527] hover:bg-[#2C2F33] border border-[#393B3D] text-xs font-bold text-[#FFE066] hover:text-yellow-300 transition shadow-sm">
+                        <span>🪙</span>
+                        <span>Transakce</span>
+                    </button>
+                    <button type="button" id="quick-action-casino" onclick="openCasinoModal('blackjack')" class="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#232527] hover:bg-[#2C2F33] border border-[#393B3D] text-xs font-bold text-[#FF4D4D] hover:text-[#ff6666] transition shadow-sm">
+                        <span>🎰</span>
+                        <span>Casino</span>
+                    </button>
                 </section>
 
                 <!-- Friends Horizontal Strip (Friends (0) + Add Friends + Circular Avatars) -->
@@ -705,7 +732,7 @@
         </div>
 
         <!-- BOTTOM-RIGHT DOCKED ROBLOX CHAT WIDGET -->
-        <div id="lobby-bottom-chat-widget" class="fixed bottom-0 right-4 z-40 w-80 sm:w-84 select-none">
+        <div id="lobby-bottom-chat-widget" class="fixed bottom-16 md:bottom-0 right-4 z-40 w-80 sm:w-84 max-w-[calc(100vw-2rem)] select-none">
             <!-- DRAWER BODY -->
             <div id="lobby-chat-drawer-body" class="hidden bg-[#191B1D] border border-b-0 border-[#393B3D] rounded-t-xl shadow-2xl flex-col h-84 sm:h-96 overflow-hidden">
                 <!-- VIEW 1: FRIENDS LIST VIEW -->
@@ -757,6 +784,57 @@
                 </svg>
             </button>
         </div>
+
+        <!-- MOBILE BOTTOM NAVIGATION BAR (< md) -->
+        <nav id="mobile-bottom-nav" class="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-[#191B1D]/95 backdrop-blur border-t border-[#2C2F33] px-2 py-1 flex items-center justify-around shadow-2xl select-none">
+            <!-- Domů -->
+            <button type="button" id="mobile-nav-home" onclick="switchPortalSection('home')" class="flex flex-col items-center justify-center py-1 px-2 rounded-lg text-white hover:text-white transition group flex-1">
+                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1v-9.5z"/>
+                </svg>
+                <span class="text-[10px] font-bold mt-0.5">Domů</span>
+            </button>
+
+            <!-- Obchod -->
+            <button type="button" id="mobile-nav-shop" onclick="openShopModal('all')" class="flex flex-col items-center justify-center py-1 px-2 rounded-lg text-gray-400 hover:text-white transition group flex-1">
+                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+                </svg>
+                <span class="text-[10px] font-bold mt-0.5">Obchod</span>
+            </button>
+
+            <!-- Multiplayer -->
+            <button type="button" id="mobile-nav-multiplayer" onclick="openMultiplayerModal()" class="flex flex-col items-center justify-center py-1 px-2 rounded-lg text-gray-400 hover:text-white transition group flex-1">
+                <div class="relative">
+                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                    </svg>
+                    <span class="w-2 h-2 rounded-full bg-[#00B06F] animate-pulse absolute -top-0.5 -right-0.5"></span>
+                </div>
+                <span class="text-[10px] font-bold mt-0.5">Multiplayer</span>
+            </button>
+
+            <!-- Přátelé -->
+            <button type="button" id="mobile-nav-friends" onclick="openPeopleSearchResults('')" class="flex flex-col items-center justify-center py-1 px-2 rounded-lg text-gray-400 hover:text-white transition group flex-1">
+                <div class="relative">
+                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <circle cx="9" cy="8" r="3.5"/>
+                        <path stroke-linecap="round" d="M3 19c0-3 2.7-5 6-5s6 2 6 5"/>
+                        <circle cx="17" cy="9" r="2.5"/>
+                        <path stroke-linecap="round" d="M15 19c0-2 1.5-3.8 4-4"/>
+                    </svg>
+                </div>
+                <span class="text-[10px] font-bold mt-0.5">Přátelé</span>
+            </button>
+
+            <!-- Menu -->
+            <button type="button" id="mobile-nav-menu" onclick="toggleMobileSidebar()" class="flex flex-col items-center justify-center py-1 px-2 rounded-lg text-gray-400 hover:text-white transition group flex-1">
+                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+                </svg>
+                <span class="text-[10px] font-bold mt-0.5">Menu</span>
+            </button>
+        </nav>
     </main>
 
     <!-- FRIEND ITEM INSPECT MODAL (Read-Only Inspection of Friend's Items) -->
@@ -2220,14 +2298,14 @@
     </div>
 
     <!-- BOBLOX Modular Architecture (Core Engine, State, Network, Games & UI with Cache-Busting) -->
-    <script src="src/core/SoundEngine.js?v=4.6" defer></script>
-    <script src="src/state/PortalStore.js?v=4.6" defer></script>
-    <script src="src/network/NetworkManager.js?v=4.6" defer></script>
-    <script src="src/ui/PortalUI.js?v=4.6" defer></script>
-    <script src="src/core/AvatarAndShop.js?v=4.6" defer></script>
-    <script src="src/core/Engine.js?v=4.6" defer></script>
-    <script src="src/games/GameWorlds.js?v=4.6" defer></script>
-    <script src="src/core/PhysicsAndLoop.js?v=4.6" defer></script>
-    <script src="src/core/InputManager.js?v=4.6" defer></script>
+    <script src="src/core/SoundEngine.js?v=4.7" defer></script>
+    <script src="src/state/PortalStore.js?v=4.7" defer></script>
+    <script src="src/network/NetworkManager.js?v=4.7" defer></script>
+    <script src="src/ui/PortalUI.js?v=4.7" defer></script>
+    <script src="src/core/AvatarAndShop.js?v=4.7" defer></script>
+    <script src="src/core/Engine.js?v=4.7" defer></script>
+    <script src="src/games/GameWorlds.js?v=4.7" defer></script>
+    <script src="src/core/PhysicsAndLoop.js?v=4.7" defer></script>
+    <script src="src/core/InputManager.js?v=4.7" defer></script>
 </body>
 </html>
