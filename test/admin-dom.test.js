@@ -73,10 +73,10 @@ describe('Seam 4: DOM Integrity & Roblox Developer Admin Modal in index.html', (
         assert.ok(cheatToggleMatch, 'toggleAdminGodmode button must exist');
         assert.ok(cheatToggleMatch[0].includes('min-h-[44px]') || cheatToggleMatch[0].includes('h-11'), 'Godmode cheat button must satisfy min 44px touch target');
 
-        const portalUiCode = fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'PortalUI.js'), 'utf8');
-        assert.strictEqual(portalUiCode.includes('text-[11px] text-yellow-400 font-semibold'), false, 'Should not use text-yellow-400 for Bobux currency');
-        assert.ok(portalUiCode.includes('text-[#FFE066]'), 'Should use official text-[#FFE066] Bobux Gold');
-        assert.ok(portalUiCode.includes("submitAdminGiveCoins(1000, 'add'") && portalUiCode.includes('min-h-[44px]'), 'Quick user actions must satisfy min 44px touch target');
+        const adminUiCode = fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'AdminUI.js'), 'utf8');
+        assert.strictEqual(adminUiCode.includes('text-[11px] text-yellow-400 font-semibold'), false, 'Should not use text-yellow-400 for Bobux currency');
+        assert.ok(adminUiCode.includes('text-[#FFE066]'), 'Should use official text-[#FFE066] Bobux Gold');
+        assert.ok(adminUiCode.includes("submitAdminGiveCoins(1000, 'add'") && adminUiCode.includes('min-h-[44px]'), 'Quick user actions must satisfy min 44px touch target');
 
         // Tabs in index.html must have min 44px height
         ['admin-tab-btn-economy', 'admin-tab-btn-users', 'admin-tab-btn-broadcast', 'admin-tab-btn-cheats'].forEach(tabId => {

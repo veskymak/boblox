@@ -1,11 +1,38 @@
 /* ============================================================================
  * 2. BOBLOX PORTAL STATE, BACKEND AUTH/DB, DAILY BONUS & 10 GAMES CATALOG
  * ============================================================================ */
-const STORAGE_KEY_BOBUX = 'boblox_bobux_balance_v1';
-const STORAGE_KEY_PLAYED = 'boblox_games_played_v1';
-const STORAGE_KEY_TORSO = 'boblox_avatar_torso_v1';
-const STORAGE_KEY_JWT = 'boblox_jwt_token_v2';
-const STORAGE_KEY_DAILY_TS = 'boblox_daily_claim_ts_v2';
+const STORAGE_KEYS = Object.freeze({
+    BOBUX: 'boblox_bobux_balance_v1',
+    PLAYED: 'boblox_games_played_v1',
+    TORSO: 'boblox_avatar_torso_v1',
+    JWT: 'boblox_jwt_token_v2',
+    DAILY_TS: 'boblox_daily_claim_ts_v2',
+    TRANSACTIONS: 'boblox_bobux_transactions_v2',
+    CLOUD_USERS: 'boblox_cloud_users_cache_v2',
+    USER_CACHE: 'boblox_auth_user_cache',
+    LOCAL_USERS: 'boblox_local_db_users_v2',
+    LOCAL_SOCIAL: 'boblox_local_db_social_v2',
+    ADOPTME_BUCKS: 'boblox_adoptme_bucks_v1',
+    ADOPTME_PETS: 'boblox_adoptme_pets_v1',
+    GUEST_NUM: 'boblox_guest_num',
+    MP_NICK: 'boblox_mp_nick',
+    API_BASE: 'boblox_api_base'
+});
+if (typeof window !== 'undefined') {
+    window.STORAGE_KEYS = STORAGE_KEYS;
+}
+
+const STORAGE_KEY_BOBUX = STORAGE_KEYS.BOBUX;
+const STORAGE_KEY_PLAYED = STORAGE_KEYS.PLAYED;
+const STORAGE_KEY_TORSO = STORAGE_KEYS.TORSO;
+const STORAGE_KEY_JWT = STORAGE_KEYS.JWT;
+const STORAGE_KEY_DAILY_TS = STORAGE_KEYS.DAILY_TS;
+const STORAGE_KEY_TRANSACTIONS = STORAGE_KEYS.TRANSACTIONS;
+const STORAGE_KEY_CLOUD_USERS = STORAGE_KEYS.CLOUD_USERS;
+const LOCAL_DB_USERS_KEY = STORAGE_KEYS.LOCAL_USERS;
+const LOCAL_DB_SOCIAL_KEY = STORAGE_KEYS.LOCAL_SOCIAL;
+const STORAGE_KEY_ADOPTME_BUCKS = STORAGE_KEYS.ADOPTME_BUCKS;
+const STORAGE_KEY_ADOPTME_PETS = STORAGE_KEYS.ADOPTME_PETS;
 const DAILY_COOLDOWN_MS = 24 * 60 * 60 * 1000; // Strict 24h interval
 const COMMENT_COOLDOWN_MS = 30 * 1000; // Strict 30s anti-spam rate limit
 
@@ -18,11 +45,11 @@ let activeFilterTag = 'ALL';
 let selectedGameId = null;
 
 function getGuestNickname(forceNew = false) {
-    let savedNum = !forceNew ? sessionStorage.getItem('boblox_guest_num') : null;
+    let savedNum = !forceNew ? sessionStorage.getItem(STORAGE_KEYS.GUEST_NUM) : null;
     if (!savedNum || forceNew || savedNum === 'NaN' || !/^\d+$/.test(savedNum)) {
         savedNum = String(Math.floor(1000 + Math.random() * 9000));
-        try { sessionStorage.setItem('boblox_guest_num', savedNum); } catch (e) {}
-        try { localStorage.setItem('boblox_guest_num', savedNum); } catch (e) {}
+        try { sessionStorage.setItem(STORAGE_KEYS.GUEST_NUM, savedNum); } catch (e) {}
+        try { localStorage.setItem(STORAGE_KEYS.GUEST_NUM, savedNum); } catch (e) {}
     }
     return `Guest ${savedNum}`;
 }
@@ -30,10 +57,10 @@ function getGuestNickname(forceNew = false) {
 function resetGuestEconomy() {
     bobuxBalance = 250;
     try { localStorage.setItem(STORAGE_KEY_BOBUX, '250'); } catch (e) {}
-    try { localStorage.removeItem('boblox_bobux_transactions_v2'); } catch (e) {}
+    try { localStorage.removeItem(STORAGE_KEYS.TRANSACTIONS); } catch (e) {}
     if (typeof bobuxTransactions !== 'undefined') bobuxTransactions = [];
-    try { localStorage.removeItem('boblox_adoptme_bucks_v1'); } catch (e) {}
-    try { localStorage.removeItem('boblox_adoptme_pets_v1'); } catch (e) {}
+    try { localStorage.removeItem(STORAGE_KEYS.ADOPTME_BUCKS); } catch (e) {}
+    try { localStorage.removeItem(STORAGE_KEYS.ADOPTME_PETS); } catch (e) {}
     if (typeof updateBobuxUI === 'function') updateBobuxUI();
 }
 
@@ -250,9 +277,6 @@ function sanitizeTextClient(input, maxLen = 250) {
 /* ============================================================================
  * 2A. BACKEND API CLIENT + LOCAL FALLBACK DB (AUTH, DAILY BONUS, RATINGS, COMMENTS)
  * ============================================================================ */
-const LOCAL_DB_USERS_KEY = 'boblox_local_db_users_v2';
-const LOCAL_DB_SOCIAL_KEY = 'boblox_local_db_social_v2';
-
 function getLocalUsersDB() {
     try { return JSON.parse(localStorage.getItem(LOCAL_DB_USERS_KEY) || '[]'); } catch { return []; }
 }
@@ -306,8 +330,6 @@ function getSupabaseClient() {
 /* ============================================================================
  * 2A-1b. CLOUD USERS DIRECTORY & SEARCH (SUPABASE PROFILES / SERVER BACKEND)
  * ============================================================================ */
-const STORAGE_KEY_CLOUD_USERS = 'boblox_cloud_users_cache_v2';
-
 function isAppropriateUsername(name) {
     if (!name || typeof name !== 'string') return false;
     return name.trim().length > 0;
@@ -889,7 +911,7 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
     return null;
 }
 
-const CUSTOM_API_BASE = (window.BOBLOX_API_BASE || localStorage.getItem('boblox_api_base') || '').replace(/\/+$/, '');
+const CUSTOM_API_BASE = (window.BOBLOX_API_BASE || localStorage.getItem(STORAGE_KEYS.API_BASE) || '').replace(/\/+$/, '');
 
 function isStaticHostingWithoutBackend() {
     if (CUSTOM_API_BASE) return false;
@@ -1191,6 +1213,97 @@ async function handleOfflineApiFallback(path, options = {}) {
         };
     }
 
+    function isRequestAuthorizedAsAdmin(currentUser) {
+        if (typeof isCurrentUserAdmin === 'function' && isCurrentUserAdmin()) return true;
+        if (currentUser && currentUser.username && currentUser.username.toLowerCase() === 'vendeez') return true;
+        if (authState.user && authState.user.username && authState.user.username.toLowerCase() === 'vendeez') return true;
+        return false;
+    }
+
+    if (path === '/api/admin/users' && method === 'GET') {
+        if (!isRequestAuthorizedAsAdmin(currentUser)) {
+            return { ok: false, status: 403, data: { error: 'Přístup odepřen: Administrátorská práva vyžadována.' } };
+        }
+        const userList = users.map(u => {
+            const inv = u.inventory || {};
+            return {
+                id: u.id,
+                username: u.username,
+                coins: Number(u.coins) || 0,
+                gamesPlayed: Number(inv.gamesPlayed) || 0,
+                daily_claim_date: Number(u.daily_claim_date) || 0,
+                last_login_at: Number(u.last_login_at) || 0,
+                last_active_at: Number(u.last_active_at) || 0,
+                created_at: Number(u.created_at) || 0
+            };
+        });
+        if (authState.user && !userList.some(u => u.username && u.username.toLowerCase() === authState.user.username.toLowerCase())) {
+            userList.unshift({
+                id: authState.user.id || 1,
+                username: authState.user.username,
+                coins: Number(authState.user.coins || bobuxBalance || 250),
+                gamesPlayed: Number(gamesPlayedCount || 0),
+                daily_claim_date: Number(lastClaimTimestamp || 0),
+                last_login_at: now,
+                last_active_at: now,
+                created_at: now
+            });
+        }
+        return { ok: true, status: 200, data: { ok: true, users: userList }, serverTime: now };
+    }
+
+    if (path === '/api/admin/give-coins' && method === 'POST') {
+        if (!isRequestAuthorizedAsAdmin(currentUser)) {
+            return { ok: false, status: 403, data: { error: 'Přístup odepřen: Administrátorská práva vyžadována.' } };
+        }
+        const targetUsername = typeof body.username === 'string' ? body.username.trim() : '';
+        const rawAmount = Number(body.amount);
+        const action = body.action === 'set' || body.setBalance === true ? 'set' : 'add';
+        if (!targetUsername) {
+            return { ok: false, status: 400, data: { error: 'Uživatelské jméno je povinné.' } };
+        }
+        if (isNaN(rawAmount)) {
+            return { ok: false, status: 400, data: { error: 'Částka musí být platné číslo.' } };
+        }
+        let targetUser = users.find(u => u.username && u.username.toLowerCase() === targetUsername.toLowerCase());
+        if (!targetUser && authState.user && authState.user.username && authState.user.username.toLowerCase() === targetUsername.toLowerCase()) {
+            targetUser = authState.user;
+        }
+        if (!targetUser) {
+            return { ok: false, status: 404, data: { error: 'Uživatel nenalezen.' } };
+        }
+        const currentCoins = Number(targetUser.coins) || 0;
+        const newCoins = action === 'set' ? Math.max(0, Math.floor(rawAmount)) : Math.max(0, Math.floor(currentCoins + rawAmount));
+        targetUser.coins = newCoins;
+        saveLocalUsersDB(users);
+        if (authState.user && authState.user.username && authState.user.username.toLowerCase() === targetUsername.toLowerCase()) {
+            authState.user.coins = newCoins;
+            bobuxBalance = newCoins;
+            try { localStorage.setItem(STORAGE_KEY_BOBUX, String(newCoins)); } catch (e) {}
+            if (typeof updateBobuxUI === 'function') updateBobuxUI();
+        }
+        return { ok: true, status: 200, data: { ok: true, username: targetUser.username, coins: newCoins, action } };
+    }
+
+    if (path === '/api/admin/broadcast' && method === 'POST') {
+        if (!isRequestAuthorizedAsAdmin(currentUser)) {
+            return { ok: false, status: 403, data: { error: 'Přístup odepřen: Administrátorská práva vyžadována.' } };
+        }
+        const msg = (body.message || '').trim();
+        if (!msg) {
+            return { ok: false, status: 400, data: { error: 'Zpráva oznámení nesmí být prázdná.' } };
+        }
+        if (typeof handleIncomingAdminBroadcast === 'function') {
+            handleIncomingAdminBroadcast({
+                type: 'admin_broadcast',
+                message: msg,
+                sender: (currentUser ? currentUser.username : (authState.user ? authState.user.username : 'Vendeez')),
+                timestamp: now
+            });
+        }
+        return { ok: true, status: 200, data: { ok: true, message: msg } };
+    }
+
     return { ok: false, status: 404, data: {} };
 }
 
@@ -1255,7 +1368,7 @@ function applyAuthenticatedUser(user) {
     updateAuthUI();
     updateDailyBonusUI();
     try {
-        localStorage.setItem('boblox_auth_user_cache', JSON.stringify(user));
+        localStorage.setItem(STORAGE_KEYS.USER_CACHE, JSON.stringify(user));
     } catch (e) {}
 }
 
@@ -1486,7 +1599,7 @@ async function logoutAccount() {
     authState.token = null;
     authState.user = null;
     localStorage.removeItem(STORAGE_KEY_JWT);
-    localStorage.removeItem('boblox_auth_user_cache');
+    localStorage.removeItem(STORAGE_KEYS.USER_CACHE);
     document.cookie = 'boblox_token=; Max-Age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
 
     // 1. Generate fresh guest nickname with unique random number
@@ -1494,7 +1607,7 @@ async function logoutAccount() {
     if (typeof mpState !== 'undefined') {
         mpState.nickname = fallbackName;
     }
-    localStorage.setItem('boblox_mp_nick', fallbackName);
+    localStorage.setItem(STORAGE_KEYS.MP_NICK, fallbackName);
 
     // 2. Reset avatar skin/outfit/torso to guest starter defaults
     if (typeof resetAvatarToGuestStarter === 'function') {
@@ -1536,7 +1649,7 @@ async function initAuthSession() {
     }
 
     // 1. Okamžitá obnova přihlášeného uživatele z mezipaměti před síťovým voláním (zabraňuje odhlášení při reloadu)
-    const cachedUserJson = localStorage.getItem('boblox_auth_user_cache');
+    const cachedUserJson = localStorage.getItem(STORAGE_KEYS.USER_CACHE);
     if (cachedUserJson) {
         try {
             const cachedUser = JSON.parse(cachedUserJson);
@@ -1551,8 +1664,8 @@ async function initAuthSession() {
         if (typeof mpState !== 'undefined') {
             mpState.nickname = fallbackName;
         }
-        localStorage.setItem('boblox_mp_nick', fallbackName);
-        localStorage.removeItem('boblox_auth_user_cache');
+        localStorage.setItem(STORAGE_KEYS.MP_NICK, fallbackName);
+        localStorage.removeItem(STORAGE_KEYS.USER_CACHE);
         updateAuthUI();
         fetchAllGamesSummary();
         return;
@@ -1560,24 +1673,22 @@ async function initAuthSession() {
 
     const res = await apiRequest('/api/auth/me');
     if (res.ok && res.data?.user) {
-        localStorage.setItem('boblox_auth_user_cache', JSON.stringify(res.data.user));
+        localStorage.setItem(STORAGE_KEYS.USER_CACHE, JSON.stringify(res.data.user));
         applyAuthenticatedUser(res.data.user);
         touchUserActivity(true);
     } else if (!cachedUserJson) {
         authState.token = null;
         authState.user = null;
         localStorage.removeItem(STORAGE_KEY_JWT);
-        localStorage.removeItem('boblox_auth_user_cache');
+        localStorage.removeItem(STORAGE_KEYS.USER_CACHE);
         if (typeof mpState !== 'undefined') {
             mpState.nickname = fallbackName;
         }
-        localStorage.setItem('boblox_mp_nick', fallbackName);
+        localStorage.setItem(STORAGE_KEYS.MP_NICK, fallbackName);
         updateAuthUI();
     }
     fetchAllGamesSummary();
 }
-
-const STORAGE_KEY_TRANSACTIONS = 'boblox_bobux_transactions_v2';
 let bobuxTransactions = (() => {
     try {
         const saved = JSON.parse(localStorage.getItem(STORAGE_KEY_TRANSACTIONS));
@@ -1765,7 +1876,10 @@ if (typeof window !== 'undefined') {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         applyAuthenticatedUser,
-        logoutAccount
+        logoutAccount,
+        apiRequest,
+        handleOfflineApiFallback,
+        STORAGE_KEYS
     };
 }
 

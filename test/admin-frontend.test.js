@@ -77,7 +77,7 @@ global.updateBobuxUI = () => {};
 global.updateDailyBonusUI = () => {};
 global.showHudToast = () => {};
 
-const PortalUI = require('../src/ui/PortalUI.js');
+const AdminUI = require('../src/ui/AdminUI.js');
 const {
     isCurrentUserAdmin,
     updateAdminUI,
@@ -87,7 +87,7 @@ const {
     toggleAdminGodmode,
     toggleAdminSuperSpeed,
     resetAdminDailyCooldown
-} = PortalUI;
+} = AdminUI;
 
 describe('Seam 2: Frontend Admin State & UI Controls', () => {
     let mockSidebarAdminBtn;
