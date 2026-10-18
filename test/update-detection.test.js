@@ -144,4 +144,35 @@ describe('Update Detection & Version Synchronization (Cache-Busting Integrity)',
             'Modal must not gain .flex class'
         );
     });
+
+    it('verifies no script in src/ contains hardcoded client version declarations (SSOT guardrail)', () => {
+        const srcDir = path.join(__dirname, '..', 'src');
+        function getAllJsFiles(dir) {
+            let files = [];
+            const items = fs.readdirSync(dir, { withFileTypes: true });
+            for (const item of items) {
+                const fullPath = path.join(dir, item.name);
+                if (item.isDirectory()) {
+                    files = files.concat(getAllJsFiles(fullPath));
+                } else if (item.isFile() && item.name.endsWith('.js')) {
+                    files.push(fullPath);
+                }
+            }
+            return files;
+        }
+
+        const jsFiles = getAllJsFiles(srcDir);
+        assert.ok(jsFiles.length >= 8, 'Must verify all src/ scripts');
+
+        const forbiddenPattern = /(const|let|var)\s+[A-Za-z0-9_]*VERSION\s*=\s*['"]\d+(\.\d+)*['"]/i;
+        for (const filePath of jsFiles) {
+            const content = fs.readFileSync(filePath, 'utf8');
+            const match = content.match(forbiddenPattern);
+            assert.strictEqual(
+                match,
+                null,
+                `File ${path.relative(path.join(__dirname, '..'), filePath)} violates SSOT by defining a hardcoded version constant: "${match?.[0]}"`
+            );
+        }
+    });
 });

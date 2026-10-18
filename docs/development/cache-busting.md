@@ -52,7 +52,12 @@ Ujisti se, že v `<head>` v [index.html](file:///c:/Users/vacla/Desktop/Boblox/b
 <meta http-equiv="Expires" content="0">
 ```
 
-### 4. Git Commit
+### 4. Jediný zdroj pravdy (SSOT) & Pravidla pro kód
+- **Žádné statické verze v `src/`:** Klientské skripty ve složce `src/` **nesmí** obsahovat natvrdo definované konstanty či proměnné verze (např. `BOBLOX_CLIENT_VERSION = 'X.X'`).
+- **Detekce verze klienta výhradně z DOMu:** Funkce `getAppClientVersion()` detekuje verzi parsováním parametru `?v=X.X` z tagů `<script src="...">` v [index.html](file:///c:/Users/vacla/Desktop/Boblox/boblox/index.html). Pokud v DOMu žádný tag nenajde, vrací `null`, nikoliv statický řetězec.
+- **Automatická kontrola:** Test `test/update-detection.test.js` v rámci pre-commit hooku hlídá shodu verzí mezi `index.html` a `version.json` a zakazuje jakékoliv konstanty verzí v `src/`.
+
+### 5. Git Commit
 Teprve po provedení výše uvedených kroků commituj změny do gitu:
 ```bash
 git add .
