@@ -4056,6 +4056,34 @@ function closeFriendItemInspectModal() {
     }
 }
 
+function formatBobuxTransaction(transaction) {
+    const rawAmount = transaction && typeof transaction.amount === 'number'
+        ? transaction.amount
+        : Number(transaction?.amount || 0);
+    const isExpense = rawAmount < 0;
+    const absAmount = Math.abs(rawAmount).toLocaleString('cs-CZ');
+
+    if (isExpense) {
+        return {
+            amount: rawAmount,
+            isExpense: true,
+            formattedAmount: `-${absAmount} B$`,
+            amountClass: 'text-[#FF4D4D]',
+            labelText: 'Výdaj / Sázka',
+            iconColorClass: 'text-[#FF4D4D]'
+        };
+    }
+
+    return {
+        amount: rawAmount,
+        isExpense: false,
+        formattedAmount: `+${absAmount} B$`,
+        amountClass: 'text-[#00B06F]',
+        labelText: 'Získáno',
+        iconColorClass: 'text-[#FFE066]'
+    };
+}
+
 function openBobuxTransactionsModal() {
     const modal = document.getElementById('bobux-transactions-modal');
     if (!modal) return;
@@ -4081,10 +4109,12 @@ function openBobuxTransactionsModal() {
                 const d = new Date(tx.timestamp || Date.now());
                 const dateStr = d.toLocaleDateString('cs-CZ', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + d.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' });
 
+                const formattedTx = formatBobuxTransaction(tx);
+
                 row.innerHTML = `
                     <div class="flex items-center gap-3">
                         <div class="w-9 h-9 rounded-lg bg-[#232527] border border-[#393B3D] flex items-center justify-center shrink-0">
-                            <svg class="w-5 h-5 text-[#FFE066]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <svg class="w-5 h-5 ${formattedTx.iconColorClass}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <polygon points="12 2 21 7 21 17 12 22 3 17 3 7"/>
                                 <rect x="9" y="9" width="6" height="6" rx="1"/>
                             </svg>
@@ -4095,8 +4125,8 @@ function openBobuxTransactionsModal() {
                         </div>
                     </div>
                     <div class="text-right">
-                        <div class="text-xs sm:text-sm font-extrabold text-[#00B06F] font-mono">+${Number(tx.amount || 0).toLocaleString('cs-CZ')} B$</div>
-                        <div class="text-[10px] text-gray-400 font-semibold">Získáno</div>
+                        <div class="text-xs sm:text-sm font-extrabold ${formattedTx.amountClass} font-mono">${formattedTx.formattedAmount}</div>
+                        <div class="text-[10px] text-gray-400 font-semibold">${formattedTx.labelText}</div>
                     </div>
                 `;
                 listEl.appendChild(row);
@@ -5210,6 +5240,13 @@ async function checkForBobloxUpdates() {
 // Initial check after 4 seconds, then periodically poll every 15 seconds
 setTimeout(checkForBobloxUpdates, 4000);
 setInterval(checkForBobloxUpdates, 15000);
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        formatBobuxTransaction,
+        openBobuxTransactionsModal
+    };
+}
 
 
 

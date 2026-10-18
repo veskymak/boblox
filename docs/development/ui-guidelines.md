@@ -46,6 +46,8 @@ Při tvorbě nových modálů, tlačítek a karet se drž konzistentní barevné
 | **Hover stavy** | `#393B3D` | `hover:bg-[#393B3D]` (zvýraznění tlačítek) |
 | **Akcentní modrá** | `#00A2FF` | `text-[#00A2FF]`, `bg-[#00A2FF]` (hlavní Roblox modrá, CTA) |
 | **Akcentní zelená** | `#00B06F` | `text-[#00B06F]`, `bg-[#00B06F]` (potvrzení, nákup, online) |
+| **Výdaj / Chyba** | `#FF4D4D` | `text-[#FF4D4D]` (záporné transakce, výdaje, sázky) |
+| **Bobux Zlatá** | `#FFE066` | `text-[#FFE066]` (Bobux měna, mince, transakční ikona) |
 
 ---
 
