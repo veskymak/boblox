@@ -15,3 +15,17 @@ Boblox je 3D webová herní platforma s multiplayerem a Roblox estetikou, postav
 - [Průvodce integrací backendu](file:///c:/Users/vacla/Desktop/Boblox/boblox/docs/integration-guide.md)
 - [GitHub Pages hosting](file:///c:/Users/vacla/Desktop/Boblox/boblox/docs/github-pages/01-getting-started.md)
 - [Supabase API & Realtime](file:///c:/Users/vacla/Desktop/Boblox/boblox/docs/supabase/01-getting-started-js.md)
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues at https://github.com/veskymak/boblox. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Canonical triage label vocabulary (needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context repository layout (`GLOSSARY.md` and `docs/adr/`). See `docs/agents/domain.md`.
