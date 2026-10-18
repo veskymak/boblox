@@ -1,7 +1,7 @@
 {
-  "version": "5.1",
-  "buildTime": 1792360800000,
-  "updatedAt": "2026-10-18T18:24:00Z",
-  "title": "Boblox Aktualizace v5.1",
-  "message": "Husky pre-commit guardrail, validace toast témat a aktualizace pokynů pro agenty."
+  "version": "5.2",
+  "buildTime": 1792368000000,
+  "updatedAt": "2026-10-18T20:35:00Z",
+  "title": "Boblox Aktualizace v5.2",
+  "message": "Oprava detekce verze klienta a odstranění nechtěné smyčky aktualizačního modalu."
 }

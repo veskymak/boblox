@@ -5739,13 +5739,13 @@ let isUpdatePromptActive = false;
 let initialKnownBuildTime = null;
 
 function getAppClientVersion() {
-    if (typeof BOBLOX_CLIENT_VERSION !== 'undefined') return String(BOBLOX_CLIENT_VERSION).trim();
     const scripts = Array.from(document.querySelectorAll('script[src*="?v="]'));
     for (const s of scripts) {
-        const m = s.src.match(/\?v=([\d\.]+)/);
+        const srcAttr = s.getAttribute('src') || s.src || '';
+        const m = srcAttr.match(/\?v=([\d\.]+)/);
         if (m) return m[1];
     }
-    return '4.2';
+    return null;
 }
 
 function reloadForUpdateNow() {
@@ -6181,7 +6181,10 @@ if (typeof module !== 'undefined' && module.exports) {
         submitAdminBroadcast,
         loadAdminUsersList,
         renderAdminUsersList,
-        promptAdminSetCoins
+        promptAdminSetCoins,
+        getAppClientVersion,
+        showUpdateNotificationModal,
+        checkForBobloxUpdates
     };
 }
 
