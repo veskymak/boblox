@@ -506,7 +506,7 @@
                 </button>
 
                 <!-- Admin Menu (Only for Vendeez) -->
-                <button type="button" id="sidebar-admin-btn" onclick="openAdminModal()" class="w-full hidden items-center gap-3 px-2.5 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300 transition font-bold">
+                <button type="button" id="sidebar-admin-btn" onclick="openAdminModal()" class="w-full min-h-[44px] hidden items-center gap-3 px-2.5 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300 transition font-bold">
                     <span class="text-sm">⚡</span>
                     <span>Admin Menu</span>
                 </button>
@@ -576,7 +576,7 @@
                         <span>🎰</span>
                         <span>Casino</span>
                     </button>
-                    <button type="button" id="quick-action-admin" onclick="openAdminModal()" class="shrink-0 hidden items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-xs font-bold text-amber-400 transition shadow-sm">
+                    <button type="button" id="quick-action-admin" onclick="openAdminModal()" class="shrink-0 min-h-[44px] hidden items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-xs font-bold text-amber-400 transition shadow-sm">
                         <span>⚡</span>
                         <span>Admin Menu</span>
                     </button>
@@ -2330,16 +2330,16 @@
 
             <!-- Tab Navigation (4 Tabs) -->
             <div class="flex items-center gap-1.5 p-1 bg-[#121315] border border-[#27292D] rounded-xl shrink-0 overflow-x-auto no-scrollbar">
-                <button type="button" id="admin-tab-btn-economy" onclick="switchAdminTab('economy')" class="py-2 px-3 sm:px-4 rounded-xl text-xs font-bold bg-amber-500 text-black shadow-lg shadow-amber-500/20 transition shrink-0">
+                <button type="button" id="admin-tab-btn-economy" onclick="switchAdminTab('economy')" class="min-h-[44px] py-2.5 px-3.5 sm:px-4 rounded-xl text-xs font-bold bg-amber-500 text-black shadow-lg shadow-amber-500/20 transition shrink-0 flex items-center justify-center">
                     💰 Ekonomika
                 </button>
-                <button type="button" id="admin-tab-btn-users" onclick="switchAdminTab('users')" class="py-2 px-3 sm:px-4 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:bg-[#2C2F33] transition shrink-0">
+                <button type="button" id="admin-tab-btn-users" onclick="switchAdminTab('users')" class="min-h-[44px] py-2.5 px-3.5 sm:px-4 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:bg-[#2C2F33] transition shrink-0 flex items-center justify-center">
                     👥 Hráči
                 </button>
-                <button type="button" id="admin-tab-btn-broadcast" onclick="switchAdminTab('broadcast')" class="py-2 px-3 sm:px-4 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:bg-[#2C2F33] transition shrink-0">
+                <button type="button" id="admin-tab-btn-broadcast" onclick="switchAdminTab('broadcast')" class="min-h-[44px] py-2.5 px-3.5 sm:px-4 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:bg-[#2C2F33] transition shrink-0 flex items-center justify-center">
                     📢 Oznámení
                 </button>
-                <button type="button" id="admin-tab-btn-cheats" onclick="switchAdminTab('cheats')" class="py-2 px-3 sm:px-4 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:bg-[#2C2F33] transition shrink-0">
+                <button type="button" id="admin-tab-btn-cheats" onclick="switchAdminTab('cheats')" class="min-h-[44px] py-2.5 px-3.5 sm:px-4 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:bg-[#2C2F33] transition shrink-0 flex items-center justify-center">
                     🛠️ Cheaty
                 </button>
             </div>
@@ -2351,17 +2351,17 @@
                     <div class="p-3 sm:p-4 rounded-xl bg-[#232527] border border-[#2C2F33] space-y-3">
                         <h4 class="text-xs font-bold uppercase tracking-wider text-amber-400">Rychlé přidání Bobuxů (Vendeez)</h4>
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                            <button type="button" onclick="submitAdminGiveCoins(1000, 'add')" class="py-2.5 px-3 rounded-xl bg-[#2C2F33] hover:bg-amber-500 hover:text-black border border-amber-500/20 text-xs font-extrabold text-white transition flex flex-col items-center">
+                            <button type="button" onclick="submitAdminGiveCoins(1000, 'add')" class="min-h-[44px] py-2.5 px-3 rounded-xl bg-[#2C2F33] hover:bg-amber-500 hover:text-black border border-amber-500/20 text-xs font-extrabold text-white transition flex flex-col items-center justify-center">
                                 <span>+1 000</span>
-                                <span class="text-[10px] text-yellow-400 font-normal">B$ Bobux</span>
+                                <span class="text-[10px] text-[#FFE066] font-normal">B$ Bobux</span>
                             </button>
-                            <button type="button" onclick="submitAdminGiveCoins(10000, 'add')" class="py-2.5 px-3 rounded-xl bg-[#2C2F33] hover:bg-amber-500 hover:text-black border border-amber-500/20 text-xs font-extrabold text-white transition flex flex-col items-center">
+                            <button type="button" onclick="submitAdminGiveCoins(10000, 'add')" class="min-h-[44px] py-2.5 px-3 rounded-xl bg-[#2C2F33] hover:bg-amber-500 hover:text-black border border-amber-500/20 text-xs font-extrabold text-white transition flex flex-col items-center justify-center">
                                 <span>+10 000</span>
-                                <span class="text-[10px] text-yellow-400 font-normal">B$ Bobux</span>
+                                <span class="text-[10px] text-[#FFE066] font-normal">B$ Bobux</span>
                             </button>
-                            <button type="button" onclick="submitAdminGiveCoins(100000, 'add')" class="py-2.5 px-3 rounded-xl bg-[#2C2F33] hover:bg-amber-500 hover:text-black border border-amber-500/20 text-xs font-extrabold text-white transition flex flex-col items-center">
+                            <button type="button" onclick="submitAdminGiveCoins(100000, 'add')" class="min-h-[44px] py-2.5 px-3 rounded-xl bg-[#2C2F33] hover:bg-amber-500 hover:text-black border border-amber-500/20 text-xs font-extrabold text-white transition flex flex-col items-center justify-center">
                                 <span>+100 000</span>
-                                <span class="text-[10px] text-yellow-400 font-normal">B$ Bobux</span>
+                                <span class="text-[10px] text-[#FFE066] font-normal">B$ Bobux</span>
                             </button>
                         </div>
                     </div>
@@ -2379,10 +2379,10 @@
                                 <input type="number" id="admin-custom-coins-input" placeholder="10000" class="w-full bg-[#191B1D] border border-[#393B3D] focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 outline-none">
                             </div>
                             <div class="flex gap-2 pt-1">
-                                <button type="button" onclick="submitAdminGiveCoins(undefined, 'add')" class="flex-1 py-2 px-3 rounded-xl bg-[#00B06F] hover:bg-[#00c57d] text-white text-xs font-bold transition shadow-sm">
+                                <button type="button" onclick="submitAdminGiveCoins(undefined, 'add')" class="flex-1 min-h-[44px] py-2.5 px-3 rounded-xl bg-[#00B06F] hover:bg-[#00c57d] text-white text-xs font-bold transition shadow-sm flex items-center justify-center">
                                     ➕ Přičíst Bobuxy
                                 </button>
-                                <button type="button" onclick="submitAdminGiveCoins(undefined, 'set')" class="flex-1 py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition shadow-sm">
+                                <button type="button" onclick="submitAdminGiveCoins(undefined, 'set')" class="flex-1 min-h-[44px] py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition shadow-sm flex items-center justify-center">
                                     ⚙️ Nastavit přesný zůstatek
                                 </button>
                             </div>
@@ -2394,7 +2394,7 @@
                 <div id="admin-panel-users" class="space-y-3 hidden">
                     <div class="flex items-center gap-2">
                         <input type="text" id="admin-users-search" oninput="renderAdminUsersList()" placeholder="Hledat hráče podle jména..." class="flex-1 bg-[#232527] border border-[#2C2F33] focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 outline-none">
-                        <button type="button" onclick="loadAdminUsersList()" class="px-3 py-2 rounded-xl bg-[#2C2F33] hover:bg-[#393B3D] text-xs font-bold text-gray-200 hover:text-white transition shrink-0">
+                        <button type="button" onclick="loadAdminUsersList()" class="min-h-[44px] px-3.5 py-2.5 rounded-xl bg-[#2C2F33] hover:bg-[#393B3D] text-xs font-bold text-gray-200 hover:text-white transition shrink-0 flex items-center justify-center">
                             🔄 Obnovit
                         </button>
                     </div>
@@ -2465,14 +2465,14 @@
     </div>
 
     <!-- BOBLOX Modular Architecture (Core Engine, State, Network, Games & UI with Cache-Busting) -->
-    <script src="src/core/SoundEngine.js?v=4.9" defer></script>
-    <script src="src/state/PortalStore.js?v=4.9" defer></script>
-    <script src="src/network/NetworkManager.js?v=4.9" defer></script>
-    <script src="src/ui/PortalUI.js?v=4.9" defer></script>
-    <script src="src/core/AvatarAndShop.js?v=4.9" defer></script>
-    <script src="src/core/Engine.js?v=4.9" defer></script>
-    <script src="src/games/GameWorlds.js?v=4.9" defer></script>
-    <script src="src/core/PhysicsAndLoop.js?v=4.9" defer></script>
-    <script src="src/core/InputManager.js?v=4.9" defer></script>
+    <script src="src/core/SoundEngine.js?v=5.0" defer></script>
+    <script src="src/state/PortalStore.js?v=5.0" defer></script>
+    <script src="src/network/NetworkManager.js?v=5.0" defer></script>
+    <script src="src/ui/PortalUI.js?v=5.0" defer></script>
+    <script src="src/core/AvatarAndShop.js?v=5.0" defer></script>
+    <script src="src/core/Engine.js?v=5.0" defer></script>
+    <script src="src/games/GameWorlds.js?v=5.0" defer></script>
+    <script src="src/core/PhysicsAndLoop.js?v=5.0" defer></script>
+    <script src="src/core/InputManager.js?v=5.0" defer></script>
 </body>
 </html>

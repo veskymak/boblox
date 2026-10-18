@@ -77,6 +77,24 @@ describe('Seam 4: DOM Integrity & Roblox Developer Admin Modal in index.html', (
         assert.strictEqual(portalUiCode.includes('text-[11px] text-yellow-400 font-semibold'), false, 'Should not use text-yellow-400 for Bobux currency');
         assert.ok(portalUiCode.includes('text-[#FFE066]'), 'Should use official text-[#FFE066] Bobux Gold');
         assert.ok(portalUiCode.includes("submitAdminGiveCoins(1000, 'add'") && portalUiCode.includes('min-h-[44px]'), 'Quick user actions must satisfy min 44px touch target');
+
+        // Tabs in index.html must have min 44px height
+        ['admin-tab-btn-economy', 'admin-tab-btn-users', 'admin-tab-btn-broadcast', 'admin-tab-btn-cheats'].forEach(tabId => {
+            const tabMatch = html.match(new RegExp(`<button[^>]*id="${tabId}"[^>]*>`));
+            assert.ok(tabMatch, `${tabId} must exist`);
+            assert.ok(tabMatch[0].includes('min-h-[44px]'), `${tabId} must have min-h-[44px]`);
+        });
+
+        // Trigger buttons and preset buttons
+        const sidebarBtnMatch = html.match(/<button[^>]*id="sidebar-admin-btn"[^>]*>/);
+        assert.ok(sidebarBtnMatch[0].includes('min-h-[44px]'), '#sidebar-admin-btn must have min-h-[44px]');
+        const quickActionMatch = html.match(/<button[^>]*id="quick-action-admin"[^>]*>/);
+        assert.ok(quickActionMatch[0].includes('min-h-[44px]'), '#quick-action-admin must have min-h-[44px]');
+
+        // Bobux presets in index.html must use text-[#FFE066]
+        const economyPanel = html.substring(html.indexOf('id="admin-panel-economy"'), html.indexOf('id="admin-panel-users"'));
+        assert.strictEqual(economyPanel.includes('text-yellow-400'), false, 'Bobux currency in economy panel should not use text-yellow-400');
+        assert.ok(economyPanel.includes('text-[#FFE066]'), 'Bobux currency in economy panel should use text-[#FFE066]');
     });
 });
 

@@ -1,7 +1,7 @@
 {
-  "version": "4.9",
-  "buildTime": 1792353600000,
-  "updatedAt": "2026-10-18T18:05:00Z",
-  "title": "Boblox Aktualizace v4.9",
-  "message": "Zabezpečení WS vysílání, oprava void respawnu pod godmode a 44px touch targety."
+  "version": "5.0",
+  "buildTime": 1792357200000,
+  "updatedAt": "2026-10-18T18:18:00Z",
+  "title": "Boblox Aktualizace v5.0",
+  "message": "Dokončení 44px touch targetů a Bobux barevné palety v administračním menu."
 }

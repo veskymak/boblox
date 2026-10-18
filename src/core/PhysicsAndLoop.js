@@ -373,7 +373,7 @@ function checkVoidFall() {
     if (typeof playerState !== 'undefined' && playerState.pos && playerState.pos.y < -22) {
         if (playerState.godmode) {
             if (typeof showHudToast === 'function') {
-                showHudToast('Pád do prázdnoty! Respawn...', 'yellow');
+                showHudToast('Pád do prázdnoty! Respawn...', 'gold');
             }
             if (typeof respawnPlayer === 'function') {
                 respawnPlayer();
