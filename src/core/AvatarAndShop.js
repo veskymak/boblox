@@ -448,6 +448,17 @@ const STORAGE_KEY_OUTFIT = 'boblox_avatar_outfit_v1';
 const STORAGE_KEY_OWNED = 'boblox_shop_owned_v1';
 const DEFAULT_FACE_ID = 'face_classic';
 
+const TORSO_COLORS = [
+    { hex: '#0D69AC', name: 'Klasická Noob Modrá', desc: 'Ikonický modrý odstín Boblox avatara' },
+    { hex: '#DC2626', name: 'Crimson Červená', desc: 'Výrazný červený odstín plný energie' },
+    { hex: '#7C3AED', name: 'Královská Fialová', desc: 'Elegantní fialový královský tón' },
+    { hex: '#059669', name: 'Smaragdová Zelená', desc: 'Svěží přírodní smaragdový odstín' },
+    { hex: '#D97706', name: 'Jantarová Oranžová', desc: 'Zářivý teplý jantarový odstín' },
+    { hex: '#DB2777', name: 'Neonová Růžová', desc: 'Výrazná zářivá růžová barva' },
+    { hex: '#0891B2', name: 'Tyrkysová', desc: 'Čistý moderní tyrkysový odstín' },
+    { hex: '#111827', name: 'SpecOps Černá', desc: 'Taktická tmavá noční černá' }
+];
+
 // Small helpers for hat builders
 function hatMat(color, extra = {}) {
     return new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.5 }, extra));
@@ -1273,70 +1284,152 @@ function renderShop() {
         return it.category === shopState.category;
     });
     const grid = document.getElementById('shop-grid');
-    grid.innerHTML = items.length ? items.map(it => {
-        const owned = ownedShopItems.has(it.id);
-        const equipped = avatarOutfit[it.slot] === it.id;
-        const selected = shopState.selectedId === it.id;
-        const badge = equipped
-            ? '<span class="text-[11px] font-bold text-[#00B06F]">✓ Nasazeno</span>'
-            : owned
-                ? '<span class="text-[11px] font-bold text-gray-400">Vlastníš</span>'
-                : `<span class="text-[11px] font-bold text-[#FFE066]">${it.price === 0 ? 'ZDARMA' : it.price.toLocaleString('cs-CZ') + ' B$'}</span>`;
-        const thumb = shopState.thumbs[it.id];
-        return `
-            <button onclick="selectShopItem('${it.id}')" class="text-left rounded-xl overflow-hidden border-2 transition ${selected ? 'border-[#00A2FF] bg-[#2C2F33]' : equipped ? 'border-[#00B06F]/60 bg-[#191B1D]' : 'border-[#393B3D] bg-[#191B1D] hover:border-[#5A5D61]'}">
-                <div class="aspect-square bg-gradient-to-b from-[#2C2F33] to-[#1E2022] flex items-center justify-center">
-                    ${thumb ? `<img src="${thumb}" alt="${escapeHtml(it.name)}" class="w-full h-full object-contain ${it.slot === 'face' ? 'p-5' : ''}">` : `<span class="text-xs text-gray-500">${SHOP_SLOT_LABELS[it.slot]}</span>`}
-                </div>
-                <div class="p-2 space-y-0.5">
-                    <div class="text-xs font-bold text-white truncate">${escapeHtml(it.name)}</div>
-                    <div class="flex items-center justify-between gap-1">
-                        <span class="text-[10px] uppercase text-gray-500">${SHOP_SLOT_LABELS[it.slot]}</span>
-                        ${badge}
-                    </div>
-                </div>
-            </button>`;
-    }).join('') : '<div class="col-span-full text-sm text-gray-400 py-10 text-center">Zatím tu nic nemáš. Kup si něco v ostatních kategoriích!</div>';
-
-    // Selected item action panel
     const panel = document.getElementById('shop-action-panel');
-    const sel = shopState.selectedId ? SHOP_ITEM_MAP[shopState.selectedId] : null;
-    if (!sel) {
-        panel.innerHTML = '<div class="text-xs text-gray-400">Klikni na předmět a vyzkoušej si ho na avatarovi.</div>';
-    } else {
-        const owned = ownedShopItems.has(sel.id);
-        const equipped = avatarOutfit[sel.slot] === sel.id;
-        const canAfford = bobuxBalance >= sel.price;
-        let btn;
-        if (equipped) {
-            btn = sel.id === DEFAULT_FACE_ID
-                ? '<button disabled class="w-full px-4 py-2.5 rounded-xl bg-[#393B3D] text-sm font-bold text-gray-400">Nasazeno</button>'
-                : `<button onclick="unequipShopSlot('${sel.slot}')" class="w-full px-4 py-2.5 rounded-xl bg-[#393B3D] hover:bg-[#4B4E52] text-sm font-bold text-white transition">Sundat</button>`;
-        } else if (owned) {
-            btn = `<button onclick="equipShopItem('${sel.id}')" class="w-full px-4 py-2.5 rounded-xl bg-[#00A2FF] hover:bg-[#008BDB] text-sm font-bold text-white transition">Nasadit</button>`;
-        } else {
-            btn = `<button onclick="buyShopItem('${sel.id}')" class="w-full px-4 py-2.5 rounded-xl text-sm font-bold text-white transition ${canAfford ? 'btn-play-green' : 'bg-[#393B3D] text-gray-400'}">Koupit za ${sel.price.toLocaleString('cs-CZ')} B$</button>`;
+
+    if (shopState.category === 'torso') {
+        const curHex = (typeof avatarTorsoHex !== 'undefined' ? avatarTorsoHex : '#0D69AC').toUpperCase();
+        if (grid) {
+            grid.innerHTML = TORSO_COLORS.map(c => {
+                const isSelected = curHex === c.hex.toUpperCase();
+                const badge = isSelected
+                    ? '<span class="text-[11px] font-bold text-[#00B06F]">✓ Vybráno</span>'
+                    : '<span class="text-[11px] font-bold text-[#00A2FF]">ZDARMA</span>';
+                return `
+                    <button type="button" onclick="setAvatarTorsoColor('${c.hex}')" data-torso-hex="${c.hex}" class="shop-torso-tile text-left rounded-xl overflow-hidden border-2 transition ${isSelected ? 'border-[#00B06F] bg-[#191B1D] ring-2 ring-[#00B06F]/40' : 'border-[#393B3D] bg-[#191B1D] hover:border-[#5A5D61]'}">
+                        <div class="aspect-square flex items-center justify-center p-4 relative" style="background: radial-gradient(circle at 30% 30%, ${c.hex}ee, ${c.hex}88);">
+                            <div class="w-16 h-16 rounded-xl shadow-2xl border-2 border-white/40 transform hover:scale-105 transition" style="background-color: ${c.hex};"></div>
+                            ${isSelected ? '<div class="absolute top-2 right-2 w-6 h-6 rounded-full bg-[#00B06F] text-white flex items-center justify-center text-xs font-bold shadow-lg">✓</div>' : ''}
+                        </div>
+                        <div class="p-2.5 space-y-0.5 bg-[#191B1D]">
+                            <div class="text-xs font-bold text-white truncate">${escapeHtml(c.name)}</div>
+                            <div class="flex items-center justify-between gap-1">
+                                <span class="text-[10px] uppercase text-gray-500 font-mono">${c.hex}</span>
+                                ${badge}
+                            </div>
+                        </div>
+                    </button>`;
+            }).join('');
         }
-        panel.innerHTML = `
-            <div>
-                <div class="text-sm font-bold text-white">${escapeHtml(sel.name)}</div>
-                <div class="text-xs text-gray-400 mt-0.5">${escapeHtml(sel.desc || '')}</div>
-            </div>
-            ${btn}`;
+
+        if (panel) {
+            const activeTorso = TORSO_COLORS.find(c => c.hex.toUpperCase() === curHex) || { name: 'Vlastní barva', desc: 'Barva těla avatara', hex: curHex };
+            panel.innerHTML = `
+                <div>
+                    <div class="text-sm font-bold text-white">${escapeHtml(activeTorso.name)}</div>
+                    <div class="text-xs text-gray-400 mt-0.5">${escapeHtml(activeTorso.desc || 'Základní barva torza avatara. Změna barvy je zdarma a viditelná ve všech hrách.')}</div>
+                </div>
+                <button disabled class="w-full px-4 py-2.5 rounded-xl bg-[#00B06F]/20 text-[#00B06F] text-sm font-bold border border-[#00B06F]/40">✓ Aktuálně vybraná barva</button>`;
+        }
+    } else {
+        // Item grid
+        const items = SHOP_ITEMS.filter(it => {
+            if (shopState.category === 'all') return true;
+            if (shopState.category === 'owned') return ownedShopItems.has(it.id);
+            return it.category === shopState.category;
+        });
+        if (grid) {
+            grid.innerHTML = items.length ? items.map(it => {
+                const owned = ownedShopItems.has(it.id);
+                const equipped = avatarOutfit[it.slot] === it.id;
+                const selected = shopState.selectedId === it.id;
+                const badge = equipped
+                    ? '<span class="text-[11px] font-bold text-[#00B06F]">✓ Nasazeno</span>'
+                    : owned
+                        ? '<span class="text-[11px] font-bold text-gray-400">Vlastníš</span>'
+                        : `<span class="text-[11px] font-bold text-[#FFE066]">${it.price === 0 ? 'ZDARMA' : it.price.toLocaleString('cs-CZ') + ' B$'}</span>`;
+                const thumb = shopState.thumbs[it.id];
+                return `
+                    <button onclick="selectShopItem('${it.id}')" class="text-left rounded-xl overflow-hidden border-2 transition ${selected ? 'border-[#00A2FF] bg-[#2C2F33]' : equipped ? 'border-[#00B06F]/60 bg-[#191B1D]' : 'border-[#393B3D] bg-[#191B1D] hover:border-[#5A5D61]'}">
+                        <div class="aspect-square bg-gradient-to-b from-[#2C2F33] to-[#1E2022] flex items-center justify-center">
+                            ${thumb ? `<img src="${thumb}" alt="${escapeHtml(it.name)}" class="w-full h-full object-contain ${it.slot === 'face' ? 'p-5' : ''}">` : `<span class="text-xs text-gray-500">${SHOP_SLOT_LABELS[it.slot]}</span>`}
+                        </div>
+                        <div class="p-2 space-y-0.5">
+                            <div class="text-xs font-bold text-white truncate">${escapeHtml(it.name)}</div>
+                            <div class="flex items-center justify-between gap-1">
+                                <span class="text-[10px] uppercase text-gray-500">${SHOP_SLOT_LABELS[it.slot]}</span>
+                                ${badge}
+                            </div>
+                        </div>
+                    </button>`;
+            }).join('') : '<div class="col-span-full text-sm text-gray-400 py-10 text-center">Zatím tu nic nemáš. Kup si něco v ostatních kategoriích!</div>';
+        }
+
+        // Selected item action panel
+        if (panel) {
+            const sel = shopState.selectedId ? SHOP_ITEM_MAP[shopState.selectedId] : null;
+            if (!sel) {
+                panel.innerHTML = '<div class="text-xs text-gray-400">Klikni na předmět a vyzkoušej si ho na avatarovi.</div>';
+            } else {
+                const owned = ownedShopItems.has(sel.id);
+                const equipped = avatarOutfit[sel.slot] === sel.id;
+                const canAfford = bobuxBalance >= sel.price;
+                let btn;
+                if (equipped) {
+                    btn = sel.id === DEFAULT_FACE_ID
+                        ? '<button disabled class="w-full px-4 py-2.5 rounded-xl bg-[#393B3D] text-sm font-bold text-gray-400">Nasazeno</button>'
+                        : `<button onclick="unequipShopSlot('${sel.slot}')" class="w-full px-4 py-2.5 rounded-xl bg-[#393B3D] hover:bg-[#4B4E52] text-sm font-bold text-white transition">Sundat</button>`;
+                } else if (owned) {
+                    btn = `<button onclick="equipShopItem('${sel.id}')" class="w-full px-4 py-2.5 rounded-xl bg-[#00A2FF] hover:bg-[#008BDB] text-sm font-bold text-white transition">Nasadit</button>`;
+                } else {
+                    btn = `<button onclick="buyShopItem('${sel.id}')" class="w-full px-4 py-2.5 rounded-xl text-sm font-bold text-white transition ${canAfford ? 'btn-play-green' : 'bg-[#393B3D] text-gray-400'}">Koupit za ${sel.price.toLocaleString('cs-CZ')} B$</button>`;
+                }
+                panel.innerHTML = `
+                    <div>
+                        <div class="text-sm font-bold text-white">${escapeHtml(sel.name)}</div>
+                        <div class="text-xs text-gray-400 mt-0.5">${escapeHtml(sel.desc || '')}</div>
+                    </div>
+                    ${btn}`;
+            }
+        }
     }
 
     // Currently worn list
     const worn = document.getElementById('shop-worn-list');
-    worn.innerHTML = SHOP_SLOTS.map(slot => {
-        const it = avatarOutfit[slot] ? SHOP_ITEM_MAP[avatarOutfit[slot]] : null;
-        const removable = it && !(slot === 'face' && it.id === DEFAULT_FACE_ID);
-        return `
-            <div class="flex items-center justify-between gap-2 text-xs">
-                <span class="text-gray-500 w-16 shrink-0">${SHOP_SLOT_LABELS[slot]}</span>
-                <span class="flex-1 truncate ${it ? 'text-white font-semibold' : 'text-gray-500'}">${it ? escapeHtml(it.name) : '—'}</span>
-                ${removable ? `<button onclick="unequipShopSlot('${slot}')" title="Sundat" class="text-gray-400 hover:text-red-400">✕</button>` : ''}
-            </div>`;
-    }).join('');
+    if (worn) {
+        worn.innerHTML = SHOP_SLOTS.map(slot => {
+            const it = avatarOutfit[slot] ? SHOP_ITEM_MAP[avatarOutfit[slot]] : null;
+            const removable = it && !(slot === 'face' && it.id === DEFAULT_FACE_ID);
+            return `
+                <div class="flex items-center justify-between gap-2 text-xs">
+                    <span class="text-gray-500 w-16 shrink-0">${SHOP_SLOT_LABELS[slot]}</span>
+                    <span class="flex-1 truncate ${it ? 'text-white font-semibold' : 'text-gray-500'}">${it ? escapeHtml(it.name) : '—'}</span>
+                    ${removable ? `<button onclick="unequipShopSlot('${slot}')" title="Sundat" class="text-gray-400 hover:text-red-400">✕</button>` : ''}
+                </div>`;
+        }).join('');
+    }
+
+    updateTorsoColorUI();
+}
+
+function updateTorsoColorUI() {
+    const curHex = (typeof avatarTorsoHex !== 'undefined' ? avatarTorsoHex : '#0D69AC').toUpperCase();
+    const activeColor = TORSO_COLORS.find(c => c.hex.toUpperCase() === curHex) || { hex: curHex, name: 'Vlastní barva' };
+
+    const torsoNameIndicator = document.getElementById('shop-torso-name-indicator');
+    if (torsoNameIndicator) {
+        torsoNameIndicator.textContent = activeColor.name;
+    }
+
+    const paletteButtons = document.querySelectorAll('[data-torso-hex]');
+    if (paletteButtons && paletteButtons.forEach) {
+        paletteButtons.forEach(btn => {
+            const hex = (btn.getAttribute('data-torso-hex') || '').toUpperCase();
+            const isActive = hex === curHex;
+            if (btn.classList && btn.classList.contains && btn.classList.contains('shop-torso-tile')) {
+                btn.className = 'shop-torso-tile text-left rounded-xl overflow-hidden border-2 transition ' + (isActive
+                    ? 'border-[#00B06F] bg-[#191B1D] ring-2 ring-[#00B06F]/40'
+                    : 'border-[#393B3D] bg-[#191B1D] hover:border-[#5A5D61]');
+            } else {
+                const isTile = (btn.className || '').includes('shop-torso-tile');
+                if (!isTile) {
+                    btn.style.backgroundColor = hex;
+                    btn.className = 'min-w-[44px] min-h-[44px] w-11 h-11 rounded-lg transition shadow-md ' + (isActive
+                        ? 'border-2 border-white ring-2 ring-[#00A2FF] scale-105 opacity-100'
+                        : 'border-2 border-transparent hover:scale-105 opacity-80 hover:opacity-100');
+                }
+            }
+        });
+    }
 }
 
 /* ============================================================================
@@ -1625,5 +1718,19 @@ function updateAvatarChatBubbles(avatarObj, dt) {
         recomputeAvatarBubbleStackTargets(avatarObj);
     }
 }
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        TORSO_COLORS,
+        openShopModal,
+        closeShopModal,
+        setShopCategory,
+        renderShop,
+        rebuildShopPreviewAvatar,
+        updateTorsoColorUI,
+        shopState
+    };
+}
+
 
 

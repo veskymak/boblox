@@ -476,7 +476,7 @@
                 </button>
 
                 <!-- Avatar -->
-                <button type="button" onclick="openAvatarPreviewModal()" class="w-full flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-[#232527] text-gray-300 hover:text-white transition">
+                <button type="button" onclick="openShopModal()" class="w-full flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-[#232527] text-gray-300 hover:text-white transition">
                     <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <circle cx="12" cy="6" r="3"/>
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 11h12M9 11v9m6-9v9"/>
@@ -1057,7 +1057,7 @@
                     </div>
                 </div>
                 <div class="flex items-center justify-between gap-3">
-                    <button onclick="closeAuthModal(); openAvatarPreviewModal();" class="flex-1 py-2.5 px-4 rounded-xl bg-[#00A2FF] hover:bg-[#008BDB] text-white text-xs sm:text-sm font-bold transition">
+                    <button onclick="closeAuthModal(); openShopModal();" class="flex-1 py-2.5 px-4 rounded-xl bg-[#00A2FF] hover:bg-[#008BDB] text-white text-xs sm:text-sm font-bold transition">
                         🎨 Upravit 3D Avatara
                     </button>
                     <button onclick="logoutAccount()" class="py-2.5 px-4 rounded-xl bg-red-600/80 hover:bg-red-600 text-white text-xs sm:text-sm font-bold transition">
@@ -1160,12 +1160,31 @@
                         <div class="text-[11px] font-bold uppercase tracking-wider text-gray-400">Máš na sobě</div>
                         <div id="shop-worn-list" class="space-y-1.5"></div>
                     </div>
+
+                    <!-- Torso Color Quick Palette -->
+                    <div id="shop-torso-palette-panel" class="bg-[#191B1D] border border-[#393B3D] rounded-xl p-3 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[11px] font-bold uppercase tracking-wider text-gray-400">Barva Torza</span>
+                            <span id="shop-torso-name-indicator" class="text-[11px] font-semibold text-[#00A2FF]">Klasická Noob Modrá</span>
+                        </div>
+                        <div id="shop-torso-palette" class="grid grid-cols-4 gap-2 pt-1">
+                            <button type="button" onclick="setAvatarTorsoColor('#0D69AC')" data-torso-hex="#0D69AC" class="min-w-[44px] min-h-[44px] w-11 h-11 rounded-lg bg-[#0D69AC] border-2 border-white ring-2 ring-[#00A2FF] scale-105 transition shadow-lg" title="Klasická Noob Modrá"></button>
+                            <button type="button" onclick="setAvatarTorsoColor('#DC2626')" data-torso-hex="#DC2626" class="min-w-[44px] min-h-[44px] w-11 h-11 rounded-lg bg-[#DC2626] border-2 border-transparent hover:scale-105 transition opacity-80 hover:opacity-100" title="Crimson Červená"></button>
+                            <button type="button" onclick="setAvatarTorsoColor('#7C3AED')" data-torso-hex="#7C3AED" class="min-w-[44px] min-h-[44px] w-11 h-11 rounded-lg bg-[#7C3AED] border-2 border-transparent hover:scale-105 transition opacity-80 hover:opacity-100" title="Královská Fialová"></button>
+                            <button type="button" onclick="setAvatarTorsoColor('#059669')" data-torso-hex="#059669" class="min-w-[44px] min-h-[44px] w-11 h-11 rounded-lg bg-[#059669] border-2 border-transparent hover:scale-105 transition opacity-80 hover:opacity-100" title="Smaragdová Zelená"></button>
+                            <button type="button" onclick="setAvatarTorsoColor('#D97706')" data-torso-hex="#D97706" class="min-w-[44px] min-h-[44px] w-11 h-11 rounded-lg bg-[#D97706] border-2 border-transparent hover:scale-105 transition opacity-80 hover:opacity-100" title="Jantarová Oranžová"></button>
+                            <button type="button" onclick="setAvatarTorsoColor('#DB2777')" data-torso-hex="#DB2777" class="min-w-[44px] min-h-[44px] w-11 h-11 rounded-lg bg-[#DB2777] border-2 border-transparent hover:scale-105 transition opacity-80 hover:opacity-100" title="Neonová Růžová"></button>
+                            <button type="button" onclick="setAvatarTorsoColor('#0891B2')" data-torso-hex="#0891B2" class="min-w-[44px] min-h-[44px] w-11 h-11 rounded-lg bg-[#0891B2] border-2 border-transparent hover:scale-105 transition opacity-80 hover:opacity-100" title="Tyrkysová"></button>
+                            <button type="button" onclick="setAvatarTorsoColor('#111827')" data-torso-hex="#111827" class="min-w-[44px] min-h-[44px] w-11 h-11 rounded-lg bg-[#111827] border-2 border-gray-600 hover:scale-105 transition opacity-80 hover:opacity-100" title="SpecOps Černá"></button>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Right: categories & catalog grid -->
                 <div class="flex-1 min-w-0 p-4 space-y-3 flex flex-col md:min-h-0">
                     <div class="flex flex-wrap gap-2">
                         <button onclick="setShopCategory('all')" data-cat="all" class="shop-tab">Vše</button>
+                        <button onclick="setShopCategory('torso')" data-cat="torso" class="shop-tab">🎨 Barva Torza</button>
                         <button onclick="setShopCategory('clothing')" data-cat="clothing" class="shop-tab">👕 Oblečení</button>
                         <button onclick="setShopCategory('face')" data-cat="face" class="shop-tab">🙂 Obličeje</button>
                         <button onclick="setShopCategory('hat')" data-cat="hat" class="shop-tab">🎩 Čepice</button>
@@ -2201,14 +2220,14 @@
     </div>
 
     <!-- BOBLOX Modular Architecture (Core Engine, State, Network, Games & UI with Cache-Busting) -->
-    <script src="src/core/SoundEngine.js?v=4.4" defer></script>
-    <script src="src/state/PortalStore.js?v=4.4" defer></script>
-    <script src="src/network/NetworkManager.js?v=4.4" defer></script>
-    <script src="src/ui/PortalUI.js?v=4.4" defer></script>
-    <script src="src/core/AvatarAndShop.js?v=4.4" defer></script>
-    <script src="src/core/Engine.js?v=4.4" defer></script>
-    <script src="src/games/GameWorlds.js?v=4.4" defer></script>
-    <script src="src/core/PhysicsAndLoop.js?v=4.4" defer></script>
-    <script src="src/core/InputManager.js?v=4.4" defer></script>
+    <script src="src/core/SoundEngine.js?v=4.5" defer></script>
+    <script src="src/state/PortalStore.js?v=4.5" defer></script>
+    <script src="src/network/NetworkManager.js?v=4.5" defer></script>
+    <script src="src/ui/PortalUI.js?v=4.5" defer></script>
+    <script src="src/core/AvatarAndShop.js?v=4.5" defer></script>
+    <script src="src/core/Engine.js?v=4.5" defer></script>
+    <script src="src/games/GameWorlds.js?v=4.5" defer></script>
+    <script src="src/core/PhysicsAndLoop.js?v=4.5" defer></script>
+    <script src="src/core/InputManager.js?v=4.5" defer></script>
 </body>
 </html>

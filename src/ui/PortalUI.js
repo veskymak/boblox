@@ -794,25 +794,40 @@ function closeGameModal() {
 }
 
 function openAvatarPreviewModal() {
-    const modal = document.getElementById('avatar-modal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
+    if (typeof openShopModal === 'function') {
+        openShopModal('torso');
+    } else {
+        const modal = document.getElementById('avatar-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+    }
 }
 
 function closeAvatarPreviewModal() {
     const modal = document.getElementById('avatar-modal');
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
-    renderGameCatalog();
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+    if (typeof renderGameCatalog === 'function') renderGameCatalog();
 }
 
 function setAvatarTorsoColor(hex) {
     avatarTorsoHex = hex;
-    localStorage.setItem(STORAGE_KEY_TORSO, hex);
-    sfx.playCoin();
-    renderGameCatalog();
+    const storageKey = typeof STORAGE_KEY_TORSO !== 'undefined' ? STORAGE_KEY_TORSO : 'boblox_avatar_torso_hex_v1';
+    try { localStorage.setItem(storageKey, hex); } catch (e) {}
+
+    if (typeof sfx !== 'undefined' && sfx.playCoin) sfx.playCoin();
+    if (typeof rebuildShopPreviewAvatar === 'function') rebuildShopPreviewAvatar();
+    if (typeof updateTorsoColorUI === 'function') updateTorsoColorUI();
+    if (typeof renderShop === 'function') renderShop();
+    if (typeof renderGameCatalog === 'function') renderGameCatalog();
     if (typeof refreshPortalAvatarVisuals === 'function') refreshPortalAvatarVisuals();
-    syncAccountToServer();
+    if (typeof syncAccountToServer === 'function') {
+        try { syncAccountToServer().catch(() => {}); } catch (e) {}
+    }
 }
 
 /* ============================================================================
@@ -5769,7 +5784,9 @@ if (typeof module !== 'undefined' && module.exports) {
         openBobuxTransactionsModal,
         drawWearingItemCardCanvas,
         getProfileWearingItems,
-        renderPortalProfileView
+        renderPortalProfileView,
+        setAvatarTorsoColor,
+        openAvatarPreviewModal
     };
 }
 
