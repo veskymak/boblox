@@ -751,7 +751,8 @@ function gameLoop(now) {
 
     const isShiftLocked = typeof robloxUiState !== 'undefined' && robloxUiState.isShiftLocked;
     const inputMag = Math.min(1.0, _moveDir.length());
-    const baseSpeed = 12.5 * playerState.speedMultiplier;
+    const speedBoost = (typeof playerState !== 'undefined' && playerState.superSpeed) ? 2.5 : 1.0;
+    const baseSpeed = 12.5 * playerState.speedMultiplier * speedBoost;
     if (inputMag > 0.03) {
         _moveDir.normalize();
         playerState.vel.x = _moveDir.x * baseSpeed * inputMag;

@@ -649,6 +649,7 @@ function respawnPlayer() {
 }
 
 function damagePlayer(amount, reason = '') {
+    if (playerState.godmode) return; // Godmode cheat for Vendeez
     if (playerState.invulnTimer > 0) return;
     playerState.hp = Math.max(0, playerState.hp - amount);
     playerState.invulnTimer = 0.35;

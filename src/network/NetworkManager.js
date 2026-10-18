@@ -809,7 +809,7 @@ function initLiveSocketAndPresence() {
         }
     }
 
-    setInterval(() => {
+    const heartbeatTimer = setInterval(() => {
         if (mpState.bc) {
             mpState.bc.postMessage({
                 type: 'tabHeartbeat',
@@ -820,6 +820,9 @@ function initLiveSocketAndPresence() {
         broadcastSocialPresence(!!activeGameMode);
         recomputeLivePlayerCounts();
     }, 3500);
+    if (heartbeatTimer && typeof heartbeatTimer.unref === 'function') {
+        heartbeatTimer.unref();
+    }
 
     if (!isStaticHostingWithoutBackend() && (location.protocol === 'http:' || location.protocol === 'https:')) {
         try {
@@ -859,6 +862,8 @@ function initLiveSocketAndPresence() {
                     if (typeof handleIncomingSocialPacket === 'function') {
                         handleIncomingSocialPacket(msg.event, msg.payload);
                     }
+                } else if (msg.type === 'admin_broadcast') {
+                    handleIncomingAdminBroadcast(msg);
                 } else if (msg.type === 'playerState' || msg.type === 'weaponSwitch' || msg.type === 'hostGameSelect' || msg.type === 'chatMessage') {
                     handleMultiplayerPacket(msg, null);
                 }
@@ -1318,5 +1323,34 @@ function removeRemotePlayer(peerId) {
     }
     delete mpState.remotePlayers[peerId];
     updateMpCounters();
+}
+
+function handleIncomingAdminBroadcast(msg) {
+    if (!msg || !msg.message) return;
+    const sender = msg.sender || 'Vendeez';
+    const message = msg.message;
+    if (typeof sfx !== 'undefined' && sfx.playWinFanfare) {
+        try { sfx.playWinFanfare(); } catch (e) {}
+    }
+    if (typeof showHudToast === 'function') {
+        showHudToast(`⚡ [ADMIN]: ${message}`, 'gold');
+    }
+    const bannerEl = document.getElementById('admin-broadcast-banner');
+    if (bannerEl) {
+        bannerEl.textContent = `📢 ${sender}: ${message}`;
+        bannerEl.classList.remove('hidden');
+        bannerEl.classList.add('flex');
+        setTimeout(() => {
+            bannerEl.classList.remove('flex');
+            bannerEl.classList.add('hidden');
+        }, 7000);
+    }
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        mpState,
+        handleIncomingAdminBroadcast
+    };
 }
 

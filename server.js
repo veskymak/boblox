@@ -195,6 +195,19 @@ function requireAuth(req, res, next) {
     next();
 }
 
+function requireAdmin(req, res, next) {
+    const userRow = extractUserFromReq(req);
+    if (!userRow) {
+        return res.status(401).json({ error: 'Pro tuto akci se musíš přihlásit.' });
+    }
+    const username = (userRow.username || '').trim().toLowerCase();
+    if (username !== 'vendeez') {
+        return res.status(403).json({ error: 'Přístup odepřen: Administrátorská práva vyžadována.' });
+    }
+    req.userRow = userRow;
+    next();
+}
+
 /* ============================================================================
  * 4. AUTHENTICATION ENDPOINTS (/api/auth/register, /api/auth/login, /api/auth/me)
  * ============================================================================ */
@@ -595,6 +608,133 @@ app.post('/api/games/:gameId/comments', requireAuth, (req, res) => {
 });
 
 /* ============================================================================
+ * 6B. DEDICATED ADMIN ENDPOINTS (EXCLUSIVELY FOR VENDEEZ)
+ * ============================================================================ */
+app.get('/api/admin/users', requireAdmin, (req, res) => {
+    try {
+        const rows = db.prepare(`
+            SELECT id, username, coins, daily_claim_date, last_login_at, last_active_at, created_at, inventory
+            FROM users
+            ORDER BY id ASC
+        `).all();
+
+        const userList = rows.map(r => {
+            const inv = safeParseJSON(r.inventory, {});
+            return {
+                id: r.id,
+                username: r.username,
+                coins: Number(r.coins) || 0,
+                gamesPlayed: Number(inv.gamesPlayed) || 0,
+                daily_claim_date: Number(r.daily_claim_date) || 0,
+                last_login_at: Number(r.last_login_at) || 0,
+                last_active_at: Number(r.last_active_at) || 0,
+                created_at: Number(r.created_at) || 0
+            };
+        });
+
+        return res.json({ ok: true, users: userList });
+    } catch (err) {
+        console.error('Admin users error:', err);
+        return res.status(500).json({ error: 'Chyba při načítání uživatelů.' });
+    }
+});
+
+app.post('/api/admin/give-coins', requireAdmin, (req, res) => {
+    try {
+        const body = req.body || {};
+        const targetUsername = typeof body.username === 'string' ? body.username.trim() : '';
+        const rawAmount = Number(body.amount);
+        const action = body.action === 'set' || body.setBalance === true ? 'set' : 'add';
+
+        if (!targetUsername) {
+            return res.status(400).json({ error: 'Uživatelské jméno je povinné.' });
+        }
+        if (isNaN(rawAmount)) {
+            return res.status(400).json({ error: 'Částka musí být platné číslo.' });
+        }
+
+        const userRow = db.prepare('SELECT id, username, coins FROM users WHERE username = ? COLLATE NOCASE').get(targetUsername);
+        if (!userRow) {
+            return res.status(404).json({ error: 'Uživatel nenalezen.' });
+        }
+
+        const currentCoins = Number(userRow.coins) || 0;
+        let newCoins;
+        if (action === 'set') {
+            newCoins = Math.max(0, Math.floor(rawAmount));
+        } else {
+            newCoins = Math.max(0, currentCoins + Math.floor(rawAmount));
+        }
+
+        db.prepare('UPDATE users SET coins = ? WHERE id = ?').run(newCoins, userRow.id);
+
+        return res.json({
+            ok: true,
+            username: userRow.username,
+            coins: newCoins,
+            diff: newCoins - currentCoins
+        });
+    } catch (err) {
+        console.error('Admin give-coins error:', err);
+        return res.status(500).json({ error: 'Chyba při úpravě Bobuxů.' });
+    }
+});
+
+function broadcastAdminMessage(message, sender = 'Vendeez') {
+    const cleanMessage = sanitizePlainText(message, 250);
+    if (!cleanMessage) return null;
+    const payload = JSON.stringify({
+        type: 'admin_broadcast',
+        message: cleanMessage,
+        sender,
+        timestamp: Date.now()
+    });
+    for (const ws of clients.keys()) {
+        if (ws.readyState === 1) {
+            ws.send(payload);
+        }
+    }
+    return cleanMessage;
+}
+
+app.post('/api/admin/broadcast', requireAdmin, (req, res) => {
+    try {
+        const body = req.body || {};
+        const rawMsg = typeof body.message === 'string' ? body.message : '';
+        const cleanMessage = broadcastAdminMessage(rawMsg, req.userRow.username);
+
+        if (!cleanMessage) {
+            return res.status(400).json({ error: 'Zpráva nesmí být prázdná.' });
+        }
+
+        return res.json({
+            ok: true,
+            message: cleanMessage,
+            sender: req.userRow.username
+        });
+    } catch (err) {
+        console.error('Admin broadcast error:', err);
+        return res.status(500).json({ error: 'Chyba při odesílání oznámení.' });
+    }
+});
+
+app.post('/api/admin/reset-daily', requireAdmin, (req, res) => {
+    try {
+        const body = req.body || {};
+        const targetUsername = typeof body.username === 'string' && body.username.trim() ? body.username.trim() : req.userRow.username;
+        const userRow = db.prepare('SELECT id, username FROM users WHERE username = ? COLLATE NOCASE').get(targetUsername);
+        if (!userRow) {
+            return res.status(404).json({ error: 'Uživatel nenalezen.' });
+        }
+        db.prepare('UPDATE users SET daily_claim_date = 0 WHERE id = ?').run(userRow.id);
+        return res.json({ ok: true, username: userRow.username, daily_claim_date: 0 });
+    } catch (err) {
+        console.error('Admin reset-daily error:', err);
+        return res.status(500).json({ error: 'Chyba při resetu denního bonusu.' });
+    }
+});
+
+/* ============================================================================
  * 7. WEBSOCKET LIVE PRESENCE, SIGNALING & GLOBAL/PRIVATE MATCHMAKING
  * ============================================================================ */
 const wss = new WebSocketServer({ server, path: '/ws' });
@@ -700,6 +840,29 @@ wss.on('connection', (ws) => {
             return;
         }
 
+        if (msg.type === 'admin_broadcast') {
+            let authorized = false;
+            let sender = 'Vendeez';
+            const token = msg.token || info.token;
+            if (token) {
+                try {
+                    const decoded = jwt.verify(token, JWT_SECRET);
+                    const row = db.prepare('SELECT username FROM users WHERE id = ?').get(decoded.id);
+                    if (row && row.username.toLowerCase() === 'vendeez') {
+                        authorized = true;
+                        sender = row.username;
+                    }
+                } catch {}
+            } else if (info.username && info.username.toLowerCase() === 'vendeez') {
+                authorized = true;
+                sender = info.username;
+            }
+            if (authorized && typeof msg.message === 'string') {
+                broadcastAdminMessage(msg.message, sender);
+            }
+            return;
+        }
+
         if (msg.type === 'social_event') {
             const forwardMsg = JSON.stringify(msg);
             for (const [otherWs, otherInfo] of clients.entries()) {
@@ -758,7 +921,19 @@ app.get('/version.json', (req, res) => {
 // Serve static frontend files
 app.use(express.static(__dirname));
 
-server.listen(PORT, () => {
-    console.log(`[BOBLOX Server] Running at http://localhost:${PORT}`);
-});
+if (require.main === module) {
+    server.listen(PORT, () => {
+        console.log(`[BOBLOX Server] Running at http://localhost:${PORT}`);
+    });
+}
+
+module.exports = {
+    app,
+    server,
+    db,
+    wss,
+    clients,
+    requireAdmin,
+    extractUserFromReq
+};
 

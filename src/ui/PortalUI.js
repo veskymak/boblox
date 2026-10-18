@@ -5884,6 +5884,277 @@ async function checkForBobloxUpdates() {
 setTimeout(checkForBobloxUpdates, 4000);
 setInterval(checkForBobloxUpdates, 15000);
 
+/* ============================================================================
+ * 28. DEDICATED ADMIN MENU & CONTROLS FOR VENDEEZ
+ * ============================================================================ */
+let adminCachedUsers = [];
+
+function isCurrentUserAdmin() {
+    if (typeof authState === 'undefined' || !authState || !authState.user) return false;
+    const name = typeof authState.user.username === 'string' ? authState.user.username.trim().toLowerCase() : '';
+    return name === 'vendeez';
+}
+
+function updateAdminUI() {
+    const isAdmin = isCurrentUserAdmin();
+    const sidebarBtn = document.getElementById('sidebar-admin-btn');
+    const mobileBtn = document.getElementById('quick-action-admin');
+    const adminModal = document.getElementById('admin-modal');
+
+    if (sidebarBtn) {
+        if (isAdmin) {
+            sidebarBtn.classList.remove('hidden');
+            sidebarBtn.classList.add('flex');
+        } else {
+            sidebarBtn.classList.remove('flex');
+            sidebarBtn.classList.add('hidden');
+        }
+    }
+
+    if (mobileBtn) {
+        if (isAdmin) {
+            mobileBtn.classList.remove('hidden');
+            mobileBtn.classList.add('flex');
+        } else {
+            mobileBtn.classList.remove('flex');
+            mobileBtn.classList.add('hidden');
+        }
+    }
+
+    if (!isAdmin && adminModal && !adminModal.classList.contains('hidden')) {
+        closeAdminModal();
+    }
+}
+
+function openAdminModal() {
+    if (!isCurrentUserAdmin()) {
+        if (typeof showHudToast === 'function') {
+            showHudToast('Přístup odepřen: Pouze pro vývojáře Vendeez!', 'red');
+        }
+        return;
+    }
+    if (document.pointerLockElement) document.exitPointerLock();
+    const modal = document.getElementById('admin-modal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    switchAdminTab('economy');
+    if (typeof loadAdminUsersList === 'function') {
+        loadAdminUsersList();
+    }
+}
+
+function closeAdminModal() {
+    const modal = document.getElementById('admin-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
+
+function switchAdminTab(tabName) {
+    const tabs = ['economy', 'users', 'broadcast', 'cheats'];
+    tabs.forEach(t => {
+        const btn = document.getElementById(`admin-tab-btn-${t}`);
+        const panel = document.getElementById(`admin-panel-${t}`);
+        const isActive = t === tabName;
+        if (btn) {
+            if (isActive) {
+                btn.className = 'py-2 px-3 sm:px-4 rounded-xl text-xs font-bold bg-amber-500 text-black shadow-lg shadow-amber-500/20 transition';
+            } else {
+                btn.className = 'py-2 px-3 sm:px-4 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:bg-[#2C2F33] transition';
+            }
+        }
+        if (panel) {
+            if (isActive) {
+                panel.classList.remove('hidden');
+            } else {
+                panel.classList.add('hidden');
+            }
+        }
+    });
+}
+
+function toggleAdminGodmode(forceVal) {
+    if (typeof playerState === 'undefined') return false;
+    playerState.godmode = typeof forceVal === 'boolean' ? forceVal : !playerState.godmode;
+    const indicator = document.getElementById('admin-godmode-status');
+    if (indicator) {
+        indicator.textContent = playerState.godmode ? 'AKTIVNÍ' : 'VYPNUTO';
+        indicator.className = playerState.godmode ? 'text-green-400 font-bold' : 'text-gray-400 font-bold';
+    }
+    if (typeof showHudToast === 'function') {
+        showHudToast(`Godmode: ${playerState.godmode ? 'ZAPNUTO (Nesmrtelnost)' : 'VYPNUTO'}`, playerState.godmode ? 'gold' : 'blue');
+    }
+    return playerState.godmode;
+}
+
+function toggleAdminSuperSpeed(forceVal) {
+    if (typeof playerState === 'undefined') return false;
+    playerState.superSpeed = typeof forceVal === 'boolean' ? forceVal : !playerState.superSpeed;
+    const indicator = document.getElementById('admin-superspeed-status');
+    if (indicator) {
+        indicator.textContent = playerState.superSpeed ? 'AKTIVNÍ' : 'VYPNUTO';
+        indicator.className = playerState.superSpeed ? 'text-green-400 font-bold' : 'text-gray-400 font-bold';
+    }
+    if (typeof showHudToast === 'function') {
+        showHudToast(`Super Speed: ${playerState.superSpeed ? 'ZAPNUTO (2.5x rychlost)' : 'VYPNUTO'}`, playerState.superSpeed ? 'gold' : 'blue');
+    }
+    return playerState.superSpeed;
+}
+
+function resetAdminDailyCooldown() {
+    if (typeof lastClaimTimestamp !== 'undefined') {
+        lastClaimTimestamp = 0;
+        try { localStorage.setItem('boblox_daily_ts', '0'); } catch (e) {}
+    }
+    if (typeof updateDailyBonusUI === 'function') {
+        updateDailyBonusUI();
+    }
+    if (typeof syncAccountToServer === 'function') {
+        syncAccountToServer();
+    }
+    if (typeof showHudToast === 'function') {
+        showHudToast('Denní bonus cooldown byl úspěšně vynulován!', 'gold');
+    }
+}
+
+async function submitAdminGiveCoins(amount, action = 'add', targetUsername = null) {
+    if (!isCurrentUserAdmin()) return;
+    const username = targetUsername || (document.getElementById('admin-target-user-input')?.value || '').trim() || (authState.user ? authState.user.username : 'Vendeez');
+    const amountVal = Number(amount !== undefined ? amount : (document.getElementById('admin-custom-coins-input')?.value || 0));
+    if (isNaN(amountVal)) return;
+
+    try {
+        const token = (typeof authState !== 'undefined' && authState.token) ? authState.token : localStorage.getItem('boblox_auth_jwt_token');
+        const res = await fetch('/api/admin/give-coins', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ username, amount: amountVal, action })
+        });
+        const data = await res.json();
+        if (data.ok) {
+            if (typeof showHudToast === 'function') {
+                showHudToast(`Bobuxy upraveny: ${data.username} má nyní ${data.coins.toLocaleString('cs-CZ')} B$!`, 'gold');
+            }
+            if (authState.user && authState.user.username.toLowerCase() === data.username.toLowerCase()) {
+                if (typeof bobuxBalance !== 'undefined') {
+                    bobuxBalance = data.coins;
+                    try { localStorage.setItem('boblox_bobux_balance', String(bobuxBalance)); } catch (e) {}
+                }
+                if (typeof updateBobuxUI === 'function') updateBobuxUI();
+            }
+            if (typeof loadAdminUsersList === 'function') loadAdminUsersList();
+        } else {
+            if (typeof showHudToast === 'function') showHudToast(data.error || 'Chyba při úpravě mincí', 'red');
+        }
+    } catch (e) {
+        console.error('submitAdminGiveCoins error:', e);
+    }
+}
+
+async function submitAdminBroadcast() {
+    if (!isCurrentUserAdmin()) return;
+    const input = document.getElementById('admin-broadcast-input');
+    const msg = (input ? input.value : '').trim();
+    if (!msg) return;
+
+    try {
+        const token = (typeof authState !== 'undefined' && authState.token) ? authState.token : localStorage.getItem('boblox_auth_jwt_token');
+        const res = await fetch('/api/admin/broadcast', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ message: msg })
+        });
+        const data = await res.json();
+        if (data.ok) {
+            if (input) input.value = '';
+            if (typeof showHudToast === 'function') {
+                showHudToast('Systémové oznámení odesláno všem hráčům!', 'gold');
+            }
+        } else {
+            if (typeof showHudToast === 'function') showHudToast(data.error || 'Chyba při vysílání', 'red');
+        }
+    } catch (e) {
+        console.error('submitAdminBroadcast error:', e);
+    }
+}
+
+async function loadAdminUsersList() {
+    const listContainer = document.getElementById('admin-users-list');
+    if (!listContainer) return;
+    listContainer.innerHTML = '<div class="text-center text-gray-400 py-6 text-xs">Načítání seznamu hráčů...</div>';
+
+    try {
+        const token = (typeof authState !== 'undefined' && authState.token) ? authState.token : localStorage.getItem('boblox_auth_jwt_token');
+        const res = await fetch('/api/admin/users', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (!data.ok || !Array.isArray(data.users)) {
+            listContainer.innerHTML = '<div class="text-center text-red-400 py-6 text-xs">Chyba při načítání uživatelů.</div>';
+            return;
+        }
+
+        renderAdminUsersList(data.users);
+    } catch (e) {
+        listContainer.innerHTML = '<div class="text-center text-red-400 py-6 text-xs">Chyba připojení k serveru.</div>';
+    }
+}
+
+function renderAdminUsersList(users) {
+    adminCachedUsers = users || adminCachedUsers || [];
+    const listContainer = document.getElementById('admin-users-list');
+    if (!listContainer) return;
+
+    const query = (document.getElementById('admin-users-search')?.value || '').trim().toLowerCase();
+    const filtered = adminCachedUsers.filter(u => !query || (u.username && u.username.toLowerCase().includes(query)));
+
+    if (filtered.length === 0) {
+        listContainer.innerHTML = '<div class="text-center text-gray-500 py-6 text-xs">Žádní hráči nenalezeni.</div>';
+        return;
+    }
+
+    listContainer.innerHTML = filtered.map(u => {
+        const isMe = authState.user && authState.user.username.toLowerCase() === u.username.toLowerCase();
+        return `
+            <div class="flex items-center justify-between p-3 rounded-xl bg-[#191B1D] border border-[#2C2F33] hover:border-amber-500/30 transition">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-9 h-9 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center font-bold text-amber-400 text-xs shrink-0">
+                        ${(u.username || 'P')[0].toUpperCase()}
+                    </div>
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-xs text-white truncate">${u.username}</span>
+                            ${isMe ? '<span class="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-extrabold border border-amber-500/40">TY</span>' : ''}
+                        </div>
+                        <div class="text-[11px] text-yellow-400 font-semibold">${Number(u.coins || 0).toLocaleString('cs-CZ')} B$</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <button type="button" onclick="submitAdminGiveCoins(1000, 'add', '${u.username}')" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-[#2C2F33] hover:bg-amber-500 hover:text-black text-gray-300 transition">+1k</button>
+                    <button type="button" onclick="submitAdminGiveCoins(10000, 'add', '${u.username}')" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-[#2C2F33] hover:bg-amber-500 hover:text-black text-gray-300 transition">+10k</button>
+                    <button type="button" onclick="promptAdminSetCoins('${u.username}')" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-black transition">Nastavit</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function promptAdminSetCoins(targetUsername) {
+    const raw = prompt(`Zadej nový počet Bobuxů pro hráče ${targetUsername}:`, '10000');
+    if (raw === null) return;
+    const num = parseInt(raw, 10);
+    if (!isNaN(num) && num >= 0) {
+        submitAdminGiveCoins(num, 'set', targetUsername);
+    }
+}
+
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         formatBobuxTransaction,
@@ -5897,7 +6168,20 @@ if (typeof module !== 'undefined' && module.exports) {
         refreshPortalAvatarVisuals,
         toggleMobileSidebar,
         switchPortalSection,
-        initPortalSidebarMobileEvents
+        initPortalSidebarMobileEvents,
+        isCurrentUserAdmin,
+        updateAdminUI,
+        openAdminModal,
+        closeAdminModal,
+        switchAdminTab,
+        toggleAdminGodmode,
+        toggleAdminSuperSpeed,
+        resetAdminDailyCooldown,
+        submitAdminGiveCoins,
+        submitAdminBroadcast,
+        loadAdminUsersList,
+        renderAdminUsersList,
+        promptAdminSetCoins
     };
 }
 

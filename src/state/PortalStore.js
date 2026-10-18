@@ -1399,6 +1399,9 @@ function updateAuthUI() {
         document.getElementById('auth-form-view')?.classList.remove('hidden');
         if (typeof refreshPortalAvatarVisuals === 'function') refreshPortalAvatarVisuals();
     }
+    if (typeof updateAdminUI === 'function') {
+        updateAdminUI();
+    }
 }
 
 function openAuthModal() {
