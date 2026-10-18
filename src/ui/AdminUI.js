@@ -200,6 +200,7 @@ async function submitAdminGiveCoins(amount, action = 'add', targetUsername = nul
             }
         } else {
             const errMsg = (data && data.error) ? data.error : 'Chyba při úpravě Bobuxů.';
+            console.warn('[AdminUI] Chyba při úpravě mincí:', errMsg);
             if (typeof showHudToast === 'function') showHudToast(errMsg, 'red');
         }
     } catch (e) {
@@ -231,6 +232,7 @@ async function submitAdminBroadcast() {
             }
         } else {
             const errMsg = (data && data.error) ? data.error : 'Chyba při odesílání oznámení.';
+            console.warn('[AdminUI] Chyba při odesílání hromadného oznámení:', errMsg);
             if (typeof showHudToast === 'function') showHudToast(errMsg, 'red');
         }
     } catch (e) {
@@ -266,6 +268,7 @@ async function loadAdminUsersList() {
         }
 
         if (!data || !data.ok || !Array.isArray(data.users)) {
+            console.warn('[AdminUI] Chyba při načítání seznamu administrátorských uživatelů:', (data && data.error) || 'Neplatná data ze serveru.');
             renderFallbackAdminUsers(listContainer, 'Chyba při načítání uživatelů.');
             return;
         }

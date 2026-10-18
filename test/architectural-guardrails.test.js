@@ -108,34 +108,90 @@ describe('Architectural Guardrails (Retrospective Enforcement)', () => {
     });
 
     it('guards that UI scripts route all /api calls through apiRequest as primary transport', () => {
-        const adminUiCode = fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'AdminUI.js'), 'utf8');
+        const uiDir = path.join(__dirname, '..', 'src', 'ui');
+        const uiFiles = fs.readdirSync(uiDir).filter(f => f.endsWith('.js'));
+        assert.ok(uiFiles.length >= 2, 'Must validate all UI scripts in src/ui/');
 
-        // Admin actions in AdminUI.js must route exclusively through apiRequest without duplicate fetch branches
-        const rawApiFetchMatches = adminUiCode.match(/fetch\s*\(\s*['"`]\/api\/[^'"`]+['"`]/g) || [];
-        assert.strictEqual(rawApiFetchMatches.length, 0, 'AdminUI must NOT have raw fetch fallback branches');
+        for (const file of uiFiles) {
+            const filePath = path.join(uiDir, file);
+            const content = fs.readFileSync(filePath, 'utf8');
+            const rawApiFetchMatches = content.match(/(?:window\.)?fetch\s*\(\s*[`'"]\/api\//g) || [];
+            assert.strictEqual(
+                rawApiFetchMatches.length,
+                0,
+                `${file} in src/ui/ must NOT make direct unmediated fetch('/api/...') calls (found: ${rawApiFetchMatches.length} raw fetch matches)`
+            );
+        }
 
+        const adminUiCode = fs.readFileSync(path.join(uiDir, 'AdminUI.js'), 'utf8');
         // Verify that apiRequest is used for all admin API endpoints in AdminUI.js
         assert.ok(adminUiCode.includes("apiRequest('/api/admin/users')"), 'Must use apiRequest for /api/admin/users');
         assert.ok(adminUiCode.includes("apiRequest('/api/admin/give-coins'"), 'Must use apiRequest for /api/admin/give-coins');
         assert.ok(adminUiCode.includes("apiRequest('/api/admin/broadcast'"), 'Must use apiRequest for /api/admin/broadcast');
     });
 
-    it('guards that loadAdminUsersList outputs diagnostic console.warn on network error', async () => {
+    it('guards that all admin operations (loadAdminUsersList, submitAdminGiveCoins, submitAdminBroadcast) in AdminUI/PortalUI log warnings with [AdminUI] prefix on error', async () => {
         const warnings = [];
         const originalWarn = console.warn;
         console.warn = (...args) => warnings.push(args.join(' '));
 
         const mockListEl = { innerHTML: '' };
-        global.document.getElementById = (id) => (id === 'admin-users-list' ? mockListEl : null);
-
-        global.apiRequest = async () => {
-            throw new Error('Connection refused simulation');
+        const mockBroadcastInput = { value: 'Test announcement message' };
+        global.document.getElementById = (id) => {
+            if (id === 'admin-users-list') return mockListEl;
+            if (id === 'admin-broadcast-input') return mockBroadcastInput;
+            return null;
         };
+        global.authState.user = { username: 'Vendeez', isAdmin: true };
+
+        async function verifyLogsAdminWarning(actionFn, apiMock, label) {
+            warnings.length = 0;
+            global.apiRequest = apiMock;
+            await actionFn();
+            assert.ok(warnings.some(w => w.includes('[AdminUI]')), label);
+        }
 
         try {
-            await AdminUI.loadAdminUsersList();
-            const hasAdminWarn = warnings.some(w => w.includes('[AdminUI]'));
-            assert.strictEqual(hasAdminWarn, true, 'Must log diagnostic console warning with [AdminUI] prefix');
+            // Verify both AdminUI canonical domain module and PortalUI re-export interface
+            for (const uiModule of [AdminUI, PortalUI]) {
+                const modName = uiModule === AdminUI ? 'AdminUI' : 'PortalUI';
+
+                // 1. loadAdminUsersList on network exception and API failure response
+                await verifyLogsAdminWarning(
+                    () => uiModule.loadAdminUsersList(),
+                    async () => { throw new Error('Connection refused simulation'); },
+                    `${modName}.loadAdminUsersList must log [AdminUI] on network error`
+                );
+                await verifyLogsAdminWarning(
+                    () => uiModule.loadAdminUsersList(),
+                    async () => ({ ok: false, data: { ok: false, error: 'Unauthorized query' } }),
+                    `${modName}.loadAdminUsersList must log [AdminUI] on API error response`
+                );
+
+                // 2. submitAdminGiveCoins on network exception and API failure response
+                await verifyLogsAdminWarning(
+                    () => uiModule.submitAdminGiveCoins(500, 'add', 'Vendeez'),
+                    async () => { throw new Error('Coins API unreachable'); },
+                    `${modName}.submitAdminGiveCoins must log [AdminUI] on network error`
+                );
+                await verifyLogsAdminWarning(
+                    () => uiModule.submitAdminGiveCoins(500, 'add', 'Vendeez'),
+                    async () => ({ ok: false, data: { ok: false, error: 'Insufficient permissions' } }),
+                    `${modName}.submitAdminGiveCoins must log [AdminUI] on API error response`
+                );
+
+                // 3. submitAdminBroadcast on network exception and API failure response
+                await verifyLogsAdminWarning(
+                    () => uiModule.submitAdminBroadcast(),
+                    async () => { throw new Error('Broadcast API unreachable'); },
+                    `${modName}.submitAdminBroadcast must log [AdminUI] on network error`
+                );
+                await verifyLogsAdminWarning(
+                    () => uiModule.submitAdminBroadcast(),
+                    async () => ({ ok: false, data: { ok: false, error: 'Broadcast rejected' } }),
+                    `${modName}.submitAdminBroadcast must log [AdminUI] on API error response`
+                );
+            }
         } finally {
             console.warn = originalWarn;
         }

@@ -1,7 +1,7 @@
 {
-  "version": "5.6",
-  "buildTime": 1792373000000,
-  "updatedAt": "2026-10-18T21:42:00Z",
-  "title": "Boblox Aktualizace v5.6",
-  "message": "Zpřesnění isCurrentUserAdmin s parametrem user, perzistence zůstatku v submitAdminGiveCoins a pročištění AdminUI."
+  "version": "5.7",
+  "buildTime": 1792375000000,
+  "updatedAt": "2026-10-18T21:55:00Z",
+  "title": "Boblox Aktualizace v5.7",
+  "message": "Zpřísnění architektonického guardrailu proti unmediated API voláním v src/ui/ a sjednocení diagnostického logování [AdminUI]."
 }
