@@ -3475,29 +3475,207 @@ function openPlayerProfile(playerId) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+function drawCanvasRoundRect(ctx, x, y, width, height, radius) {
+    if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(x, y, width, height, radius);
+    } else {
+        const r = typeof radius === 'number' ? radius : 4;
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + width - r, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+        ctx.lineTo(x + width, y + height - r);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+        ctx.lineTo(x + r, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+    }
+}
+
 function drawWearingItemCardCanvas(canvas, itemDesc) {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
     const w = canvas.width;
     const h = canvas.height;
     ctx.clearRect(0, 0, w, h);
 
+    const itemId = itemDesc?.shopId || itemDesc?.type || itemDesc?.id || '';
+    const thumb = (typeof shopState !== 'undefined' && shopState.thumbs)
+        ? (shopState.thumbs[itemId] || (itemDesc?.shopId && shopState.thumbs[itemDesc.shopId]) || (itemDesc?.type && shopState.thumbs[itemDesc.type]))
+        : null;
+
+    if (thumb && typeof Image !== 'undefined') {
+        const img = new Image();
+        img.onload = () => {
+            ctx.clearRect(0, 0, w, h);
+            ctx.drawImage(img, 0, 0, w, h);
+        };
+        img.src = thumb;
+        if (img.complete && img.naturalWidth > 0) {
+            ctx.clearRect(0, 0, w, h);
+            ctx.drawImage(img, 0, 0, w, h);
+            return;
+        }
+    }
+
     ctx.save();
     ctx.translate(w * 0.5, h * 0.5);
 
-    const t = itemDesc.type || '';
-    if (t === 'sunglasses') {
-        ctx.fillStyle = '#090a0f';
-        ctx.rotate(-0.15);
-        ctx.fillRect(-38, -10, 76, 5);
+    const t = itemDesc?.type || itemDesc?.shopId || '';
+
+    // --- HATS & HEADWEAR ---
+    if (t === 'hat_crown') {
+        // Golden royal crown with gems
+        ctx.fillStyle = '#FACC15';
         ctx.beginPath();
-        ctx.roundRect(-36, -8, 30, 20, 4);
-        ctx.roundRect(6, -8, 30, 20, 4);
+        drawCanvasRoundRect(ctx, -34, 10, 68, 14, 3);
         ctx.fill();
-        ctx.fillStyle = 'rgba(255,255,255,0.28)';
-        ctx.fillRect(-30, -4, 9, 5);
-        ctx.fillRect(12, -4, 9, 5);
-    } else if (t === 'hair_brown') {
+        ctx.beginPath();
+        ctx.moveTo(-34, 10);
+        ctx.lineTo(-32, -18);
+        ctx.lineTo(-16, 2);
+        ctx.lineTo(0, -28);
+        ctx.lineTo(16, 2);
+        ctx.lineTo(32, -18);
+        ctx.lineTo(34, 10);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#CA8A04';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+        const gemColors = ['#DC2626', '#2563EB', '#16A34A', '#7C3AED'];
+        [-24, -8, 8, 24].forEach((jx, idx) => {
+            ctx.fillStyle = gemColors[idx % gemColors.length];
+            ctx.beginPath();
+            ctx.arc(jx, 17, 3.5, 0, Math.PI * 2);
+            ctx.fill();
+        });
+        [[-32, -18], [0, -28], [32, -18]].forEach(([px, py], idx) => {
+            ctx.fillStyle = gemColors[idx % gemColors.length];
+            ctx.beginPath();
+            ctx.arc(px, py, 4, 0, Math.PI * 2);
+            ctx.fill();
+        });
+    } else if (t === 'hat_cone') {
+        // Traffic cone
+        ctx.fillStyle = '#F97316';
+        ctx.beginPath();
+        drawCanvasRoundRect(ctx, -30, 20, 60, 10, 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(-22, 20);
+        ctx.lineTo(0, -32);
+        ctx.lineTo(22, 20);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.beginPath();
+        ctx.moveTo(-15, 6);
+        ctx.lineTo(15, 6);
+        ctx.lineTo(11, -6);
+        ctx.lineTo(-11, -6);
+        ctx.closePath();
+        ctx.fill();
+    } else if (t === 'hat_party') {
+        // Party hat
+        ctx.fillStyle = '#EC4899';
+        ctx.beginPath();
+        ctx.moveTo(-22, 22);
+        ctx.lineTo(0, -26);
+        ctx.lineTo(22, 22);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#FACC15';
+        ctx.beginPath();
+        ctx.arc(0, -28, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#22D3EE';
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(-23, 21);
+        ctx.lineTo(23, 21);
+        ctx.stroke();
+    } else if (t === 'hat_cap') {
+        // Cap
+        ctx.fillStyle = '#DC2626';
+        ctx.beginPath();
+        ctx.arc(0, 0, 26, Math.PI, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#1D4ED8';
+        ctx.beginPath();
+        drawCanvasRoundRect(ctx, -24, 0, 52, 10, 4);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(0, -26, 4, 0, Math.PI * 2);
+        ctx.fill();
+    } else if (t === 'hat_headphones') {
+        // Gaming headphones
+        ctx.strokeStyle = '#111827';
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.arc(0, -4, 28, Math.PI, 0);
+        ctx.stroke();
+        [-28, 28].forEach(hx => {
+            ctx.fillStyle = '#111827';
+            ctx.beginPath();
+            drawCanvasRoundRect(ctx, hx - 6, -6, 12, 24, 4);
+            ctx.fill();
+            ctx.fillStyle = '#00A2FF';
+            ctx.beginPath();
+            drawCanvasRoundRect(ctx, hx - 4, -2, 8, 16, 2);
+            ctx.fill();
+        });
+    } else if (t === 'hat_tophat') {
+        // Top hat
+        ctx.fillStyle = '#111111';
+        ctx.beginPath();
+        drawCanvasRoundRect(ctx, -36, 14, 72, 8, 3);
+        ctx.fill();
+        ctx.fillRect(-22, -30, 44, 44);
+        ctx.fillStyle = '#B91C1C';
+        ctx.fillRect(-22, 6, 44, 8);
+    } else if (t === 'hat_cowboy') {
+        // Cowboy hat
+        ctx.fillStyle = '#92400E';
+        ctx.beginPath();
+        ctx.ellipse(0, 14, 38, 12, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        drawCanvasRoundRect(ctx, -20, -18, 40, 32, 6);
+        ctx.fill();
+        ctx.fillStyle = '#111827';
+        ctx.fillRect(-20, 8, 40, 6);
+    } else if (t === 'hat_viking') {
+        // Viking helmet
+        ctx.fillStyle = '#9CA3AF';
+        ctx.beginPath();
+        ctx.arc(0, 6, 26, Math.PI, 0);
+        ctx.fill();
+        ctx.fillStyle = '#78350F';
+        ctx.fillRect(-28, 6, 56, 8);
+        ctx.fillStyle = '#FEF3C7';
+        ctx.beginPath();
+        ctx.moveTo(-24, 6);
+        ctx.quadraticCurveTo(-38, -12, -28, -26);
+        ctx.quadraticCurveTo(-30, -10, -16, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(24, 6);
+        ctx.quadraticCurveTo(38, -12, 28, -26);
+        ctx.quadraticCurveTo(30, -10, 16, 0);
+        ctx.closePath();
+        ctx.fill();
+    } else if (t === 'hat_halo') {
+        // Halo
+        ctx.strokeStyle = '#FACC15';
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.ellipse(0, -4, 32, 14, 0, 0, Math.PI * 2);
+        ctx.stroke();
+    } else if (t === 'hat_brown_hair' || t === 'hair_brown') {
         ctx.fillStyle = '#5c2c16';
         ctx.beginPath();
         ctx.moveTo(-30, 15);
@@ -3510,38 +3688,346 @@ function drawWearingItemCardCanvas(canvas, itemDesc) {
         ctx.quadraticCurveTo(0, -5, -30, 15);
         ctx.closePath();
         ctx.fill();
-    } else if (t === 'hair_ponytail' || t === 'hair_long_tail') {
-        ctx.fillStyle = '#333947';
+    } else if (t === 'hat_ponytail' || t === 'hair_ponytail' || t === 'hair_long_tail') {
+        ctx.fillStyle = '#1E222D';
         ctx.beginPath();
         ctx.arc(-4, -8, 24, Math.PI, 0);
         ctx.lineTo(24, 26);
         ctx.quadraticCurveTo(4, 10, -24, 24);
         ctx.closePath();
         ctx.fill();
-    } else if (t === 'joy_mask') {
-        ctx.fillStyle = '#f1f5f9';
+    }
+    // --- FACES ---
+    else if (t === 'face_cool' || t === 'sunglasses') {
+        ctx.fillStyle = '#F5CD30';
         ctx.beginPath();
-        ctx.roundRect(-28, -32, 56, 64, 16);
+        ctx.arc(0, 0, 32, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = '#1e293b';
+        ctx.fillStyle = '#090a0f';
+        ctx.fillRect(-28, -12, 56, 4);
+        ctx.beginPath();
+        drawCanvasRoundRect(ctx, -26, -10, 22, 16, 3);
+        drawCanvasRoundRect(ctx, 4, -10, 22, 16, 3);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.fillRect(-22, -7, 6, 4);
+        ctx.fillRect(8, -7, 6, 4);
+        ctx.strokeStyle = '#111111';
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(4, 10, 10, 0.15 * Math.PI, 0.75 * Math.PI);
+        ctx.stroke();
+    } else if (t === 'face_classic') {
+        ctx.fillStyle = '#F5CD30';
+        ctx.beginPath();
+        ctx.arc(0, 0, 32, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#111111';
+        ctx.beginPath();
+        ctx.arc(-11, -6, 4, 0, Math.PI * 2);
+        ctx.arc(11, -6, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#111111';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(0, 4, 14, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.stroke();
+    } else if (t === 'face_wink') {
+        ctx.fillStyle = '#F5CD30';
+        ctx.beginPath();
+        ctx.arc(0, 0, 32, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#111111';
+        ctx.beginPath();
+        ctx.arc(-11, -6, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#111111';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(11, -4, 6, 1.15 * Math.PI, 1.85 * Math.PI);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, 4, 13, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.stroke();
+    } else if (t === 'face_surprised') {
+        ctx.fillStyle = '#F5CD30';
+        ctx.beginPath();
+        ctx.arc(0, 0, 32, 0, Math.PI * 2);
+        ctx.fill();
+        [-11, 11].forEach(ex => {
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(ex, -6, 7, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#111111';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.fillStyle = '#111111';
+            ctx.beginPath();
+            ctx.arc(ex, -6, 3, 0, Math.PI * 2);
+            ctx.fill();
+        });
+        ctx.fillStyle = '#111111';
+        ctx.beginPath();
+        ctx.ellipse(0, 14, 6, 9, 0, 0, Math.PI * 2);
+        ctx.fill();
+    } else if (t === 'face_grin') {
+        ctx.fillStyle = '#F5CD30';
+        ctx.beginPath();
+        ctx.arc(0, 0, 32, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#111111';
+        ctx.beginPath();
+        ctx.arc(-11, -7, 4, 0, Math.PI * 2);
+        ctx.arc(11, -7, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(-16, 5);
+        ctx.quadraticCurveTo(0, 24, 16, 5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(-12, 6, 24, 5);
+    } else if (t === 'face_angry') {
+        ctx.fillStyle = '#F5CD30';
+        ctx.beginPath();
+        ctx.arc(0, 0, 32, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#111111';
+        ctx.beginPath();
+        ctx.arc(-11, -4, 4, 0, Math.PI * 2);
+        ctx.arc(11, -4, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#111111';
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.arc(-11, -6, 7, 1.15 * Math.PI, 1.85 * Math.PI);
+        ctx.moveTo(-17, -13); ctx.lineTo(-6, -8);
+        ctx.moveTo(17, -13); ctx.lineTo(6, -8);
         ctx.stroke();
         ctx.beginPath();
-        ctx.arc(11, -6, 7, 1.15 * Math.PI, 1.85 * Math.PI);
+        ctx.arc(0, 18, 11, 1.2 * Math.PI, 1.8 * Math.PI);
         ctx.stroke();
-        ctx.fillStyle = 'rgba(244, 114, 182, 0.45)';
+    } else if (t === 'face_kawaii' || t === 'joy_mask') {
+        ctx.fillStyle = '#F5CD30';
         ctx.beginPath();
-        ctx.ellipse(-15, 4, 6, 3, 0, 0, Math.PI * 2);
-        ctx.ellipse(15, 4, 6, 3, 0, 0, Math.PI * 2);
+        ctx.arc(0, 0, 32, 0, Math.PI * 2);
         ctx.fill();
-    } else if (t === 'pose_v' || t === 'pose_monkey' || t === 'pose_pogo') {
-        // Silhouette emote figure (like Screenshots 3 & 4)
-        ctx.fillStyle = '#d1d5db';
-        if (t === 'pose_v') {
-            ctx.rotate(-0.45);
+        ctx.strokeStyle = '#111111';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(-11, -6, 6, 1.15 * Math.PI, 1.85 * Math.PI);
+        ctx.arc(11, -6, 6, 1.15 * Math.PI, 1.85 * Math.PI);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(244, 114, 182, 0.7)';
+        ctx.beginPath();
+        ctx.ellipse(-15, 4, 6, 3.5, 0, 0, Math.PI * 2);
+        ctx.ellipse(15, 4, 6, 3.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#111111';
+        ctx.beginPath();
+        ctx.arc(0, 6, 7, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.stroke();
+    } else if (t === 'face_villain') {
+        ctx.fillStyle = '#F5CD30';
+        ctx.beginPath();
+        ctx.arc(0, 0, 32, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#111111';
+        ctx.beginPath();
+        ctx.arc(-11, -7, 4, 0, Math.PI * 2);
+        ctx.arc(11, -7, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#111111';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(0, 6);
+        ctx.quadraticCurveTo(-14, 2, -20, 10);
+        ctx.moveTo(0, 6);
+        ctx.quadraticCurveTo(14, 2, 20, 10);
+        ctx.stroke();
+    } else if (t === 'face_robot') {
+        ctx.fillStyle = '#1F2937';
+        ctx.beginPath();
+        drawCanvasRoundRect(ctx, -28, -26, 56, 52, 8);
+        ctx.fill();
+        ctx.fillStyle = '#22D3EE';
+        ctx.fillRect(-20, -10, 40, 10);
+        ctx.fillStyle = '#9CA3AF';
+        for (let gx = -14; gx <= 14; gx += 7) {
+            ctx.fillRect(gx, 10, 3, 8);
         }
+    }
+    // --- SHIRTS & CLOTHING ---
+    else if (t === 'shirt_logo') {
+        ctx.fillStyle = '#0D69AC';
+        ctx.beginPath();
+        drawCanvasRoundRect(ctx, -24, -24, 48, 48, 6);
+        ctx.fill();
+        ctx.save();
+        ctx.rotate(0.2);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(-9, -15, 18, 18);
+        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        ctx.fillRect(-4, -10, 8, 8);
+        ctx.restore();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 9px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('BOBLOX', 0, 14);
+    } else if (t === 'shirt_hoodie') {
+        ctx.fillStyle = '#4B5563';
+        ctx.beginPath();
+        drawCanvasRoundRect(ctx, -24, -24, 48, 48, 6);
+        ctx.fill();
+        ctx.strokeStyle = '#F3F4F6';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-5, -16); ctx.lineTo(-5, -4);
+        ctx.moveTo(5, -16); ctx.lineTo(5, -4);
+        ctx.stroke();
+        ctx.fillStyle = '#374151';
+        ctx.beginPath();
+        drawCanvasRoundRect(ctx, -14, 2, 28, 14, 3);
+        ctx.fill();
+    } else if (t === 'shirt_stripes') {
+        ctx.fillStyle = '#F8FAFC';
+        ctx.beginPath();
+        drawCanvasRoundRect(ctx, -24, -24, 48, 48, 6);
+        ctx.fill();
+        ctx.fillStyle = '#1E3A8A';
+        for (let sy = -18; sy <= 18; sy += 10) {
+            ctx.fillRect(-24, sy, 48, 5);
+        }
+    } else if (t === 'shirt_flannel') {
+        ctx.fillStyle = '#B91C1C';
+        ctx.beginPath();
+        drawCanvasRoundRect(ctx, -24, -24, 48, 48, 6);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(17,17,17,0.45)';
+        for (let p = -18; p <= 18; p += 12) {
+            ctx.fillRect(p, -24, 4, 48);
+            ctx.fillRect(-24, p, 48, 4);
+        }
+    } else if (t === 'shirt_hero') {
+        ctx.fillStyle = '#1D4ED8';
+        ctx.beginPath();
+        drawCanvasRoundRect(ctx, -24, -24, 48, 48, 6);
+        ctx.fill();
+        ctx.fillStyle = '#FACC15';
+        ctx.beginPath();
+        ctx.moveTo(0, -18); ctx.lineTo(14, -6); ctx.lineTo(0, 8); ctx.lineTo(-14, -6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#DC2626';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('B', 0, -5);
+    } else if (t === 'shirt_tux') {
+        ctx.fillStyle = '#111827';
+        ctx.beginPath();
+        drawCanvasRoundRect(ctx, -24, -24, 48, 48, 6);
+        ctx.fill();
+        ctx.fillStyle = '#F9FAFB';
+        ctx.beginPath();
+        ctx.moveTo(-10, -24); ctx.lineTo(10, -24); ctx.lineTo(0, 4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#DC2626';
+        ctx.beginPath();
+        ctx.moveTo(0, -16); ctx.lineTo(-6, -20); ctx.lineTo(-6, -12); ctx.closePath();
+        ctx.moveTo(0, -16); ctx.lineTo(6, -20); ctx.lineTo(6, -12); ctx.closePath();
+        ctx.fill();
+    } else if (t === 'shirt_gold') {
+        ctx.fillStyle = '#EAB308';
+        ctx.beginPath();
+        drawCanvasRoundRect(ctx, -24, -24, 48, 48, 6);
+        ctx.fill();
+        ctx.fillStyle = '#111827';
+        ctx.fillRect(-3, -24, 6, 26);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('VIP', 0, 16);
+    } else if (t === 'shirt_black_flannel') {
+        ctx.fillStyle = '#181A1E';
+        ctx.beginPath();
+        drawCanvasRoundRect(ctx, -24, -24, 48, 48, 6);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(75, 85, 99, 0.4)';
+        for (let p = -18; p <= 18; p += 10) {
+            ctx.fillRect(p, -24, 3, 48);
+            ctx.fillRect(-24, p, 48, 3);
+        }
+    } else if (t === 'shirt_limbus') {
+        ctx.fillStyle = '#1f242d';
+        ctx.beginPath();
+        drawCanvasRoundRect(ctx, -24, -24, 48, 48, 6);
+        ctx.fill();
+        ctx.strokeStyle = '#dc2626';
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(-20, -20, 40, 40);
+    }
+    // --- PANTS ---
+    else if (t === 'pants_jeans' || t === 'jeans_outfit') {
+        ctx.fillStyle = '#1E40AF';
+        ctx.beginPath();
+        drawCanvasRoundRect(ctx, -22, -24, 44, 48, 4);
+        ctx.fill();
+        ctx.fillStyle = '#111827';
+        ctx.fillRect(-2, -2, 4, 26);
+        ctx.fillStyle = '#A16207';
+        ctx.fillRect(-22, -24, 44, 5);
+    } else if (t === 'pants_black') {
+        ctx.fillStyle = '#1F2937';
+        ctx.beginPath();
+        drawCanvasRoundRect(ctx, -22, -24, 44, 48, 4);
+        ctx.fill();
+        ctx.fillStyle = '#111827';
+        ctx.fillRect(-2, -2, 4, 26);
+    } else if (t === 'pants_white') {
+        ctx.fillStyle = '#E5E7EB';
+        ctx.beginPath();
+        drawCanvasRoundRect(ctx, -22, -24, 44, 48, 4);
+        ctx.fill();
+        ctx.fillStyle = '#9CA3AF';
+        ctx.fillRect(-2, -2, 4, 26);
+    } else if (t === 'pants_red') {
+        ctx.fillStyle = '#DC2626';
+        ctx.beginPath();
+        drawCanvasRoundRect(ctx, -22, -24, 44, 48, 4);
+        ctx.fill();
+        ctx.fillStyle = '#991B1B';
+        ctx.fillRect(-2, -2, 4, 26);
+    } else if (t === 'pants_khaki') {
+        ctx.fillStyle = '#A16207';
+        ctx.beginPath();
+        drawCanvasRoundRect(ctx, -22, -24, 44, 48, 4);
+        ctx.fill();
+        ctx.fillStyle = '#78350F';
+        ctx.fillRect(-2, -2, 4, 26);
+        ctx.fillRect(-20, 2, 7, 10);
+        ctx.fillRect(13, 2, 7, 10);
+    }
+    // --- SPECIAL / EMOTES ---
+    else if (t === 'tornado') {
+        ctx.fillStyle = '#9ca3af';
+        for (let i = 0; i < 14; i++) {
+            const a = i * 1.1;
+            const r = 8 + (i % 4) * 7;
+            ctx.save();
+            ctx.translate(Math.cos(a) * r, Math.sin(a) * r);
+            ctx.rotate(a);
+            ctx.fillRect(-4, -2, 8, 5);
+            ctx.restore();
+        }
+    } else if (t === 'pose_v' || t === 'pose_monkey' || t === 'pose_pogo') {
+        ctx.fillStyle = '#d1d5db';
+        if (t === 'pose_v') ctx.rotate(-0.45);
         ctx.beginPath();
         ctx.arc(0, -28, 8, 0, Math.PI * 2);
         ctx.fill();
@@ -3556,28 +4042,52 @@ function drawWearingItemCardCanvas(canvas, itemDesc) {
         ctx.restore();
         ctx.fillRect(-7, 6, 6, 22);
         ctx.fillRect(1, 6, 6, 22);
-    } else if (t === 'tornado') {
-        ctx.fillStyle = '#9ca3af';
-        for (let i = 0; i < 14; i++) {
-            const a = i * 1.1;
-            const r = 8 + (i % 4) * 7;
-            ctx.save();
-            ctx.translate(Math.cos(a) * r, Math.sin(a) * r);
-            ctx.rotate(a);
-            ctx.fillRect(-4, -2, 8, 5);
-            ctx.restore();
-        }
+    } else if (t === 'classic_noob') {
+        ctx.fillStyle = '#F5CD30';
+        ctx.beginPath();
+        ctx.arc(0, -18, 14, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#0D69AC';
+        ctx.fillRect(-14, -4, 28, 22);
+        ctx.fillStyle = '#16A34A';
+        ctx.fillRect(-13, 18, 11, 16);
+        ctx.fillRect(2, 18, 11, 16);
+    } else if (t.startsWith('hat_')) {
+        ctx.fillStyle = '#F5CD30';
+        ctx.beginPath();
+        ctx.arc(0, 4, 18, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#DC2626';
+        ctx.fillRect(-16, -14, 32, 10);
+    } else if (t.startsWith('face_')) {
+        ctx.fillStyle = '#F5CD30';
+        ctx.beginPath();
+        ctx.arc(0, 0, 30, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#111111';
+        ctx.beginPath();
+        ctx.arc(-10, -6, 4, 0, Math.PI * 2);
+        ctx.arc(10, -6, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(0, 4, 12, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.stroke();
+    } else if (t.startsWith('shirt_')) {
+        ctx.fillStyle = '#0D69AC';
+        ctx.beginPath();
+        drawCanvasRoundRect(ctx, -22, -22, 44, 44, 5);
+        ctx.fill();
+    } else if (t.startsWith('pants_')) {
+        ctx.fillStyle = '#1E40AF';
+        ctx.beginPath();
+        drawCanvasRoundRect(ctx, -22, -22, 44, 44, 4);
+        ctx.fill();
     } else {
-        // Outfit mannequin (like Ripped Black Jeans or Limbus Company suit)
+        // Outfit mannequin fallback
         ctx.fillStyle = '#e5e7eb';
         ctx.fillRect(-12, -26, 24, 24);
-        ctx.fillStyle = t === 'shirt_limbus' ? '#1f242d' : '#f3f4f6';
+        ctx.fillStyle = '#f3f4f6';
         ctx.fillRect(-16, -2, 32, 22);
-        if (t === 'shirt_limbus') {
-            ctx.strokeStyle = '#dc2626';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(-14, 0, 28, 18);
-        }
         ctx.fillStyle = '#111827';
         ctx.fillRect(-15, 20, 13, 18);
         ctx.fillRect(2, 20, 13, 18);
@@ -3592,22 +4102,22 @@ function getProfileWearingItems(profile) {
         const outfit = (typeof avatarOutfit !== 'undefined') ? avatarOutfit : {};
         if (outfit.hat && typeof SHOP_ITEM_MAP !== 'undefined' && SHOP_ITEM_MAP[outfit.hat]) {
             const h = SHOP_ITEM_MAP[outfit.hat];
-            items.push({ name: h.name, price: `${h.price} B$`, type: h.id, shopId: h.id });
+            items.push({ name: h.name, price: `${h.price} B$`, type: h.id, shopId: h.id, slot: h.slot });
         }
         if (outfit.face && typeof SHOP_ITEM_MAP !== 'undefined' && SHOP_ITEM_MAP[outfit.face]) {
             const f = SHOP_ITEM_MAP[outfit.face];
-            items.push({ name: f.name, price: `${f.price} B$`, type: f.id, shopId: f.id });
+            items.push({ name: f.name, price: `${f.price} B$`, type: f.id, shopId: f.id, slot: f.slot });
         }
         if (outfit.shirt && typeof SHOP_ITEM_MAP !== 'undefined' && SHOP_ITEM_MAP[outfit.shirt]) {
             const s = SHOP_ITEM_MAP[outfit.shirt];
-            items.push({ name: s.name, price: `${s.price} B$`, type: s.id, shopId: s.id });
+            items.push({ name: s.name, price: `${s.price} B$`, type: s.id, shopId: s.id, slot: s.slot });
         }
         if (outfit.pants && typeof SHOP_ITEM_MAP !== 'undefined' && SHOP_ITEM_MAP[outfit.pants]) {
             const p = SHOP_ITEM_MAP[outfit.pants];
-            items.push({ name: p.name, price: `${p.price} B$`, type: p.id, shopId: p.id });
+            items.push({ name: p.name, price: `${p.price} B$`, type: p.id, shopId: p.id, slot: p.slot });
         }
         if (items.length === 0) {
-            items.push({ name: 'Základní Noob Styl', price: '0 B$', type: 'classic_noob' });
+            items.push({ name: 'Základní Noob Styl', price: '0 B$', type: 'classic_noob', shopId: 'classic_noob', slot: 'special' });
         }
         return items;
     }
@@ -3618,28 +4128,31 @@ function getProfileWearingItems(profile) {
     if (profile.outfit && typeof SHOP_ITEM_MAP !== 'undefined') {
         if (profile.outfit.hat && SHOP_ITEM_MAP[profile.outfit.hat]) {
             const h = SHOP_ITEM_MAP[profile.outfit.hat];
-            items.push({ name: h.name, price: `${h.price} B$`, type: h.id, shopId: h.id });
+            items.push({ name: h.name, price: `${h.price} B$`, type: h.id, shopId: h.id, slot: h.slot });
         }
         if (profile.outfit.face && SHOP_ITEM_MAP[profile.outfit.face]) {
             const f = SHOP_ITEM_MAP[profile.outfit.face];
-            items.push({ name: f.name, price: `${f.price} B$`, type: f.id, shopId: f.id });
+            items.push({ name: f.name, price: `${f.price} B$`, type: f.id, shopId: f.id, slot: f.slot });
         }
         if (profile.outfit.shirt && SHOP_ITEM_MAP[profile.outfit.shirt]) {
             const s = SHOP_ITEM_MAP[profile.outfit.shirt];
-            items.push({ name: s.name, price: `${s.price} B$`, type: s.id, shopId: s.id });
+            items.push({ name: s.name, price: `${s.price} B$`, type: s.id, shopId: s.id, slot: s.slot });
         }
         if (profile.outfit.pants && SHOP_ITEM_MAP[profile.outfit.pants]) {
             const p = SHOP_ITEM_MAP[profile.outfit.pants];
-            items.push({ name: p.name, price: `${p.price} B$`, type: p.id, shopId: p.id });
+            items.push({ name: p.name, price: `${p.price} B$`, type: p.id, shopId: p.id, slot: p.slot });
         }
     }
     if (items.length === 0) {
-        items.push({ name: `${profile.username || profile.displayName}'s Signature Outfit`, price: '50 B$', type: 'jeans_outfit' });
+        items.push({ name: `${profile.username || profile.displayName}'s Signature Outfit`, price: '50 B$', type: 'jeans_outfit', shopId: 'pants_jeans', slot: 'clothing' });
     }
     return items;
 }
 
 function renderPortalProfileView() {
+    if (typeof generateShopThumbnails === 'function') {
+        generateShopThumbnails();
+    }
     const myProfile = getLocalRobloxPlayerProfile();
     const myUName = (myProfile.username || '').toLowerCase();
     const myId = getMyUniqueSocialId();
@@ -3829,11 +4342,18 @@ function renderPortalProfileView() {
             }
             card.className = 'group cursor-pointer flex flex-col justify-between';
             const cid = `profile-wear-canvas-${idx}`;
+            const thumb = (typeof shopState !== 'undefined' && shopState.thumbs)
+                ? (shopState.thumbs[it.shopId] || shopState.thumbs[it.type] || shopState.thumbs[it.id])
+                : null;
+
+            const mediaHtml = thumb
+                ? `<img src="${thumb}" alt="${escapeHtml(it.name)}" class="w-full h-full object-contain ${it.slot === 'face' ? 'p-3' : ''}">`
+                : `<canvas id="${cid}" width="120" height="120" class="w-full h-full object-contain"></canvas>`;
 
             card.innerHTML = `
                 <div>
                     <div class="aspect-square rounded-xl bg-[#2C2F33] group-hover:bg-[#35383D] border border-white/5 flex items-center justify-center overflow-hidden transition">
-                        <canvas id="${cid}" width="120" height="120" class="w-full h-full object-contain"></canvas>
+                        ${mediaHtml}
                     </div>
                     <div class="mt-2 text-xs font-bold text-white line-clamp-2 leading-snug group-hover:text-[#00A2FF] transition">${escapeHtml(it.name)}</div>
                 </div>
@@ -3846,8 +4366,10 @@ function renderPortalProfileView() {
             `;
             wearGrid.appendChild(card);
 
-            const c = document.getElementById(cid);
-            drawWearingItemCardCanvas(c, it);
+            if (!thumb) {
+                const c = document.getElementById(cid);
+                if (c) drawWearingItemCardCanvas(c, it);
+            }
         });
     }
 }
@@ -5244,7 +5766,10 @@ setInterval(checkForBobloxUpdates, 15000);
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         formatBobuxTransaction,
-        openBobuxTransactionsModal
+        openBobuxTransactionsModal,
+        drawWearingItemCardCanvas,
+        getProfileWearingItems,
+        renderPortalProfileView
     };
 }
 
