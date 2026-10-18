@@ -704,6 +704,9 @@ function showHudToast(text, theme = 'blue') {
         red: 'bg-red-600/95 border-red-300 text-white',
         green: 'bg-[#00B06F]/95 border-green-200 text-white'
     };
+    if (!colors[theme] && typeof console !== 'undefined' && console.warn) {
+        console.warn(`[showHudToast] Neznámé téma: "${theme}". Povolená témata jsou: blue, gold, red, green.`);
+    }
     toast.className = `toast-anim px-4 py-2 rounded-xl border font-bold text-xs sm:text-sm shadow-xl ${colors[theme] || colors.blue}`;
     toast.textContent = text;
     container.appendChild(toast);

@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "prepare": "husky"
   },
   "repository": {
     "type": "git",
@@ -22,5 +23,8 @@
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7"
   }
 }
