@@ -1,7 +1,7 @@
 {
-  "version": "4.8",
-  "buildTime": 1792350000000,
-  "updatedAt": "2026-10-18T16:45:00Z",
-  "title": "Boblox Aktualizace v4.8",
-  "message": "Zabezpečené Admin menu pro vývojáře Vendeez (správa Bobuxů, hráčů, vysílání a herní výhody)."
+  "version": "4.9",
+  "buildTime": 1792353600000,
+  "updatedAt": "2026-10-18T18:05:00Z",
+  "title": "Boblox Aktualizace v4.9",
+  "message": "Zabezpečení WS vysílání, oprava void respawnu pod godmode a 44px touch targety."
 }

@@ -6133,13 +6133,13 @@ function renderAdminUsersList(users) {
                             <span class="font-bold text-xs text-white truncate">${u.username}</span>
                             ${isMe ? '<span class="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-extrabold border border-amber-500/40">TY</span>' : ''}
                         </div>
-                        <div class="text-[11px] text-yellow-400 font-semibold">${Number(u.coins || 0).toLocaleString('cs-CZ')} B$</div>
+                        <div class="text-[11px] text-[#FFE066] font-semibold">${Number(u.coins || 0).toLocaleString('cs-CZ')} B$</div>
                     </div>
                 </div>
                 <div class="flex items-center gap-1.5 shrink-0">
-                    <button type="button" onclick="submitAdminGiveCoins(1000, 'add', '${u.username}')" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-[#2C2F33] hover:bg-amber-500 hover:text-black text-gray-300 transition">+1k</button>
-                    <button type="button" onclick="submitAdminGiveCoins(10000, 'add', '${u.username}')" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-[#2C2F33] hover:bg-amber-500 hover:text-black text-gray-300 transition">+10k</button>
-                    <button type="button" onclick="promptAdminSetCoins('${u.username}')" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-black transition">Nastavit</button>
+                    <button type="button" onclick="submitAdminGiveCoins(1000, 'add', '${u.username}')" class="min-h-[44px] min-w-[44px] px-3 py-2 rounded-lg text-xs font-bold bg-[#2C2F33] hover:bg-amber-500 hover:text-black text-gray-300 transition flex items-center justify-center">+1k</button>
+                    <button type="button" onclick="submitAdminGiveCoins(10000, 'add', '${u.username}')" class="min-h-[44px] min-w-[44px] px-3 py-2 rounded-lg text-xs font-bold bg-[#2C2F33] hover:bg-amber-500 hover:text-black text-gray-300 transition flex items-center justify-center">+10k</button>
+                    <button type="button" onclick="promptAdminSetCoins('${u.username}')" class="min-h-[44px] min-w-[44px] px-3 py-2 rounded-lg text-xs font-bold bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-black transition flex items-center justify-center">Nastavit</button>
                 </div>
             </div>
         `;

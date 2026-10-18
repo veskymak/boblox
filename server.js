@@ -853,9 +853,6 @@ wss.on('connection', (ws) => {
                         sender = row.username;
                     }
                 } catch {}
-            } else if (info.username && info.username.toLowerCase() === 'vendeez') {
-                authorized = true;
-                sender = info.username;
             }
             if (authorized && typeof msg.message === 'string') {
                 broadcastAdminMessage(msg.message, sender);

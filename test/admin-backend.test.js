@@ -2,6 +2,7 @@ const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert');
 const http = require('http');
 const jwt = require('jsonwebtoken');
+const WebSocket = require('ws');
 
 describe('Seam 1: Backend requireAdmin Middleware & Admin API Endpoints', () => {
     let serverModule;
@@ -9,6 +10,7 @@ describe('Seam 1: Backend requireAdmin Middleware & Admin API Endpoints', () => 
     let db;
     let httpServer;
     let baseUrl;
+    let wsUrl;
     let vendeezToken;
     let normalUserToken;
     const JWT_SECRET = process.env.JWT_SECRET || 'boblox_super_secret_jwt_key_2026_v2';
@@ -53,10 +55,11 @@ describe('Seam 1: Backend requireAdmin Middleware & Admin API Endpoints', () => 
         vendeezToken = jwt.sign({ id: vendeezId, username: 'Vendeez' }, JWT_SECRET);
         normalUserToken = jwt.sign({ id: playerId, username: 'NoobPlayer' }, JWT_SECRET);
 
-        httpServer = http.createServer(app);
+        httpServer = serverModule.server;
         await new Promise((resolve) => httpServer.listen(0, resolve));
         const addr = httpServer.address();
         baseUrl = `http://127.0.0.1:${addr.port}`;
+        wsUrl = `ws://127.0.0.1:${addr.port}/ws`;
     });
 
     after(async () => {
@@ -165,5 +168,64 @@ describe('Seam 1: Backend requireAdmin Middleware & Admin API Endpoints', () => 
         assert.strictEqual(data.message, 'Vítejte na serveru Boblox!');
         assert.strictEqual(data.sender, 'Vendeez');
     });
+
+    it('rejects WebSocket admin_broadcast from unverified client with spoofed Vendeez presence', async () => {
+        const client1 = new WebSocket(wsUrl);
+        const client2 = new WebSocket(wsUrl);
+        await Promise.all([
+            new Promise(r => client1.on('open', r)),
+            new Promise(r => client2.on('open', r))
+        ]);
+
+        let receivedBroadcast = null;
+        client2.on('message', (raw) => {
+            const data = JSON.parse(String(raw));
+            if (data.type === 'admin_broadcast') {
+                receivedBroadcast = data;
+            }
+        });
+
+        // Client 1 spoofs presence with username Vendeez (without a token)
+        client1.send(JSON.stringify({ type: 'presence', username: 'Vendeez' }));
+        await new Promise(r => setTimeout(r, 60));
+
+        // Client 1 attempts admin_broadcast without a token
+        client1.send(JSON.stringify({ type: 'admin_broadcast', message: 'Spoofed announcement' }));
+        await new Promise(r => setTimeout(r, 120));
+
+        client1.close();
+        client2.close();
+
+        assert.strictEqual(receivedBroadcast, null, 'Unauthenticated broadcast must be rejected');
+    });
+
+    it('allows WebSocket admin_broadcast from verified Vendeez token', async () => {
+        const client1 = new WebSocket(wsUrl);
+        const client2 = new WebSocket(wsUrl);
+        await Promise.all([
+            new Promise(r => client1.on('open', r)),
+            new Promise(r => client2.on('open', r))
+        ]);
+
+        let receivedBroadcast = null;
+        client2.on('message', (raw) => {
+            const data = JSON.parse(String(raw));
+            if (data.type === 'admin_broadcast') {
+                receivedBroadcast = data;
+            }
+        });
+
+        // Client 1 broadcasts with valid JWT token
+        client1.send(JSON.stringify({ type: 'admin_broadcast', message: 'Legit announcement', token: vendeezToken }));
+        await new Promise(r => setTimeout(r, 120));
+
+        client1.close();
+        client2.close();
+
+        assert.ok(receivedBroadcast, 'Verified broadcast must be delivered');
+        assert.strictEqual(receivedBroadcast.message, 'Legit announcement');
+        assert.strictEqual(receivedBroadcast.sender, 'Vendeez');
+    });
 });
+
 

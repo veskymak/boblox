@@ -369,6 +369,25 @@ function eliminateBedwarsEnemy(enemy) {
     }
 }
 
+function checkVoidFall() {
+    if (typeof playerState !== 'undefined' && playerState.pos && playerState.pos.y < -22) {
+        if (playerState.godmode) {
+            if (typeof showHudToast === 'function') {
+                showHudToast('Pád do prázdnoty! Respawn...', 'yellow');
+            }
+            if (typeof respawnPlayer === 'function') {
+                respawnPlayer();
+            }
+        } else {
+            if (typeof damagePlayer === 'function') {
+                damagePlayer(999, 'Pád do prázdnoty!');
+            }
+        }
+        return true;
+    }
+    return false;
+}
+
 // Pre-allocated Scratch Objects for Zero-GC Game Loop & Collisions
 const _playerBox = new THREE.Box3();
 const _forwardVec = new THREE.Vector3();
@@ -822,9 +841,7 @@ function gameLoop(now) {
     updateJuiceParticles(dt);
 
     // Check Fall into Void
-    if (playerState.pos.y < -22) {
-        damagePlayer(999, 'Pád do prázdnoty!');
-    }
+    checkVoidFall();
 
     // 3. Animate Player Limbs (Walking, Jumping, Weapon Swing)
     playerAvatar.root.position.copy(playerState.pos);
@@ -1805,4 +1822,8 @@ function updateGame12Casino(dt, elapsedSec) {
     }
 }
 
-
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        checkVoidFall
+    };
+}

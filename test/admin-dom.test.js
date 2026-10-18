@@ -63,5 +63,21 @@ describe('Seam 4: DOM Integrity & Roblox Developer Admin Modal in index.html', (
         assert.ok(html.includes('toggleAdminSuperSpeed('), 'toggleAdminSuperSpeed handler must exist');
         assert.ok(html.includes('resetAdminDailyCooldown()'), 'resetAdminDailyCooldown handler must exist');
     });
+
+    it('complies with touch target guidelines (min 44px) and Bobux color standard', () => {
+        const closeBtnMatch = html.match(/<button[^>]*onclick="closeAdminModal\(\)"[^>]*>/);
+        assert.ok(closeBtnMatch, 'closeAdminModal button must exist');
+        assert.ok(closeBtnMatch[0].includes('w-11') || closeBtnMatch[0].includes('min-h-[44px]'), 'Modal close button must satisfy min 44px touch target');
+
+        const cheatToggleMatch = html.match(/<button[^>]*onclick="toggleAdminGodmode\(\)"[^>]*>/);
+        assert.ok(cheatToggleMatch, 'toggleAdminGodmode button must exist');
+        assert.ok(cheatToggleMatch[0].includes('min-h-[44px]') || cheatToggleMatch[0].includes('h-11'), 'Godmode cheat button must satisfy min 44px touch target');
+
+        const portalUiCode = fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'PortalUI.js'), 'utf8');
+        assert.strictEqual(portalUiCode.includes('text-[11px] text-yellow-400 font-semibold'), false, 'Should not use text-yellow-400 for Bobux currency');
+        assert.ok(portalUiCode.includes('text-[#FFE066]'), 'Should use official text-[#FFE066] Bobux Gold');
+        assert.ok(portalUiCode.includes("submitAdminGiveCoins(1000, 'add'") && portalUiCode.includes('min-h-[44px]'), 'Quick user actions must satisfy min 44px touch target');
+    });
 });
+
 
