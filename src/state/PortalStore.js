@@ -1211,7 +1211,7 @@ function applyAuthenticatedUser(user) {
             ownedShopItems = new Set([DEFAULT_FACE_ID, ...user.inventory.owned.filter(id => SHOP_ITEM_MAP[id])]);
         }
         if (user.inventory.outfit) {
-            avatarOutfit = sanitizeOutfit(user.inventory.outfit);
+            avatarOutfit = typeof sanitizeOutfit === 'function' ? sanitizeOutfit(user.inventory.outfit) : user.inventory.outfit;
         }
         if (user.inventory.torsoHex) {
             avatarTorsoHex = user.inventory.torsoHex;
@@ -1251,6 +1251,7 @@ function applyAuthenticatedUser(user) {
     if (user.last_login_at !== undefined) authState.user.last_login_at = user.last_login_at;
     if (user.last_active_at !== undefined) authState.user.last_active_at = user.last_active_at;
     updateNickname(user.username);
+    if (typeof invalidateAvatarHeadshotCache === 'function') invalidateAvatarHeadshotCache();
     updateBobuxUI();
     updateAuthUI();
     updateDailyBonusUI();
@@ -1518,6 +1519,7 @@ async function logoutAccount() {
     }
 
     // 6. Refresh all UI & avatars
+    if (typeof invalidateAvatarHeadshotCache === 'function') invalidateAvatarHeadshotCache();
     updateAuthUI();
     if (typeof refreshPortalAvatarVisuals === 'function') refreshPortalAvatarVisuals();
     renderGameCatalog();
@@ -1757,4 +1759,12 @@ if (typeof window !== 'undefined') {
         }
     }, 60000);
 }
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        applyAuthenticatedUser,
+        logoutAccount
+    };
+}
+
 

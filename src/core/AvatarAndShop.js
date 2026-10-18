@@ -1096,6 +1096,90 @@ function generateShopThumbnails() {
     if (thumbRenderer.forceContextLoss) thumbRenderer.forceContextLoss();
 }
 
+let avatarHeadshotCache = {};
+
+function invalidateAvatarHeadshotCache() {
+    avatarHeadshotCache = {};
+    if (typeof window !== 'undefined' && typeof window.clearHeadshotImageElementsCache === 'function') {
+        window.clearHeadshotImageElementsCache();
+    }
+    if (typeof window !== 'undefined' && typeof window.onAvatarHeadshotCacheInvalidated === 'function') {
+        window.onAvatarHeadshotCacheInvalidated();
+    }
+}
+
+if (typeof window !== 'undefined') {
+    window.invalidateAvatarHeadshotCache = invalidateAvatarHeadshotCache;
+    window.getAvatarHeadshotDataUrl = getAvatarHeadshotDataUrl;
+}
+
+function getAvatarHeadshotDataUrl(outfit, torsoHex) {
+    const cleanOutfit = typeof sanitizeOutfit === 'function'
+        ? sanitizeOutfit(outfit || (typeof avatarOutfit !== 'undefined' ? avatarOutfit : {}))
+        : (outfit || (typeof avatarOutfit !== 'undefined' ? avatarOutfit : {}));
+    const cleanTorso = (typeof torsoHex === 'string' && torsoHex.trim())
+        ? torsoHex.trim()
+        : (typeof avatarTorsoHex !== 'undefined' ? avatarTorsoHex : '#0D69AC');
+
+    const key = `${cleanOutfit.hat || ''}|${cleanOutfit.face || ''}|${cleanOutfit.shirt || ''}|${cleanOutfit.pants || ''}|${String(cleanTorso).toUpperCase()}`;
+    if (avatarHeadshotCache[key]) {
+        return avatarHeadshotCache[key];
+    }
+
+    if (typeof THREE === 'undefined' || !THREE.WebGLRenderer) {
+        return null;
+    }
+
+    let renderer;
+    try {
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+    } catch (e) {
+        return null;
+    }
+
+    try {
+        renderer.setSize(128, 128);
+        const headshotScene = new THREE.Scene();
+        if (typeof addPreviewLights === 'function') {
+            addPreviewLights(headshotScene);
+        }
+        const cam = new THREE.PerspectiveCamera(36, 1, 0.1, 50);
+        cam.position.set(0.65, 3.2, -3.6);
+        cam.lookAt(0, 3.05, 0);
+
+        const torsoColorVal = (typeof cleanTorso === 'string' && typeof THREE.Color === 'function')
+            ? new THREE.Color(cleanTorso).getHex()
+            : cleanTorso;
+        const mesh = createBlockyCharacterMesh({ outfit: cleanOutfit, torsoColor: torsoColorVal });
+        if (mesh && mesh.root) {
+            mesh.root.rotation.y = 0.35;
+            headshotScene.add(mesh.root);
+        }
+
+        renderer.render(headshotScene, cam);
+        const dataUrl = renderer.domElement.toDataURL();
+
+        if (mesh && mesh.root) {
+            headshotScene.remove(mesh.root);
+            if (typeof disposeObject3D === 'function') {
+                disposeObject3D(mesh.root);
+            }
+        }
+
+        renderer.dispose();
+        if (renderer.forceContextLoss) renderer.forceContextLoss();
+
+        avatarHeadshotCache[key] = dataUrl;
+        return dataUrl;
+    } catch (e) {
+        try {
+            renderer.dispose();
+            if (renderer.forceContextLoss) renderer.forceContextLoss();
+        } catch (err) {}
+        return null;
+    }
+}
+
 function initShopPreview() {
     if (shopState.renderer) return true;
     const canvas = document.getElementById('shop-preview-canvas');
@@ -1232,6 +1316,7 @@ function equipShopItem(id) {
     const item = SHOP_ITEM_MAP[id];
     if (!item || !ownedShopItems.has(id)) return;
     avatarOutfit[item.slot] = id;
+    if (typeof invalidateAvatarHeadshotCache === 'function') invalidateAvatarHeadshotCache();
     saveShopState();
     sfx.playCoin();
     rebuildShopPreviewAvatar();
@@ -1243,6 +1328,7 @@ function unequipShopSlot(slot) {
     if (!SHOP_SLOTS.includes(slot)) return;
     avatarOutfit[slot] = slot === 'face' ? DEFAULT_FACE_ID : null;
     if (shopState.selectedId && SHOP_ITEM_MAP[shopState.selectedId].slot === slot) shopState.selectedId = null;
+    if (typeof invalidateAvatarHeadshotCache === 'function') invalidateAvatarHeadshotCache();
     saveShopState();
     rebuildShopPreviewAvatar();
     renderShop();
@@ -1728,7 +1814,11 @@ if (typeof module !== 'undefined' && module.exports) {
         renderShop,
         rebuildShopPreviewAvatar,
         updateTorsoColorUI,
-        shopState
+        shopState,
+        getAvatarHeadshotDataUrl,
+        invalidateAvatarHeadshotCache,
+        equipShopItem,
+        unequipShopSlot
     };
 }
 

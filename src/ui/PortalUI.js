@@ -819,6 +819,7 @@ function setAvatarTorsoColor(hex) {
     const storageKey = typeof STORAGE_KEY_TORSO !== 'undefined' ? STORAGE_KEY_TORSO : 'boblox_avatar_torso_hex_v1';
     try { localStorage.setItem(storageKey, hex); } catch (e) {}
 
+    if (typeof invalidateAvatarHeadshotCache === 'function') invalidateAvatarHeadshotCache();
     if (typeof sfx !== 'undefined' && sfx.playCoin) sfx.playCoin();
     if (typeof rebuildShopPreviewAvatar === 'function') rebuildShopPreviewAvatar();
     if (typeof updateTorsoColorUI === 'function') updateTorsoColorUI();
@@ -3116,27 +3117,99 @@ function drawAvatarHeadAndHair2D(ctx, style) {
     }
 }
 
+const headshotImageElementsCache = new Map();
+const headshotPendingCallbacks = new Map();
+
+function clearHeadshotImageElementsCache() {
+    headshotImageElementsCache.clear();
+    headshotPendingCallbacks.clear();
+}
+
+if (typeof window !== 'undefined') {
+    window.clearHeadshotImageElementsCache = clearHeadshotImageElementsCache;
+}
+
 function drawPlayerHeadshotCanvas(canvas, player) {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
     const w = canvas.width;
     const h = canvas.height;
     ctx.clearRect(0, 0, w, h);
 
-    // Circular gradient backdrop
-    const grad = ctx.createRadialGradient(w * 0.5, h * 0.45, w * 0.05, w * 0.5, h * 0.5, w * 0.55);
-    grad.addColorStop(0, '#32353b');
-    grad.addColorStop(1, '#1e2024');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, w, h);
+    // Circular gradient backdrop (Roblox dark aesthetic)
+    const drawBackdrop = () => {
+        const grad = ctx.createRadialGradient(w * 0.5, h * 0.45, w * 0.05, w * 0.5, h * 0.5, w * 0.55);
+        grad.addColorStop(0, '#32353b');
+        grad.addColorStop(1, '#1e2024');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, w, h);
+    };
+    drawBackdrop();
 
-    const style = resolvePlayerVisualStyle(player);
-    ctx.save();
-    ctx.translate(w * 0.5, h * 0.64);
-    const scale = (w / 92);
-    ctx.scale(scale, scale);
-    drawAvatarHeadAndHair2D(ctx, style);
-    ctx.restore();
+    const drawFallback2D = () => {
+        const style = resolvePlayerVisualStyle(player || {});
+        ctx.save();
+        ctx.translate(w * 0.5, h * 0.64);
+        const scale = (w / 92);
+        ctx.scale(scale, scale);
+        drawAvatarHeadAndHair2D(ctx, style);
+        ctx.restore();
+    };
+
+    // Resolve outfit and torso hex (local player or inspected profile)
+    const isLocal = !player || player.isLocal;
+    const outfit = (isLocal && typeof avatarOutfit !== 'undefined')
+        ? avatarOutfit
+        : ((player && player.outfit) || {});
+    const torsoHex = (isLocal && typeof avatarTorsoHex !== 'undefined')
+        ? avatarTorsoHex
+        : ((player && player.torsoHex) || '#0D69AC');
+
+    let headshotDataUrl = null;
+    if (typeof getAvatarHeadshotDataUrl === 'function') {
+        try {
+            headshotDataUrl = getAvatarHeadshotDataUrl(outfit, torsoHex);
+        } catch (e) {
+            headshotDataUrl = null;
+        }
+    }
+
+    if (!headshotDataUrl) {
+        drawFallback2D();
+        return;
+    }
+
+    let img = headshotImageElementsCache.get(headshotDataUrl);
+    if (!img) {
+        img = new Image();
+        headshotPendingCallbacks.set(headshotDataUrl, []);
+        img.onload = () => {
+            const cbs = headshotPendingCallbacks.get(headshotDataUrl) || [];
+            headshotPendingCallbacks.delete(headshotDataUrl);
+            cbs.forEach(cb => {
+                try { cb(); } catch (e) {}
+            });
+        };
+        img.src = headshotDataUrl;
+        headshotImageElementsCache.set(headshotDataUrl, img);
+    }
+
+    const renderSnapshotOnThisCanvas = () => {
+        ctx.clearRect(0, 0, w, h);
+        drawBackdrop();
+        ctx.drawImage(img, 0, 0, w, h);
+    };
+
+    if (img.complete && (img.naturalWidth !== 0 || img.width !== 0)) {
+        renderSnapshotOnThisCanvas();
+    } else {
+        drawFallback2D();
+        const pending = headshotPendingCallbacks.get(headshotDataUrl);
+        if (pending) {
+            pending.push(renderSnapshotOnThisCanvas);
+        }
+    }
 }
 
 function drawPlayerFullBodyCanvas(canvas, player) {
@@ -5786,7 +5859,9 @@ if (typeof module !== 'undefined' && module.exports) {
         getProfileWearingItems,
         renderPortalProfileView,
         setAvatarTorsoColor,
-        openAvatarPreviewModal
+        openAvatarPreviewModal,
+        drawPlayerHeadshotCanvas,
+        refreshPortalAvatarVisuals
     };
 }
 
