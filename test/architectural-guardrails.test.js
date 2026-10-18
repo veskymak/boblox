@@ -140,4 +140,45 @@ describe('Architectural Guardrails (Retrospective Enforcement)', () => {
             console.warn = originalWarn;
         }
     });
+
+    it('guards that all JavaScript files in src/ pass node --check syntax validation', () => {
+        const { execFileSync } = require('child_process');
+        function getJsFiles(dir) {
+            let results = [];
+            const list = fs.readdirSync(dir);
+            list.forEach(file => {
+                const fullPath = path.join(dir, file);
+                const stat = fs.statSync(fullPath);
+                if (stat && stat.isDirectory()) {
+                    results = results.concat(getJsFiles(fullPath));
+                } else if (file.endsWith('.js')) {
+                    results.push(fullPath);
+                }
+            });
+            return results;
+        }
+
+        const srcFiles = getJsFiles(path.join(__dirname, '..', 'src'));
+        assert.ok(srcFiles.length >= 8, 'Must validate all source files in src/');
+        srcFiles.forEach(file => {
+            assert.doesNotThrow(() => {
+                execFileSync(process.execPath, ['--check', file]);
+            }, `File ${path.relative(__dirname, file)} failed node --check syntax validation`);
+        });
+    });
+
+    it('guards touch target compliance and Bobux currency color in AdminUI.js', () => {
+        const adminUiCode = fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'AdminUI.js'), 'utf8');
+
+        // All buttons/tabs rendered in AdminUI should include min-h-[44px]
+        assert.ok(adminUiCode.includes('min-h-[44px]'), 'AdminUI.js must include min-h-[44px] touch target class');
+
+        // Verify dynamic tab switching in switchAdminTab includes min-h-[44px] on both active and inactive states
+        assert.ok(adminUiCode.includes("btn.className = 'min-h-[44px]"), 'switchAdminTab dynamic assignment must include min-h-[44px]');
+
+        // Currency must use text-[#FFE066] and never text-yellow-400
+        assert.ok(adminUiCode.includes('text-[#FFE066]'), 'AdminUI must render Bobux with text-[#FFE066]');
+        assert.strictEqual(adminUiCode.includes('text-yellow-400'), false, 'AdminUI must never use text-yellow-400 for Bobux');
+    });
 });
+
