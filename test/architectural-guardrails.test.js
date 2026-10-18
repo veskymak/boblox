@@ -75,23 +75,36 @@ describe('Architectural Guardrails (Retrospective Enforcement)', () => {
         assert.ok(portalStoreCode.includes('STORAGE_KEY_ADOPTME_PETS = STORAGE_KEYS.ADOPTME_PETS'), 'STORAGE_KEY_ADOPTME_PETS must derive from STORAGE_KEYS');
     });
 
-    it('enforces getAuthTokenSafe reads from authState or STORAGE_KEYS.JWT', () => {
-        const { getAuthTokenSafe } = PortalUI;
-        assert.strictEqual(typeof getAuthTokenSafe, 'function', 'getAuthTokenSafe must be exported');
+    it('enforces isCurrentUserAdmin accepts optional user and handles both Vendeez and isAdmin', () => {
+        const { isCurrentUserAdmin } = AdminUI;
+        assert.strictEqual(typeof isCurrentUserAdmin, 'function', 'isCurrentUserAdmin must be exported');
 
-        // 1. When authState.token is present
-        global.authState.token = 'jwt_live_state';
-        assert.strictEqual(getAuthTokenSafe(), 'jwt_live_state');
+        // 1. Explicit user parameter
+        assert.strictEqual(isCurrentUserAdmin({ username: 'Vendeez' }), true);
+        assert.strictEqual(isCurrentUserAdmin({ username: 'vendeez' }), true);
+        assert.strictEqual(isCurrentUserAdmin({ username: 'OtherUser', isAdmin: true }), true);
+        assert.strictEqual(isCurrentUserAdmin({ username: 'OtherUser', isAdmin: false }), false);
 
-        // 2. When authState.token is null, reads from STORAGE_KEYS.JWT
-        global.authState.token = null;
-        global.localStorage.setItem('boblox_jwt_token_v2', 'jwt_stored_v2');
-        assert.strictEqual(getAuthTokenSafe(), 'jwt_stored_v2');
+        // 2. Global authState fallback when no user is passed
+        global.authState.user = { username: 'Vendeez' };
+        assert.strictEqual(isCurrentUserAdmin(), true);
+        global.authState.user = { username: 'NoobPlayer' };
+        assert.strictEqual(isCurrentUserAdmin(), false);
+    });
 
-        // 3. Fallback for legacy key
-        global.localStorage.clear();
-        global.localStorage.setItem('boblox_auth_jwt_token', 'jwt_legacy');
-        assert.strictEqual(getAuthTokenSafe(), 'jwt_legacy');
+    it('enforces submitAdminGiveCoins updates localStorage when adjusting coins for logged-in user', async () => {
+        global.authState.user = { username: 'Vendeez', coins: 100 };
+        global.bobuxBalance = 100;
+        global.apiRequest = async () => ({
+            ok: true,
+            data: { ok: true, username: 'Vendeez', coins: 999 }
+        });
+
+        await AdminUI.submitAdminGiveCoins(999, 'set', 'Vendeez');
+
+        assert.strictEqual(global.bobuxBalance, 999);
+        assert.strictEqual(global.authState.user.coins, 999);
+        assert.strictEqual(global.localStorage.getItem('boblox_bobux_balance_v1'), '999');
     });
 
     it('guards that UI scripts route all /api calls through apiRequest as primary transport', () => {

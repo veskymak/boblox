@@ -4,10 +4,11 @@
 
 let adminCachedUsers = [];
 
-function isCurrentUserAdmin() {
-    if (typeof authState === 'undefined' || !authState || !authState.user) return false;
-    const name = typeof authState.user.username === 'string' ? authState.user.username.trim().toLowerCase() : '';
-    return name === 'vendeez';
+function isCurrentUserAdmin(user) {
+    const target = user || ((typeof authState !== 'undefined' && authState) ? authState.user : null);
+    if (!target || typeof target.username !== 'string') return false;
+    const name = target.username.trim().toLowerCase();
+    return name === 'vendeez' || Boolean(target.isAdmin);
 }
 
 function updateAdminUI() {
@@ -134,12 +135,6 @@ function resetAdminDailyCooldown() {
     }
 }
 
-function getAuthTokenSafe() {
-    if (typeof authState !== 'undefined' && authState.token) return authState.token;
-    const jwtKey = (typeof STORAGE_KEYS !== 'undefined' && STORAGE_KEYS.JWT) ? STORAGE_KEYS.JWT : 'boblox_jwt_token_v2';
-    return localStorage.getItem(jwtKey) || localStorage.getItem('boblox_auth_jwt_token') || null;
-}
-
 function getFallbackAdminUsers() {
     let localUsers = [];
     if (typeof getLocalUsersDB === 'function') {
@@ -194,6 +189,10 @@ async function submitAdminGiveCoins(amount, action = 'add', targetUsername = nul
                     bobuxBalance = data.coins;
                 }
                 authState.user.coins = data.coins;
+                const bobuxKey = (typeof STORAGE_KEYS !== 'undefined' && STORAGE_KEYS.BOBUX) ? STORAGE_KEYS.BOBUX : 'boblox_bobux_balance_v1';
+                try {
+                    localStorage.setItem(bobuxKey, String(data.coins));
+                } catch (e) {}
                 if (typeof updateBobuxUI === 'function') updateBobuxUI();
             }
             if (typeof loadAdminUsersList === 'function') {
@@ -335,7 +334,6 @@ if (typeof window !== 'undefined') {
     window.toggleAdminGodmode = toggleAdminGodmode;
     window.toggleAdminSuperSpeed = toggleAdminSuperSpeed;
     window.resetAdminDailyCooldown = resetAdminDailyCooldown;
-    window.getAuthTokenSafe = getAuthTokenSafe;
     window.getFallbackAdminUsers = getFallbackAdminUsers;
     window.renderFallbackAdminUsers = renderFallbackAdminUsers;
     window.loadAdminUsersList = loadAdminUsersList;
@@ -355,7 +353,6 @@ if (typeof module !== 'undefined' && module.exports) {
         toggleAdminGodmode,
         toggleAdminSuperSpeed,
         resetAdminDailyCooldown,
-        getAuthTokenSafe,
         getFallbackAdminUsers,
         renderFallbackAdminUsers,
         loadAdminUsersList,
