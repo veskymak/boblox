@@ -24,3 +24,7 @@ Tato složka obsahuje kompletní referenční dokumentaci a návody pro provoz a
 ### 3. Integrační průvodce (`/docs/integration-guide.md`)
 - [`integration-guide.md`](file:///c:/Users/vacla/Desktop/Boblox/boblox/docs/integration-guide.md) – Jak propojit statický frontend na GitHub Pages se Supabase backendem a migrovat z lokálního Node.js / SQLite řešení.
 
+### 4. Vývojové standardy a workflow (`/docs/development/`)
+- [`cache-busting.md`](file:///c:/Users/vacla/Desktop/Boblox/boblox/docs/development/cache-busting.md) – Povinný postup verzování frontendových skriptů před commitem.
+- [`ui-guidelines.md`](file:///c:/Users/vacla/Desktop/Boblox/boblox/docs/development/ui-guidelines.md) – Kritická DOM ID, barevná paleta Roblox tématu a podpora mobilního ovládání.
+

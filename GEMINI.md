@@ -1,35 +1,17 @@
-# BOBLOX - Instrukce a pravidla pro Antigravity
+# Boblox
 
-Vítej v projektu Boblox (3D herní portál s multiplayerem a Roblox estetikou). Při práci na tomto projektu vždy dodržuj následující pravidla:
+Boblox je 3D webová herní platforma s multiplayerem a Roblox estetikou, postavená na Three.js, vanilla JavaScriptu, WebSockets/WebRTC a Node.js/SQLite/Supabase backendu.
 
----
+## 🛠️ Vývojové prostředí
+- **Balíčkovací manažer:** `npm` (žádný externí bundler/build tool; klientské ES6 skripty jsou načítány napřímo přes `<script defer>` v `index.html`).
+- **Lokální server:** `npm run dev` nebo `npm start` (`node server.js`).
 
-## 🚀 1. POVINNÝ Cache-Busting před každým commitem
-Kdykoliv upravíš jakýkoliv skript v `src/` (`src/core/`, `src/state/`, `src/ui/`, `src/games/`, `src/network/`) nebo samotný `index.html`:
-1. **PŘED commitem VŽDY otevři [index.html](file:///c:/Users/vacla/Desktop/Boblox/boblox/index.html)**.
-2. Na konci souboru najdi sekci modulárních skriptů:
-   ```html
-   <!-- BOBLOX Modular Architecture (Core Engine, State, Network, Games & UI with Cache-Busting) -->
-   <script src="src/core/SoundEngine.js?v=X.X" defer></script>
-   <script src="src/state/PortalStore.js?v=X.X" defer></script>
-   ...
-   ```
-3. **Inkrementuj verzi `?v=X.X`** na novou hodnotu (např. z `?v=3.6` na `?v=3.7`).
-4. **Inkrementuj verzi a buildTime v [version.json](file:///c:/Users/vacla/Desktop/Boblox/boblox/version.json)** (tím se aktivním hráčům ve hře automaticky zobrazí hláška o nové aktualizaci a nabídne restart).
-5. Ujisti se, že v `<head>` v `index.html` zůstávají meta tagy pro zákaz cachování HTML:
-   ```html
-   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-   <meta http-equiv="Pragma" content="no-cache">
-   <meta http-equiv="Expires" content="0">
-   ```
-6. Teprve po inkrementaci verze v `index.html` i `version.json` proveď `git add` a `git commit`.
+## ⚠️ Klíčová pravidla pro všechny úkoly
+1. **Cache-Busting před commitem:** Při jakékoliv úpravě v `src/` nebo `index.html` je **povinné** inkrementovat verzi `?v=X.X` v [index.html](file:///c:/Users/vacla/Desktop/Boblox/boblox/index.html) a [version.json](file:///c:/Users/vacla/Desktop/Boblox/boblox/version.json). Kompletní postup viz [Cache-Busting Workflow](file:///c:/Users/vacla/Desktop/Boblox/boblox/docs/development/cache-busting.md).
+2. **Zachování DOM ID a UI:** Nikdy nemaž existující DOM ID (minihry na nich přímo závisí) a dodržuj tmavé Roblox téma. Seznam ID a barevnou paletu najdeš v [UI & Compatibility Guidelines](file:///c:/Users/vacla/Desktop/Boblox/boblox/docs/development/ui-guidelines.md).
 
-> **Proč:** Hráči na webu (GitHub Pages) si jinak stahují staré soubory z mezipaměti prohlížeče a museli by mačkat `Ctrl + Shift + R`. Inkrementace verze a `version.json` zajistí okamžité automatické načtení nového kódu všem hráčům hned napoprvé a upozornění běžících her.
-
----
-
-## 🎮 2. Zachování herních ID a kompatibility
-- **Nikdy nemaž existující DOM ID** (`#three-canvas`, `#hud-hp-bar`, `#hud-game-title`, `#hud-fps`, `#hud-objective-title`, atd.) – minihry v `GameWorlds.js` na nich přímo závisí.
-- **Responzivita**: Všechny nové UI prvky musí fungovat jak na PC s myší/klávesnicí, tak na mobilních zařízeních s dotykovým ovládáním.
-- **Konzistence stylů**: Drž se Roblox 2021–současnost tmavého UI tématu (`#191B1D`, `#232527`, `#2C2F33`, `#393B3D`, modrá `#00A2FF`, zelená `#00B06F`).
-
+## 📚 Dokumentace
+- [Přehled dokumentace](file:///c:/Users/vacla/Desktop/Boblox/boblox/docs/README.md)
+- [Průvodce integrací backendu](file:///c:/Users/vacla/Desktop/Boblox/boblox/docs/integration-guide.md)
+- [GitHub Pages hosting](file:///c:/Users/vacla/Desktop/Boblox/boblox/docs/github-pages/01-getting-started.md)
+- [Supabase API & Realtime](file:///c:/Users/vacla/Desktop/Boblox/boblox/docs/supabase/01-getting-started-js.md)
