@@ -1994,7 +1994,14 @@ function saveCachedFriendProfile(profile) {
         ...profile,
         isLocal: false
     };
-    const list = getCachedFriendsProfiles().filter(p => p.id !== cleanProfile.id && p.username !== cleanProfile.username);
+    const cleanUName = (cleanProfile.username || '').toLowerCase();
+    const cleanId = String(cleanProfile.id || '').toLowerCase();
+    const list = getCachedFriendsProfiles().filter(p => {
+        if (!p) return false;
+        if (p.id === cleanProfile.id || String(p.id || '').toLowerCase() === cleanId) return false;
+        if (cleanUName && (p.username || '').toLowerCase() === cleanUName) return false;
+        return true;
+    });
     list.push(cleanProfile);
     localStorage.setItem(STORAGE_KEY_FRIENDS_CACHE, JSON.stringify(list));
 }
@@ -2413,6 +2420,22 @@ function syncFriendRequestsWithCloudUsers(cloudUsers) {
                 }
             }
         }
+
+        // 3. Občerstvit profil v lokální cache pro stávající přátele při změně bio/outfitu v cloudu
+        if (alreadyFriends) {
+            const bioText = u.bio || inv.bio || 'Registrovaný Boblox hráč';
+            saveCachedFriendProfile({
+                id: cleanKey,
+                dbId: u.id,
+                username: u.username,
+                displayName: u.username,
+                handle: `@${u.username}`,
+                bio: bioText,
+                torsoHex: inv.torsoHex || '#0D69AC',
+                outfit: inv.outfit || null,
+                isLocal: false
+            });
+        }
     }
 
     if (receivedChanged) saveReceivedFriendRequests();
@@ -2664,6 +2687,18 @@ function getPlayerById(playerId) {
         )
     );
     if (cached) {
+        if (typeof getCloudUsersCache === 'function') {
+            const cloudUser = getCloudUsersCache().find(u => u && u.username && u.username.toLowerCase() === cleanNick);
+            if (cloudUser) {
+                const cInv = (typeof cloudUser.inventory === 'object' && cloudUser.inventory !== null)
+                    ? cloudUser.inventory
+                    : (typeof cloudUser.inventory === 'string' ? (() => { try { return JSON.parse(cloudUser.inventory); } catch { return {}; } })() : {});
+                const freshBio = cloudUser.bio || cInv.bio;
+                if (freshBio && freshBio !== 'No bio yet') cached.bio = freshBio;
+                if (cInv.torsoHex) cached.torsoHex = cInv.torsoHex;
+                if (cInv.outfit) cached.outfit = cInv.outfit;
+            }
+        }
         const pres = getPlayerPresence(cached);
         const playerObj = {
             ...cached,

@@ -684,9 +684,28 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
             gamesPlayed: typeof body.gamesPlayed === 'number' ? body.gamesPlayed : (currentInv.gamesPlayed || 0),
             friends: Array.isArray(body.friends) ? body.friends : (currentInv.friends || []),
             sent_friend_requests: Array.isArray(body.sent_friend_requests) ? body.sent_friend_requests : (currentInv.sent_friend_requests || []),
-            received_friend_requests: Array.isArray(body.received_friend_requests) ? body.received_friend_requests : (currentInv.received_friend_requests || [])
+            received_friend_requests: Array.isArray(body.received_friend_requests) ? body.received_friend_requests : (currentInv.received_friend_requests || []),
+            transactions: Array.isArray(body.transactions) ? body.transactions : (currentInv.transactions || [])
         };
         currentUser.inventory = updatePayload.inventory;
+
+        if (Array.isArray(body.transactions)) {
+            try {
+                const latestTx = body.transactions.slice(0, 5);
+                for (const tx of latestTx) {
+                    if (tx && tx.id && typeof tx.amount === 'number') {
+                        await sb.from('transactions').upsert({
+                            id: tx.id,
+                            user_id: currentUser.id,
+                            username: currentUser.username,
+                            amount: tx.amount,
+                            game: tx.game || 'Boblox',
+                            created_at: tx.timestamp || now
+                        }, { onConflict: 'id', ignoreDuplicates: true });
+                    }
+                }
+            } catch (txErr) {}
+        }
 
         if (Array.isArray(body.adoptme_pets)) {
             updatePayload.adoptme_pets = body.adoptme_pets;
@@ -1050,6 +1069,158 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
         };
     }
 
+    if (path === '/api/chat/messages' && method === 'POST') {
+        const currentUser = await getCurrentSupabaseProfile();
+        if (!currentUser) return { ok: false, status: 401, data: { error: 'Pro chatování se musíš přihlásit!' } };
+        const senderName = currentUser.username || 'Hráč';
+        const recipientName = (body.recipient || body.to || '').trim();
+        const text = typeof body.text === 'string' ? sanitizeTextClient(body.text, 250) : '';
+        if (!recipientName || !text) return { ok: false, status: 400, data: { error: 'Chybí příjemce nebo text zprávy.' } };
+
+        const mId = (typeof body.id === 'string' && body.id.trim())
+            ? body.id.trim().slice(0, 80)
+            : ('msg_' + now + '_' + Math.random().toString(36).slice(2, 7));
+        const timestamp = typeof body.timestamp === 'number' ? body.timestamp : now;
+
+        const msgObj = {
+            id: mId,
+            from: senderName,
+            to: recipientName,
+            text: text,
+            timestamp: timestamp,
+            isMe: true
+        };
+
+        // 1. Uložit do Supabase tabulky direct_messages
+        try {
+            let { error: insErr } = await sb.from('direct_messages').insert({
+                id: mId,
+                sender_id: currentUser.id,
+                sender_username: senderName,
+                recipient_username: recipientName,
+                content: text,
+                created_at: timestamp
+            });
+            if (insErr && (insErr.message?.toLowerCase().includes('column') || insErr.code === 'PGRST204')) {
+                await sb.from('direct_messages').insert({
+                    id: mId,
+                    sender_id: currentUser.id,
+                    sender_username: senderName,
+                    recipient_username: recipientName,
+                    text: text,
+                    created_at: timestamp
+                });
+            }
+        } catch (e) {
+            console.warn('Supabase direct_messages insert error:', e);
+        }
+
+        // 2. Lokální fallback pro okamžité offline/lokální zobrazení
+        const socialDB = (typeof getLocalSocialDB === 'function') ? getLocalSocialDB() : {};
+        if (!socialDB._direct_messages) socialDB._direct_messages = [];
+        if (!socialDB._direct_messages.some(m => m.id === mId)) {
+            socialDB._direct_messages.push(msgObj);
+            if (typeof saveLocalSocialDB === 'function') saveLocalSocialDB(socialDB);
+        }
+
+        // 3. Realtime broadcast k příjemci
+        if (typeof sendSocialBroadcast === 'function') {
+            sendSocialBroadcast('direct_chat_message', {
+                id: mId,
+                fromUsername: senderName,
+                toUsername: recipientName,
+                text: text,
+                timestamp: timestamp
+            });
+        }
+
+        return { ok: true, status: 200, data: { ok: true, message: msgObj } };
+    }
+
+    if (path.startsWith('/api/chat/messages') && method === 'GET') {
+        const currentUser = await getCurrentSupabaseProfile();
+        if (!currentUser) return { ok: false, status: 401, data: { error: 'Pro načtení chatu se musíš přihlásit!' } };
+        const myName = (currentUser.username || '').toLowerCase();
+        let partner = '';
+        try {
+            const urlObj = new URL('http://dummy' + path);
+            partner = (urlObj.searchParams.get('partner') || '').toLowerCase();
+        } catch (e) {}
+
+        let messages = [];
+        try {
+            let req = sb.from('direct_messages').select('*');
+            if (partner) {
+                req = req.or(`and(sender_username.ilike.${currentUser.username},recipient_username.ilike.${partner}),and(sender_username.ilike.${partner},recipient_username.ilike.${currentUser.username})`);
+            } else {
+                req = req.or(`sender_username.ilike.${currentUser.username},recipient_username.ilike.${currentUser.username}`);
+            }
+            const { data: dbRows, error: dbErr } = await req.order('created_at', { ascending: true }).limit(200);
+            if (!dbErr && Array.isArray(dbRows)) {
+                messages = dbRows.map(r => ({
+                    id: r.id || r.msg_id || ('msg_' + r.created_at),
+                    from: r.sender_username,
+                    to: r.recipient_username,
+                    text: r.content || r.text || '',
+                    timestamp: typeof r.created_at === 'number' ? r.created_at : new Date(r.created_at).getTime(),
+                    isMe: (r.sender_username || '').toLowerCase() === myName
+                }));
+            }
+        } catch (e) {
+            console.warn('Supabase get direct_messages error:', e);
+        }
+
+        const socialDB = (typeof getLocalSocialDB === 'function') ? getLocalSocialDB() : {};
+        const localList = (socialDB && Array.isArray(socialDB._direct_messages)) ? socialDB._direct_messages : [];
+        const localFiltered = localList.filter(m => {
+            const f = (m.from || '').toLowerCase();
+            const t = (m.to || '').toLowerCase();
+            if (partner) {
+                return (f === myName && t === partner) || (f === partner && t === myName);
+            }
+            return f === myName || t === myName;
+        });
+
+        const mergedMap = new Map();
+        messages.forEach(m => { if (m && m.id) mergedMap.set(m.id, m); });
+        localFiltered.forEach(m => {
+            if (m && m.id && !mergedMap.has(m.id)) {
+                mergedMap.set(m.id, {
+                    ...m,
+                    isMe: (m.from || '').toLowerCase() === myName
+                });
+            }
+        });
+
+        const sorted = Array.from(mergedMap.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+        return { ok: true, status: 200, data: { ok: true, messages: sorted } };
+    }
+
+    if (path.startsWith('/api/transactions') && method === 'GET') {
+        const currentUser = await getCurrentSupabaseProfile();
+        if (!currentUser) return { ok: false, status: 401, data: { error: 'Nepřihlášen' } };
+        let txList = [];
+        try {
+            const { data: dbTx, error: txErr } = await sb.from('transactions')
+                .select('*')
+                .or(`user_id.eq.${currentUser.id},username.ilike.${currentUser.username}`)
+                .order('created_at', { ascending: false })
+                .limit(50);
+            if (!txErr && Array.isArray(dbTx) && dbTx.length > 0) {
+                txList = dbTx.map(t => ({
+                    id: t.id,
+                    amount: t.amount,
+                    game: t.game,
+                    timestamp: typeof t.created_at === 'number' ? t.created_at : new Date(t.created_at).getTime()
+                }));
+            }
+        } catch (e) {}
+        if (txList.length === 0 && currentUser.inventory && Array.isArray(currentUser.inventory.transactions)) {
+            txList = currentUser.inventory.transactions;
+        }
+        return { ok: true, status: 200, data: { ok: true, transactions: txList } };
+    }
+
     function isSupabaseAdminUser(profile) {
         if (typeof isCurrentUserAdmin === 'function' && isCurrentUserAdmin(profile)) return true;
         const pName = (profile?.username || '').toLowerCase();
@@ -1105,25 +1276,48 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
             return { ok: false, status: 400, data: { error: 'Částka musí být platné kladné číslo.' } };
         }
 
-        let { data: targetProfile } = await sb.from('profiles').select('*').ilike('username', targetUsername).maybeSingle();
-        if (!targetProfile && targetUsername.toLowerCase() === (currentUser?.username || '').toLowerCase()) {
-            targetProfile = currentUser;
-        }
-        if (!targetProfile) {
-            return { ok: false, status: 404, data: { error: `Uživatel "${targetUsername}" nenalezen v cloudu.` } };
-        }
+        let newCoins = null;
+        let rpcSuccess = false;
 
-        const currentCoins = Number(targetProfile.coins) || 0;
-        const newCoins = action === 'set' ? Math.max(0, Math.floor(rawAmount)) : Math.max(0, Math.floor(currentCoins + rawAmount));
-
+        // 1. Přednostní volání Supabase RPC funkce admin_give_coins (SECURITY DEFINER obchází RLS omezení pro cizí řádky)
         try {
-            await sb.from('profiles').update({ coins: newCoins }).eq('id', targetProfile.id);
+            const { data: rpcRes, error: rpcErr } = await sb.rpc('admin_give_coins', {
+                target_username: targetUsername,
+                amount: Math.floor(rawAmount),
+                action: action
+            });
+            if (!rpcErr && rpcRes && (typeof rpcRes.coins === 'number' || rpcRes.ok)) {
+                rpcSuccess = true;
+                newCoins = typeof rpcRes.coins === 'number' ? rpcRes.coins : rawAmount;
+            }
         } catch (e) {
-            console.warn('Supabase coins update failed:', e);
+            console.warn('Supabase admin_give_coins RPC attempt:', e);
         }
-        targetProfile.coins = newCoins;
 
-        if (authState.user && authState.user.username && authState.user.username.toLowerCase() === targetProfile.username.toLowerCase()) {
+        // 2. Záložní přímý update (funkční při změně vlastního profilu nebo při nastavení RLS pro admina)
+        let targetProfile = null;
+        if (!rpcSuccess) {
+            let { data: tp } = await sb.from('profiles').select('*').ilike('username', targetUsername).maybeSingle();
+            targetProfile = tp;
+            if (!targetProfile && targetUsername.toLowerCase() === (currentUser?.username || '').toLowerCase()) {
+                targetProfile = currentUser;
+            }
+            if (!targetProfile) {
+                return { ok: false, status: 404, data: { error: `Uživatel "${targetUsername}" nenalezen v cloudu.` } };
+            }
+
+            const currentCoins = Number(targetProfile.coins) || 0;
+            newCoins = action === 'set' ? Math.max(0, Math.floor(rawAmount)) : Math.max(0, Math.floor(currentCoins + rawAmount));
+
+            try {
+                await sb.from('profiles').update({ coins: newCoins }).eq('id', targetProfile.id);
+            } catch (e) {
+                console.warn('Supabase coins update failed:', e);
+            }
+            targetProfile.coins = newCoins;
+        }
+
+        if (authState.user && authState.user.username && authState.user.username.toLowerCase() === targetUsername.toLowerCase()) {
             authState.user.coins = newCoins;
             bobuxBalance = newCoins;
             try { localStorage.setItem(STORAGE_KEY_BOBUX, String(newCoins)); } catch (e) {}
@@ -1136,9 +1330,8 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
             status: 200,
             data: {
                 ok: true,
-                username: targetProfile.username,
+                username: targetUsername,
                 coins: newCoins,
-                diff: newCoins - currentCoins,
                 action
             }
         };
@@ -1791,6 +1984,16 @@ function applyAuthenticatedUser(user) {
             });
             if (typeof saveReceivedFriendRequests === 'function') saveReceivedFriendRequests();
         }
+        if (Array.isArray(user.inventory.transactions) && user.inventory.transactions.length > 0) {
+            const cloudTxs = user.inventory.transactions;
+            const localTxs = (typeof bobuxTransactions !== 'undefined' && Array.isArray(bobuxTransactions)) ? bobuxTransactions : [];
+            const mergedMap = new Map();
+            localTxs.forEach(t => { if (t && t.id) mergedMap.set(t.id, t); });
+            cloudTxs.forEach(t => { if (t && t.id) mergedMap.set(t.id, t); });
+            const merged = Array.from(mergedMap.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 60);
+            if (typeof bobuxTransactions !== 'undefined') bobuxTransactions = merged;
+            try { localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(merged)); } catch (e) {}
+        }
         if (typeof saveShopState === 'function') saveShopState();
     }
     if (typeof user.adoptme_bucks === 'number') {
@@ -1840,7 +2043,8 @@ async function syncAccountToServer() {
             daily_claim_date: lastClaimTimestamp,
             friends: friendsList,
             sent_friend_requests: sentReqsList,
-            received_friend_requests: receivedReqsList
+            received_friend_requests: receivedReqsList,
+            transactions: (typeof bobuxTransactions !== 'undefined' && Array.isArray(bobuxTransactions)) ? bobuxTransactions.slice(0, 50) : []
         }
     });
 

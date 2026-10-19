@@ -1,7 +1,7 @@
 {
-  "version": "6.4",
-  "buildTime": 1792440300000,
-  "updatedAt": "2026-10-19T22:25:00Z",
-  "title": "Boblox Aktualizace v6.4",
-  "message": "Oprava synchronizace bio/profilu hráče mezi PC a mobilem (SQLite, Supabase cloud a offline fallback perzistence)."
+  "version": "6.5",
+  "buildTime": 1792442400000,
+  "updatedAt": "2026-10-19T22:55:00Z",
+  "title": "Boblox Aktualizace v6.5",
+  "message": "Synchronizace chatu a transakcí v Supabase cloudu, admin RPC funkce admin_give_coins a obnova profilů přátel."
 }

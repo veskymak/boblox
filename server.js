@@ -32,6 +32,7 @@ const dbPath = path.join(__dirname, 'boblox.db');
 const db = new DatabaseSync(dbPath);
 
 db.exec(`
+    PRAGMA busy_timeout = 5000;
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
 

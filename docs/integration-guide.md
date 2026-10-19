@@ -62,6 +62,83 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+-- 3. Tabulka pro přímé zprávy (Direct Chat) a transakce v cloudu
+-- Kompletní skript viz docs/supabase/schema_update_v6.5.sql
+CREATE TABLE IF NOT EXISTS public.direct_messages (
+  id TEXT PRIMARY KEY DEFAULT ('msg_' || extract(epoch from now())::bigint || '_' || substr(md5(random()::text), 1, 6)),
+  sender_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  sender_username TEXT NOT NULL,
+  recipient_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  recipient_username TEXT NOT NULL,
+  content TEXT NOT NULL,
+  created_at BIGINT NOT NULL DEFAULT (extract(epoch from now()) * 1000)::bigint
+);
+ALTER TABLE public.direct_messages ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Veřejné čtení direct_messages" ON public.direct_messages FOR SELECT USING (true);
+CREATE POLICY "Vkládání direct_messages" ON public.direct_messages FOR INSERT WITH CHECK (true);
+
+CREATE TABLE IF NOT EXISTS public.transactions (
+  id TEXT PRIMARY KEY DEFAULT ('tx_' || extract(epoch from now())::bigint || '_' || substr(md5(random()::text), 1, 6)),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  username TEXT NOT NULL,
+  amount INTEGER NOT NULL,
+  game TEXT NOT NULL,
+  created_at BIGINT NOT NULL DEFAULT (extract(epoch from now()) * 1000)::bigint
+);
+ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Veřejné čtení transactions" ON public.transactions FOR SELECT USING (true);
+CREATE POLICY "Vkládání transactions" ON public.transactions FOR INSERT WITH CHECK (true);
+
+-- 4. Admin RPC funkce pro změnu Bobuxů (SECURITY DEFINER obchází RLS pro administrátory)
+CREATE OR REPLACE FUNCTION public.admin_give_coins(
+  target_username TEXT,
+  amount INTEGER,
+  action TEXT DEFAULT 'add'
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  caller_id UUID;
+  caller_profile RECORD;
+  target_profile RECORD;
+  calculated_coins INTEGER;
+BEGIN
+  caller_id := auth.uid();
+  IF caller_id IS NOT NULL THEN
+    SELECT * INTO caller_profile FROM public.profiles WHERE id = caller_id;
+    IF lower(caller_profile.username) NOT IN ('vendeez', 'admin') AND NOT coalesce(caller_profile.is_admin, false) THEN
+      RAISE EXCEPTION 'Přístup odepřen: Administrátorská práva vyžadována.';
+    END IF;
+  END IF;
+
+  SELECT * INTO target_profile FROM public.profiles WHERE lower(username) = lower(trim(target_username));
+  IF target_profile.id IS NULL THEN
+    RAISE EXCEPTION 'Uživatel % nebyl v cloudu nalezen.', target_username;
+  END IF;
+
+  IF action = 'set' THEN
+    calculated_coins := GREATEST(0, amount);
+  ELSE
+    calculated_coins := GREATEST(0, coalesce(target_profile.coins, 0) + amount);
+  END IF;
+
+  UPDATE public.profiles
+  SET coins = calculated_coins, last_active_at = timezone('utc'::text, now())
+  WHERE id = target_profile.id;
+
+  RETURN jsonb_build_object(
+    'ok', true,
+    'username', target_profile.username,
+    'coins', calculated_coins,
+    'diff', calculated_coins - coalesce(target_profile.coins, 0),
+    'action', action
+  );
+END;
+$$;
 ```
 
 ---
