@@ -1,7 +1,7 @@
 {
-  "version": "5.8",
-  "buildTime": 1792376000000,
-  "updatedAt": "2026-10-19T01:25:00Z",
-  "title": "Boblox Aktualizace v5.8",
-  "message": "Oprava persistence Bobuxů po reloadu v admin menu a propojení cloudové mezipaměti hráčů."
+  "version": "5.9",
+  "buildTime": 1792432715000,
+  "updatedAt": "2026-10-19T17:58:00Z",
+  "title": "Boblox Aktualizace v5.9",
+  "message": "Oprava načítání herních světů odstraněním duplicitních deklarací a prevence černé obrazovky."
 }

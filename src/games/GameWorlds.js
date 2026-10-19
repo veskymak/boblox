@@ -957,8 +957,7 @@ function spawnBedwarsEnemy(name, posVec) {
 /* ============================================================================
  * 11B. GAME 11: ADOPT ME! – ADOPTION ISLAND (playadopt.me Authentic Experience)
  * ============================================================================ */
-const STORAGE_KEY_ADOPTME_PETS = 'boblox_adoptme_pets_v1';
-const STORAGE_KEY_ADOPTME_BUCKS = 'boblox_adoptme_bucks_v1';
+// Storage keys STORAGE_KEY_ADOPTME_PETS and STORAGE_KEY_ADOPTME_BUCKS are inherited from PortalStore.js (STORAGE_KEYS SSOT)
 
 const ADOPT_ME_AGE_STAGES = [
     'Newborn',
