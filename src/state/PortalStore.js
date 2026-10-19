@@ -68,14 +68,17 @@ function resetGuestEconomy() {
 }
 
 // Current authenticated user state
-const authState = {
-    token: localStorage.getItem(STORAGE_KEY_JWT) || null,
+const authState = (typeof window !== 'undefined' && window.authState) ? window.authState : {
+    token: (typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY_JWT) : null) || null,
     user: null, // { id, username, coins, inventory, daily_claim_date, game_ratings, comments }
     mode: 'login',
     backendConnected: false,
     isSupabase: false,
     lastCommentTime: 0
 };
+if (typeof window !== 'undefined') {
+    window.authState = authState;
+}
 
 // Live online player counters (NO fake random generators!)
 const liveSocialState = {
@@ -425,7 +428,16 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
             ? authState.token.replace('sb_jwt_', '')
             : null;
 
-        if (!uid) uid = tokenUid;
+        if (!uid && authState.user) {
+            uid = authState.user.id;
+        }
+        if (!uid && authState.user?.username) {
+            try {
+                const { data: byName } = await sb.from('profiles').select('*').ilike('username', authState.user.username).maybeSingle();
+                if (byName) return byName;
+            } catch (e) {}
+            return authState.user;
+        }
         if (!uid) return null;
 
         // 1. Zkusit najít přímo podle UUID (nové Supabase Auth ID)
@@ -655,7 +667,8 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
             torsoHex: body.torsoHex || currentInv.torsoHex || '#0D69AC',
             gamesPlayed: typeof body.gamesPlayed === 'number' ? body.gamesPlayed : (currentInv.gamesPlayed || 0),
             friends: Array.isArray(body.friends) ? body.friends : (currentInv.friends || []),
-            sent_friend_requests: Array.isArray(body.sent_friend_requests) ? body.sent_friend_requests : (currentInv.sent_friend_requests || [])
+            sent_friend_requests: Array.isArray(body.sent_friend_requests) ? body.sent_friend_requests : (currentInv.sent_friend_requests || []),
+            received_friend_requests: Array.isArray(body.received_friend_requests) ? body.received_friend_requests : (currentInv.received_friend_requests || [])
         };
         currentUser.inventory = updatePayload.inventory;
 
@@ -687,6 +700,69 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
             console.warn('Supabase sync upozornění:', updErr);
         }
         return { ok: true, status: 200, data: { user: currentUser, serverTime: now } };
+    }
+
+    if (path === '/api/friends/request' && method === 'POST') {
+        const currentUser = await getCurrentSupabaseProfile();
+        if (!currentUser) return { ok: false, status: 401, data: { error: 'Pro odeslání žádosti se musíš přihlásit!' } };
+        const targetUsername = typeof body.targetUsername === 'string' ? body.targetUsername.trim() : '';
+        if (!targetUsername) return { ok: false, status: 400, data: { error: 'Chybí cílový uživatel.' } };
+
+        try {
+            let { data: targetProfile } = await sb.from('profiles').select('id, username, inventory').ilike('username', targetUsername).maybeSingle();
+            if (targetProfile) {
+                const tInv = (typeof targetProfile.inventory === 'object' && targetProfile.inventory !== null)
+                    ? { ...targetProfile.inventory }
+                    : (typeof targetProfile.inventory === 'string' ? (() => { try { return JSON.parse(targetProfile.inventory); } catch (e) { return {}; } })() : {});
+                const recList = Array.isArray(tInv.received_friend_requests) ? [...tInv.received_friend_requests] : [];
+                const reqObj = {
+                    id: `cloud_${currentUser.username.toLowerCase()}`,
+                    username: currentUser.username,
+                    receivedAt: now,
+                    senderProfile: body.sender?.senderProfile || null
+                };
+                if (!recList.some(r => r && (r.username || '').toLowerCase() === currentUser.username.toLowerCase())) {
+                    recList.push(reqObj);
+                    tInv.received_friend_requests = recList;
+                    await sb.from('profiles').update({ inventory: tInv }).eq('id', targetProfile.id);
+                }
+            }
+        } catch (e) {
+            console.warn('Supabase friends request error:', e);
+        }
+        return { ok: true, status: 200, data: { ok: true } };
+    }
+
+    if (path === '/api/friends/accept' && method === 'POST') {
+        const currentUser = await getCurrentSupabaseProfile();
+        if (!currentUser) return { ok: false, status: 401, data: { error: 'Pro přijetí žádosti se musíš přihlásit!' } };
+        const targetUsername = typeof body.targetUsername === 'string' ? body.targetUsername.trim() : '';
+        if (!targetUsername) return { ok: false, status: 400, data: { error: 'Chybí cílový uživatel.' } };
+
+        try {
+            let { data: targetProfile } = await sb.from('profiles').select('id, username, inventory').ilike('username', targetUsername).maybeSingle();
+            if (targetProfile) {
+                const tInv = (typeof targetProfile.inventory === 'object' && targetProfile.inventory !== null)
+                    ? { ...targetProfile.inventory }
+                    : (typeof targetProfile.inventory === 'string' ? (() => { try { return JSON.parse(targetProfile.inventory); } catch (e) { return {}; } })() : {});
+                const tFriends = Array.isArray(tInv.friends) ? [...tInv.friends] : [];
+                const myClean = currentUser.username.toLowerCase();
+                if (!tFriends.includes(myClean)) {
+                    tFriends.push(myClean);
+                    tInv.friends = tFriends;
+                }
+                if (Array.isArray(tInv.sent_friend_requests)) {
+                    tInv.sent_friend_requests = tInv.sent_friend_requests.filter(r => r && (r.username || '').toLowerCase() !== myClean);
+                }
+                if (Array.isArray(tInv.received_friend_requests)) {
+                    tInv.received_friend_requests = tInv.received_friend_requests.filter(r => r && (r.username || '').toLowerCase() !== myClean);
+                }
+                await sb.from('profiles').update({ inventory: tInv }).eq('id', targetProfile.id);
+            }
+        } catch (e) {
+            console.warn('Supabase friends accept error:', e);
+        }
+        return { ok: true, status: 200, data: { ok: true } };
     }
 
     if (path === '/api/user/active' && method === 'POST') {
@@ -797,23 +873,41 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
         const gid = rateMatch[1];
         const vote = body.vote;
 
-        const { error: upsertErr } = await sb.from('game_ratings').upsert({
-            game_id: gid,
-            username: currentUser.username,
-            vote: vote,
-            updated_at: new Date().toISOString()
-        }, { onConflict: 'game_id,username' });
-
-        if (upsertErr) {
-            console.error('Supabase rate error:', upsertErr);
-            return { ok: false, status: 500, data: { error: 'Chyba při ukládání hodnocení.' } };
+        let upsertErr = null;
+        try {
+            const res = await sb.from('game_ratings').upsert({
+                game_id: gid,
+                username: currentUser.username,
+                vote: vote,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'game_id,username' });
+            upsertErr = res?.error || null;
+        } catch (e) {
+            upsertErr = e;
         }
 
-        const { data: gVotes } = await sb.from('game_ratings').select('vote').eq('game_id', gid);
-        const votesArr = gVotes || [];
-        const likes = votesArr.filter(v => v.vote === 'like').length;
-        const dislikes = votesArr.filter(v => v.vote === 'dislike').length;
-        const total = likes + dislikes;
+        let likes = 0;
+        let dislikes = 0;
+        let total = 0;
+        if (!upsertErr) {
+            try {
+                const { data: gVotes } = await sb.from('game_ratings').select('vote').eq('game_id', gid);
+                const votesArr = gVotes || [];
+                likes = votesArr.filter(v => v.vote === 'like').length;
+                dislikes = votesArr.filter(v => v.vote === 'dislike').length;
+                total = likes + dislikes;
+            } catch (e) {}
+        } else {
+            console.warn('Supabase rate warning (falling back to local):', upsertErr);
+            const socialDB = (typeof getLocalSocialDB === 'function') ? getLocalSocialDB() : {};
+            if (!socialDB[gid]) socialDB[gid] = { votes: {}, comments: [] };
+            socialDB[gid].votes[currentUser.id || currentUser.username] = vote;
+            if (typeof saveLocalSocialDB === 'function') saveLocalSocialDB(socialDB);
+            const vals = Object.values(socialDB[gid].votes);
+            likes = vals.filter(v => v === 'like').length;
+            dislikes = vals.filter(v => v === 'dislike').length;
+            total = likes + dislikes;
+        }
 
         return {
             ok: true,
@@ -836,18 +930,44 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
         const clean = sanitizeTextClient(body.content, 250);
         if (clean.length < 2) return { ok: false, status: 400, data: { error: 'Komentář musí mít 2–250 znaků.' } };
 
-        const { data: newComment, error: cErr } = await sb.from('comments').insert({
-            game_id: gid,
-            username: currentUser.username,
-            content: clean
-        }).select().single();
-
-        if (cErr || !newComment) {
-            console.error('Supabase comment insert error:', cErr);
-            return { ok: false, status: 500, data: { error: 'Chyba při ukládání komentáře.' } };
+        let newComment = null;
+        let cErr = null;
+        try {
+            const res = await sb.from('comments').insert({
+                game_id: gid,
+                username: currentUser.username,
+                content: clean
+            }).select().single();
+            newComment = res?.data || null;
+            cErr = res?.error || null;
+        } catch (e) {
+            cErr = e;
         }
 
         currentUser.last_comment_at = now;
+        if (cErr || !newComment) {
+            console.warn('Supabase comment insert warning (falling back to local):', cErr);
+            const fallbackComment = {
+                id: Date.now(),
+                gameId: gid,
+                username: currentUser.username,
+                content: clean,
+                createdAt: now
+            };
+            const socialDB = (typeof getLocalSocialDB === 'function') ? getLocalSocialDB() : {};
+            if (!socialDB[gid]) socialDB[gid] = { votes: {}, comments: [] };
+            socialDB[gid].comments.unshift(fallbackComment);
+            if (typeof saveLocalSocialDB === 'function') saveLocalSocialDB(socialDB);
+            return {
+                ok: true,
+                status: 201,
+                data: {
+                    ok: true,
+                    comment: fallbackComment
+                }
+            };
+        }
+
         return {
             ok: true,
             status: 201,
@@ -909,6 +1029,125 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
                 comments
             }
         };
+    }
+
+    function isSupabaseAdminUser(profile) {
+        if (typeof isCurrentUserAdmin === 'function' && isCurrentUserAdmin(profile)) return true;
+        const pName = (profile?.username || '').toLowerCase();
+        if (pName === 'vendeez' || pName === 'admin' || profile?.isAdmin) return true;
+        const aName = (authState.user?.username || '').toLowerCase();
+        if (aName === 'vendeez' || aName === 'admin' || authState.user?.isAdmin) return true;
+        return false;
+    }
+
+    if (path === '/api/admin/users' && method === 'GET') {
+        const currentUser = await getCurrentSupabaseProfile();
+        if (!isSupabaseAdminUser(currentUser)) {
+            return { ok: false, status: 403, data: { error: 'Přístup odepřen: Administrátorská práva vyžadována.' } };
+        }
+        try {
+            let req = sb.from('profiles').select('id, username, coins, inventory, created_at, last_login_at, last_active_at');
+            const { data, error } = await req.order('created_at', { ascending: false }).limit(200);
+            const profiles = (data && Array.isArray(data)) ? data : [];
+            const userList = profiles.map(p => {
+                const inv = (typeof p.inventory === 'object' && p.inventory !== null)
+                    ? p.inventory
+                    : (typeof p.inventory === 'string' ? (() => { try { return JSON.parse(p.inventory); } catch (e) { return {}; } })() : {});
+                return {
+                    id: p.id,
+                    username: p.username,
+                    coins: Number(p.coins) || 0,
+                    gamesPlayed: Number(inv.gamesPlayed) || 0,
+                    daily_claim_date: Number(p.daily_claim_date) || 0,
+                    last_login_at: p.last_login_at ? new Date(p.last_login_at).getTime() : now,
+                    last_active_at: p.last_active_at ? new Date(p.last_active_at).getTime() : now,
+                    created_at: p.created_at ? new Date(p.created_at).getTime() : now
+                };
+            });
+            return { ok: true, status: 200, data: { ok: true, users: userList }, serverTime: now };
+        } catch (err) {
+            console.warn('Supabase admin users error:', err);
+            return { ok: false, status: 500, data: { error: 'Chyba při načítání uživatelů ze Supabase.' } };
+        }
+    }
+
+    if (path === '/api/admin/give-coins' && method === 'POST') {
+        const currentUser = await getCurrentSupabaseProfile();
+        if (!isSupabaseAdminUser(currentUser)) {
+            return { ok: false, status: 403, data: { error: 'Přístup odepřen: Administrátorská práva vyžadována.' } };
+        }
+        const targetUsername = typeof body.username === 'string' ? body.username.trim() : '';
+        const rawAmount = Number(body.amount);
+        const action = body.action === 'set' || body.setBalance === true ? 'set' : 'add';
+        if (!targetUsername) {
+            return { ok: false, status: 400, data: { error: 'Uživatelské jméno je povinné.' } };
+        }
+        if (isNaN(rawAmount) || rawAmount < 0) {
+            return { ok: false, status: 400, data: { error: 'Částka musí být platné kladné číslo.' } };
+        }
+
+        let { data: targetProfile } = await sb.from('profiles').select('*').ilike('username', targetUsername).maybeSingle();
+        if (!targetProfile && targetUsername.toLowerCase() === (currentUser?.username || '').toLowerCase()) {
+            targetProfile = currentUser;
+        }
+        if (!targetProfile) {
+            return { ok: false, status: 404, data: { error: `Uživatel "${targetUsername}" nenalezen v cloudu.` } };
+        }
+
+        const currentCoins = Number(targetProfile.coins) || 0;
+        const newCoins = action === 'set' ? Math.max(0, Math.floor(rawAmount)) : Math.max(0, Math.floor(currentCoins + rawAmount));
+
+        try {
+            await sb.from('profiles').update({ coins: newCoins }).eq('id', targetProfile.id);
+        } catch (e) {
+            console.warn('Supabase coins update failed:', e);
+        }
+        targetProfile.coins = newCoins;
+
+        if (authState.user && authState.user.username && authState.user.username.toLowerCase() === targetProfile.username.toLowerCase()) {
+            authState.user.coins = newCoins;
+            bobuxBalance = newCoins;
+            try { localStorage.setItem(STORAGE_KEY_BOBUX, String(newCoins)); } catch (e) {}
+            try { localStorage.setItem(STORAGE_KEYS.USER_CACHE, JSON.stringify(authState.user)); } catch (e) {}
+            if (typeof updateBobuxUI === 'function') updateBobuxUI();
+        }
+
+        return {
+            ok: true,
+            status: 200,
+            data: {
+                ok: true,
+                username: targetProfile.username,
+                coins: newCoins,
+                diff: newCoins - currentCoins,
+                action
+            }
+        };
+    }
+
+    if (path === '/api/admin/broadcast' && method === 'POST') {
+        const currentUser = await getCurrentSupabaseProfile();
+        if (!isSupabaseAdminUser(currentUser)) {
+            return { ok: false, status: 403, data: { error: 'Přístup odepřen: Administrátorská práva vyžadována.' } };
+        }
+        const msg = (body.message || '').trim();
+        if (!msg) {
+            return { ok: false, status: 400, data: { error: 'Zpráva oznámení nesmí být prázdná.' } };
+        }
+        const sender = currentUser?.username || (authState.user?.username || 'Vendeez');
+        const broadcastPayload = {
+            type: 'admin_broadcast',
+            message: msg,
+            sender,
+            timestamp: now
+        };
+        if (typeof sendSocialBroadcast === 'function') {
+            sendSocialBroadcast('admin_broadcast', broadcastPayload);
+        }
+        if (typeof handleIncomingAdminBroadcast === 'function') {
+            handleIncomingAdminBroadcast(broadcastPayload);
+        }
+        return { ok: true, status: 200, data: { ok: true, message: msg, sender } };
     }
 
     return null;
@@ -1073,10 +1312,60 @@ async function handleOfflineApiFallback(path, options = {}) {
             torsoHex: body.torsoHex || currentInv.torsoHex,
             gamesPlayed: typeof body.gamesPlayed === 'number' ? body.gamesPlayed : (currentInv.gamesPlayed || 0),
             friends: Array.isArray(body.friends) ? body.friends : (currentInv.friends || []),
-            sent_friend_requests: Array.isArray(body.sent_friend_requests) ? body.sent_friend_requests : (currentInv.sent_friend_requests || [])
+            sent_friend_requests: Array.isArray(body.sent_friend_requests) ? body.sent_friend_requests : (currentInv.sent_friend_requests || []),
+            received_friend_requests: Array.isArray(body.received_friend_requests) ? body.received_friend_requests : (currentInv.received_friend_requests || [])
         };
         saveLocalUsersDB(users);
         return { ok: true, status: 200, data: { user: currentUser, serverTime: now } };
+    }
+
+    if (path === '/api/friends/request' && method === 'POST') {
+        const actingUser = currentUser || authState.user;
+        if (!actingUser) return { ok: false, status: 401, data: { error: 'Pro odeslání žádosti se musíš přihlásit!' } };
+        const targetUsername = typeof body.targetUsername === 'string' ? body.targetUsername.trim() : '';
+        if (!targetUsername) return { ok: false, status: 400, data: { error: 'Chybí cílový uživatel.' } };
+        const targetUser = users.find(u => u.username && u.username.toLowerCase() === targetUsername.toLowerCase());
+        if (targetUser) {
+            targetUser.inventory = targetUser.inventory || {};
+            const recList = Array.isArray(targetUser.inventory.received_friend_requests) ? targetUser.inventory.received_friend_requests : [];
+            const reqObj = {
+                id: `local_${actingUser.username.toLowerCase()}`,
+                username: actingUser.username,
+                receivedAt: now,
+                senderProfile: body.sender?.senderProfile || null
+            };
+            if (!recList.some(r => r && (r.username || '').toLowerCase() === actingUser.username.toLowerCase())) {
+                recList.push(reqObj);
+                targetUser.inventory.received_friend_requests = recList;
+                saveLocalUsersDB(users);
+            }
+        }
+        return { ok: true, status: 200, data: { ok: true } };
+    }
+
+    if (path === '/api/friends/accept' && method === 'POST') {
+        const actingUser = currentUser || authState.user;
+        if (!actingUser) return { ok: false, status: 401, data: { error: 'Pro přijetí žádosti se musíš přihlásit!' } };
+        const targetUsername = typeof body.targetUsername === 'string' ? body.targetUsername.trim() : '';
+        if (!targetUsername) return { ok: false, status: 400, data: { error: 'Chybí cílový uživatel.' } };
+        const targetUser = users.find(u => u.username && u.username.toLowerCase() === targetUsername.toLowerCase());
+        if (targetUser) {
+            targetUser.inventory = targetUser.inventory || {};
+            const tFriends = Array.isArray(targetUser.inventory.friends) ? targetUser.inventory.friends : [];
+            const myClean = actingUser.username.toLowerCase();
+            if (!tFriends.includes(myClean)) {
+                tFriends.push(myClean);
+                targetUser.inventory.friends = tFriends;
+            }
+            if (Array.isArray(targetUser.inventory.sent_friend_requests)) {
+                targetUser.inventory.sent_friend_requests = targetUser.inventory.sent_friend_requests.filter(r => r && (r.username || '').toLowerCase() !== myClean);
+            }
+            if (Array.isArray(targetUser.inventory.received_friend_requests)) {
+                targetUser.inventory.received_friend_requests = targetUser.inventory.received_friend_requests.filter(r => r && (r.username || '').toLowerCase() !== myClean);
+            }
+            saveLocalUsersDB(users);
+        }
+        return { ok: true, status: 200, data: { ok: true } };
     }
 
     if (path === '/api/user/active' && method === 'POST') {
@@ -1374,15 +1663,20 @@ async function handleOfflineApiFallback(path, options = {}) {
         if (!msg) {
             return { ok: false, status: 400, data: { error: 'Zpráva oznámení nesmí být prázdná.' } };
         }
-        if (typeof handleIncomingAdminBroadcast === 'function') {
-            handleIncomingAdminBroadcast({
-                type: 'admin_broadcast',
-                message: msg,
-                sender: (currentUser ? currentUser.username : (authState.user ? authState.user.username : 'Vendeez')),
-                timestamp: now
-            });
+        const sender = (currentUser ? currentUser.username : (authState.user ? authState.user.username : 'Vendeez'));
+        const broadcastPayload = {
+            type: 'admin_broadcast',
+            message: msg,
+            sender,
+            timestamp: now
+        };
+        if (typeof sendSocialBroadcast === 'function') {
+            sendSocialBroadcast('admin_broadcast', broadcastPayload);
         }
-        return { ok: true, status: 200, data: { ok: true, message: msg } };
+        if (typeof handleIncomingAdminBroadcast === 'function') {
+            handleIncomingAdminBroadcast(broadcastPayload);
+        }
+        return { ok: true, status: 200, data: { ok: true, message: msg, sender } };
     }
 
     return { ok: false, status: 404, data: {} };
@@ -1420,20 +1714,43 @@ function applyAuthenticatedUser(user) {
                     const clean = f.toLowerCase().replace(/^(user_|cloud_|db_|peer_)/, '').trim();
                     if (clean && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clean)) {
                         friendsSet.add(clean);
+                        if (typeof sentFriendRequests !== 'undefined') {
+                            delete sentFriendRequests[clean];
+                            delete sentFriendRequests[`cloud_${clean}`];
+                            delete sentFriendRequests[`db_${clean}`];
+                            delete sentFriendRequests[`user_${clean}`];
+                        }
                     }
                 }
             });
             if (typeof saveFriendsList === 'function') saveFriendsList();
+            if (typeof saveSentFriendRequests === 'function') saveSentFriendRequests();
         }
         if (Array.isArray(user.inventory.sent_friend_requests) && typeof sentFriendRequests !== 'undefined') {
             user.inventory.sent_friend_requests.forEach(r => {
                 if (r && r.id) {
-                    sentFriendRequests[r.id] = r;
+                    const clean = (r.username || r.id).toLowerCase().replace(/^(user_|cloud_|db_|peer_)/, '').trim();
+                    if (typeof friendsSet === 'undefined' || !friendsSet.has(clean)) {
+                        sentFriendRequests[r.id] = r;
+                    }
                 }
             });
             if (typeof saveSentFriendRequests === 'function') saveSentFriendRequests();
         }
-        saveShopState();
+        if (Array.isArray(user.inventory.received_friend_requests) && typeof receivedFriendRequests !== 'undefined') {
+            user.inventory.received_friend_requests.forEach(r => {
+                if (r && r.id) {
+                    receivedFriendRequests[r.id] = r;
+                    if (r.username) {
+                        const uLower = r.username.toLowerCase();
+                        receivedFriendRequests[uLower] = r;
+                        receivedFriendRequests[`cloud_${uLower}`] = r;
+                    }
+                }
+            });
+            if (typeof saveReceivedFriendRequests === 'function') saveReceivedFriendRequests();
+        }
+        if (typeof saveShopState === 'function') saveShopState();
     }
     if (typeof user.adoptme_bucks === 'number') {
         localStorage.setItem(STORAGE_KEY_ADOPTME_BUCKS, String(Math.max(0, Math.floor(user.adoptme_bucks))));
@@ -1463,6 +1780,7 @@ async function syncAccountToServer() {
         ? Array.from(new Set([...friendsSet].map(f => String(f).toLowerCase().replace(/^(user_|cloud_|db_|peer_)/, '').trim()).filter(Boolean)))
         : [];
     const sentReqsList = (typeof sentFriendRequests !== 'undefined') ? Object.values(sentFriendRequests) : [];
+    const receivedReqsList = (typeof receivedFriendRequests !== 'undefined') ? Object.values(receivedFriendRequests) : [];
     await apiRequest('/api/user/sync', {
         method: 'POST',
         body: {
@@ -1475,7 +1793,8 @@ async function syncAccountToServer() {
             adoptme_bucks: adopt ? adopt.bucks : undefined,
             daily_claim_date: lastClaimTimestamp,
             friends: friendsList,
-            sent_friend_requests: sentReqsList
+            sent_friend_requests: sentReqsList,
+            received_friend_requests: receivedReqsList
         }
     });
 }
@@ -1957,14 +2276,24 @@ if (typeof window !== 'undefined') {
     }, 60000);
 }
 
+if (typeof window !== 'undefined') {
+    window.handleSupabaseApiRequest = handleSupabaseApiRequest;
+    window.getLocalUsersDB = getLocalUsersDB;
+    window.saveLocalUsersDB = saveLocalUsersDB;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         applyAuthenticatedUser,
         logoutAccount,
         apiRequest,
         handleOfflineApiFallback,
+        handleSupabaseApiRequest,
+        getLocalUsersDB,
+        saveLocalUsersDB,
         STORAGE_KEYS
     };
 }
+
 
 

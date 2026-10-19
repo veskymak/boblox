@@ -1281,19 +1281,21 @@ const STORAGE_KEY_FRIENDS_CACHE = 'boblox_friends_profiles_cache_v1';
 const ROBLOX_DIRECTORY_PLAYERS = [];
 const DEMO_FRIEND_ID_PREFIXES = ['p_volvo', 'p_vanessik', 'p_wizardmax', 'p_legion_main', 'p_vojta', 'p_elsa', 'p_dylinkaa', 'p_roboctak', 'p_addarian', 'p_holymoly', 'p_mesty', 'p_swayy', 'p_nahoda'];
 
-let sentFriendRequests = (() => {
+let sentFriendRequests = (typeof window !== 'undefined' && window.sentFriendRequests) || (() => {
     try {
         const raw = localStorage.getItem(STORAGE_KEY_SENT_REQUESTS);
         return raw ? JSON.parse(raw) : {};
     } catch { return {}; }
 })();
+if (typeof window !== 'undefined') window.sentFriendRequests = sentFriendRequests;
 
-let receivedFriendRequests = (() => {
+let receivedFriendRequests = (typeof window !== 'undefined' && window.receivedFriendRequests) || (() => {
     try {
         const raw = localStorage.getItem(STORAGE_KEY_RECEIVED_REQUESTS);
         return raw ? JSON.parse(raw) : {};
     } catch { return {}; }
 })();
+if (typeof window !== 'undefined') window.receivedFriendRequests = receivedFriendRequests;
 
 const liveFriendsPresence = {}; // friendId/username -> { inGame: boolean, gameId, gameTitle, roomCode, mode, isParty, lastSeen }
 
@@ -1443,6 +1445,7 @@ function saveReceivedFriendRequests() {
 
 function hasSentFriendRequest(playerOrId) {
     if (!playerOrId) return false;
+    if (typeof isPlayerFriend === 'function' && isPlayerFriend(playerOrId)) return false;
     const myProfile = getLocalRobloxPlayerProfile();
     const myUName = (myProfile.username || '').toLowerCase();
 
@@ -1699,6 +1702,10 @@ function handleIncomingSocialPacket(event, payload) {
         if (typeof handleIncomingDirectChatMessage === 'function') {
             handleIncomingDirectChatMessage(payload);
         }
+    } else if (event === 'admin_broadcast') {
+        if (typeof handleIncomingAdminBroadcast === 'function') {
+            handleIncomingAdminBroadcast(payload);
+        }
     }
 }
 
@@ -1747,6 +1754,21 @@ function sendFriendRequest(playerId) {
 
     if (typeof syncAccountToServer === 'function') {
         syncAccountToServer().catch(() => {});
+    }
+
+    if (typeof apiRequest === 'function') {
+        apiRequest('/api/friends/request', {
+            method: 'POST',
+            body: {
+                targetUsername: pName,
+                targetId: playerId,
+                sender: {
+                    id: mySenderId,
+                    username: myProfile.username,
+                    senderProfile: { ...myProfile, id: mySenderId, isLocal: false }
+                }
+            }
+        }).catch(() => {});
     }
 
     if (typeof showHudToast === 'function') {
@@ -1851,6 +1873,16 @@ function acceptFriendRequest(playerId) {
 
     if (typeof syncAccountToServer === 'function') {
         syncAccountToServer().catch(() => {});
+    }
+
+    if (typeof apiRequest === 'function') {
+        apiRequest('/api/friends/accept', {
+            method: 'POST',
+            body: {
+                targetUsername: pName,
+                targetId: playerId
+            }
+        }).catch(() => {});
     }
 
     if (typeof sfx !== 'undefined' && sfx.playCoin) sfx.playCoin();
@@ -4506,6 +4538,18 @@ function toggleFriendStatus(playerId) {
         removeFriend(playerId);
     } else {
         friendsSet.add(cleanNick || String(playerId).toLowerCase());
+        delete sentFriendRequests[playerId];
+        delete sentFriendRequests[cleanNick];
+        delete sentFriendRequests[`cloud_${cleanNick}`];
+        delete sentFriendRequests[`db_${cleanNick}`];
+        delete sentFriendRequests[`user_${cleanNick}`];
+        delete sentFriendRequests[`peer_${cleanNick}`];
+        if (typeof saveSentFriendRequests === 'function') saveSentFriendRequests();
+        delete receivedFriendRequests[playerId];
+        delete receivedFriendRequests[cleanNick];
+        delete receivedFriendRequests[`cloud_${cleanNick}`];
+        delete receivedFriendRequests[`db_${cleanNick}`];
+        if (typeof saveReceivedFriendRequests === 'function') saveReceivedFriendRequests();
         saveCachedFriendProfile(player);
         saveFriendsList();
         if (typeof syncAccountToServer === 'function') {
@@ -5890,6 +5934,15 @@ try {
 if (typeof window !== 'undefined') {
     window.syncDirectChatMessages = syncDirectChatMessages;
     window.getLobbyDirectMessages = getLobbyDirectMessages;
+    window.friendsSet = friendsSet;
+    window.sentFriendRequests = sentFriendRequests;
+    window.receivedFriendRequests = receivedFriendRequests;
+    window.sendFriendRequest = sendFriendRequest;
+    window.hasSentFriendRequest = hasSentFriendRequest;
+    window.isPlayerFriend = isPlayerFriend;
+    window.toggleFriendStatus = toggleFriendStatus;
+    window.acceptFriendRequest = acceptFriendRequest;
+    window.cancelFriendRequest = cancelFriendRequest;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -5912,6 +5965,15 @@ if (typeof module !== 'undefined' && module.exports) {
         drawRobloxAvatarCardPortrait,
         syncDirectChatMessages,
         getLobbyDirectMessages,
+        friendsSet,
+        sentFriendRequests,
+        receivedFriendRequests,
+        sendFriendRequest,
+        hasSentFriendRequest,
+        isPlayerFriend,
+        toggleFriendStatus,
+        acceptFriendRequest,
+        cancelFriendRequest,
         ...(AdminUIModule || {})
     };
 }

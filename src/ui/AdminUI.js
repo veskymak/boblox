@@ -8,7 +8,7 @@ function isCurrentUserAdmin(user) {
     const target = user || ((typeof authState !== 'undefined' && authState) ? authState.user : null);
     if (!target || typeof target.username !== 'string') return false;
     const name = target.username.trim().toLowerCase();
-    return name === 'vendeez' || Boolean(target.isAdmin);
+    return name === 'vendeez' || name === 'admin' || Boolean(target.isAdmin);
 }
 
 function updateAdminUI() {
@@ -192,7 +192,12 @@ async function submitAdminGiveCoins(amount, action = 'add', targetUsername = nul
     if (!isCurrentUserAdmin()) return;
     const username = targetUsername || (document.getElementById('admin-target-user-input')?.value || '').trim() || ((typeof authState !== 'undefined' && authState.user) ? authState.user.username : 'Vendeez');
     const amountVal = (typeof amount === 'number') ? amount : parseInt(document.getElementById('admin-custom-coins-input')?.value, 10);
-    if (isNaN(amountVal)) return;
+    if (isNaN(amountVal) || amountVal < 0) {
+        if (typeof showHudToast === 'function') {
+            showHudToast('Zadej platný počet Bobuxů!', 'red');
+        }
+        return;
+    }
 
     try {
         let data = null;

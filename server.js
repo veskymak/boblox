@@ -370,7 +370,8 @@ app.post('/api/user/sync', requireAuth, (req, res) => {
             torsoHex: (typeof body.torsoHex === 'string' && /^#[0-9A-Fa-f]{6}$/.test(body.torsoHex)) ? body.torsoHex : (currentInv.torsoHex || '#0D69AC'),
             gamesPlayed: (typeof body.gamesPlayed === 'number' && body.gamesPlayed >= 0) ? Math.floor(body.gamesPlayed) : (currentInv.gamesPlayed || 0),
             friends: Array.isArray(body.friends) ? body.friends.slice(0, 500) : (currentInv.friends || []),
-            sent_friend_requests: Array.isArray(body.sent_friend_requests) ? body.sent_friend_requests.slice(0, 100) : (currentInv.sent_friend_requests || [])
+            sent_friend_requests: Array.isArray(body.sent_friend_requests) ? body.sent_friend_requests.slice(0, 100) : (currentInv.sent_friend_requests || []),
+            received_friend_requests: Array.isArray(body.received_friend_requests) ? body.received_friend_requests.slice(0, 100) : (currentInv.received_friend_requests || [])
         };
 
         const now = Date.now();
@@ -382,6 +383,65 @@ app.post('/api/user/sync', requireAuth, (req, res) => {
     } catch (err) {
         console.error('Sync error:', err);
         return res.status(500).json({ error: 'Chyba při ukládání účtu.' });
+    }
+});
+
+app.post('/api/friends/request', requireAuth, (req, res) => {
+    try {
+        const body = req.body || {};
+        const targetUsername = typeof body.targetUsername === 'string' ? body.targetUsername.trim() : '';
+        if (!targetUsername) return res.status(400).json({ error: 'Chybí cílový uživatel.' });
+
+        const targetRow = db.prepare('SELECT id, username, inventory FROM users WHERE username = ? COLLATE NOCASE').get(targetUsername);
+        if (targetRow) {
+            const tInv = safeParseJSON(targetRow.inventory, {});
+            const recList = Array.isArray(tInv.received_friend_requests) ? tInv.received_friend_requests : [];
+            const reqObj = {
+                id: `cloud_${req.userRow.username.toLowerCase()}`,
+                username: req.userRow.username,
+                receivedAt: Date.now(),
+                senderProfile: body.sender?.senderProfile || null
+            };
+            if (!recList.some(r => r && (r.username || '').toLowerCase() === req.userRow.username.toLowerCase())) {
+                recList.push(reqObj);
+                tInv.received_friend_requests = recList;
+                db.prepare('UPDATE users SET inventory = ? WHERE id = ?').run(JSON.stringify(tInv), targetRow.id);
+            }
+        }
+        return res.json({ ok: true });
+    } catch (err) {
+        console.error('Friends request error:', err);
+        return res.status(500).json({ error: 'Chyba při odesílání žádosti.' });
+    }
+});
+
+app.post('/api/friends/accept', requireAuth, (req, res) => {
+    try {
+        const body = req.body || {};
+        const targetUsername = typeof body.targetUsername === 'string' ? body.targetUsername.trim() : '';
+        if (!targetUsername) return res.status(400).json({ error: 'Chybí cílový uživatel.' });
+
+        const targetRow = db.prepare('SELECT id, username, inventory FROM users WHERE username = ? COLLATE NOCASE').get(targetUsername);
+        if (targetRow) {
+            const tInv = safeParseJSON(targetRow.inventory, {});
+            const tFriends = Array.isArray(tInv.friends) ? tInv.friends : [];
+            const myClean = req.userRow.username.toLowerCase();
+            if (!tFriends.includes(myClean)) {
+                tFriends.push(myClean);
+                tInv.friends = tFriends;
+            }
+            if (Array.isArray(tInv.sent_friend_requests)) {
+                tInv.sent_friend_requests = tInv.sent_friend_requests.filter(r => r && (r.username || '').toLowerCase() !== myClean);
+            }
+            if (Array.isArray(tInv.received_friend_requests)) {
+                tInv.received_friend_requests = tInv.received_friend_requests.filter(r => r && (r.username || '').toLowerCase() !== myClean);
+            }
+            db.prepare('UPDATE users SET inventory = ? WHERE id = ?').run(JSON.stringify(tInv), targetRow.id);
+        }
+        return res.json({ ok: true });
+    } catch (err) {
+        console.error('Friends accept error:', err);
+        return res.status(500).json({ error: 'Chyba při přijímání žádosti.' });
     }
 });
 
