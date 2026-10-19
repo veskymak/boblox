@@ -1,7 +1,7 @@
 {
-  "version": "6.0",
-  "buildTime": 1792434009742,
-  "updatedAt": "2026-10-19T18:20:09Z",
-  "title": "Boblox Aktualizace v6.0",
-  "message": "Dynamické vykreslení 3D headshotu avatara a outfitu hráčů v herním Roblox ESC menu."
+  "version": "6.1",
+  "buildTime": 1792435100000,
+  "updatedAt": "2026-10-19T18:38:20Z",
+  "title": "Boblox Aktualizace v6.1",
+  "message": "Trvalé ukládání a cross-device synchronizace zpráv v lobby chatu."
 }

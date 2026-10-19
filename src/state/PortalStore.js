@@ -16,7 +16,9 @@ const STORAGE_KEYS = Object.freeze({
     ADOPTME_PETS: 'boblox_adoptme_pets_v1',
     GUEST_NUM: 'boblox_guest_num',
     MP_NICK: 'boblox_mp_nick',
-    API_BASE: 'boblox_api_base'
+    API_BASE: 'boblox_api_base',
+    CHAT_MESSAGES: 'boblox_direct_messages_v2',
+    CHAT_UNREAD: 'boblox_unread_messages_v2'
 });
 if (typeof window !== 'undefined') {
     window.STORAGE_KEYS = STORAGE_KEYS;
@@ -1213,6 +1215,54 @@ async function handleOfflineApiFallback(path, options = {}) {
         };
     }
 
+    if (path === '/api/chat/messages' && method === 'POST') {
+        const actingUser = currentUser || authState.user;
+        if (!actingUser) return { ok: false, status: 401, data: { error: 'Pro chatování se musíš přihlásit!' } };
+        const senderName = actingUser.username || 'Hráč';
+        const recipientName = (body.recipient || body.to || '').trim();
+        const text = typeof body.text === 'string' ? body.text.trim().slice(0, 250) : '';
+        if (!recipientName || !text) return { ok: false, status: 400, data: { error: 'Chybí příjemce nebo text zprávy.' } };
+        const mId = body.id || ('msg_' + now + '_' + Math.random().toString(36).slice(2, 7));
+        const msgObj = {
+            id: mId,
+            from: senderName,
+            to: recipientName,
+            text: text,
+            timestamp: typeof body.timestamp === 'number' ? body.timestamp : now,
+            isMe: true
+        };
+        if (!socialDB._direct_messages) socialDB._direct_messages = [];
+        if (!socialDB._direct_messages.some(m => m.id === mId)) {
+            socialDB._direct_messages.push(msgObj);
+            saveLocalSocialDB(socialDB);
+        }
+        return { ok: true, status: 200, data: { ok: true, message: msgObj } };
+    }
+
+    if (path.startsWith('/api/chat/messages') && method === 'GET') {
+        const actingUser = currentUser || authState.user;
+        if (!actingUser) return { ok: false, status: 401, data: { error: 'Pro načtení chatu se musíš přihlásit!' } };
+        const myName = (actingUser.username || '').toLowerCase();
+        let partner = '';
+        try {
+            const urlObj = new URL('http://dummy' + path);
+            partner = (urlObj.searchParams.get('partner') || '').toLowerCase();
+        } catch (e) {}
+        const allMsgs = (socialDB && Array.isArray(socialDB._direct_messages)) ? socialDB._direct_messages : [];
+        const filtered = allMsgs.filter(m => {
+            const from = (m.from || '').toLowerCase();
+            const to = (m.to || '').toLowerCase();
+            if (partner) {
+                return (from === myName && to === partner) || (from === partner && to === myName);
+            }
+            return from === myName || to === myName;
+        }).map(m => ({
+            ...m,
+            isMe: (m.from || '').toLowerCase() === myName
+        }));
+        return { ok: true, status: 200, data: { ok: true, messages: filtered } };
+    }
+
     function isRequestAuthorizedAsAdmin(currentUser) {
         if (typeof isCurrentUserAdmin === 'function' && isCurrentUserAdmin()) return true;
         if (currentUser && currentUser.username && currentUser.username.toLowerCase() === 'vendeez') return true;
@@ -1392,14 +1442,17 @@ function applyAuthenticatedUser(user) {
     }
     if (user.last_login_at !== undefined) authState.user.last_login_at = user.last_login_at;
     if (user.last_active_at !== undefined) authState.user.last_active_at = user.last_active_at;
-    updateNickname(user.username);
+    if (typeof updateNickname === 'function') updateNickname(user.username);
     if (typeof invalidateAvatarHeadshotCache === 'function') invalidateAvatarHeadshotCache();
-    updateBobuxUI();
-    updateAuthUI();
-    updateDailyBonusUI();
+    if (typeof updateBobuxUI === 'function') updateBobuxUI();
+    if (typeof updateAuthUI === 'function') updateAuthUI();
+    if (typeof updateDailyBonusUI === 'function') updateDailyBonusUI();
     try {
         localStorage.setItem(STORAGE_KEYS.USER_CACHE, JSON.stringify(user));
     } catch (e) {}
+    if (typeof syncDirectChatMessages === 'function') {
+        try { syncDirectChatMessages(); } catch (e) {}
+    }
 }
 
 async function syncAccountToServer() {

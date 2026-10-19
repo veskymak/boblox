@@ -65,6 +65,8 @@ describe('Architectural Guardrails (Retrospective Enforcement)', () => {
         assert.strictEqual(STORAGE_KEYS.GUEST_NUM, 'boblox_guest_num', 'GUEST_NUM key must be boblox_guest_num');
         assert.strictEqual(STORAGE_KEYS.MP_NICK, 'boblox_mp_nick', 'MP_NICK key must be boblox_mp_nick');
         assert.strictEqual(STORAGE_KEYS.API_BASE, 'boblox_api_base', 'API_BASE key must be boblox_api_base');
+        assert.strictEqual(STORAGE_KEYS.CHAT_MESSAGES, 'boblox_direct_messages_v2', 'CHAT_MESSAGES key must be boblox_direct_messages_v2');
+        assert.strictEqual(STORAGE_KEYS.CHAT_UNREAD, 'boblox_unread_messages_v2', 'CHAT_UNREAD key must be boblox_unread_messages_v2');
 
         const portalStoreCode = fs.readFileSync(path.join(__dirname, '..', 'src', 'state', 'PortalStore.js'), 'utf8');
         assert.ok(portalStoreCode.includes('STORAGE_KEY_TRANSACTIONS = STORAGE_KEYS.TRANSACTIONS'), 'STORAGE_KEY_TRANSACTIONS must derive from STORAGE_KEYS');
@@ -73,6 +75,10 @@ describe('Architectural Guardrails (Retrospective Enforcement)', () => {
         assert.ok(portalStoreCode.includes('LOCAL_DB_SOCIAL_KEY = STORAGE_KEYS.LOCAL_SOCIAL'), 'LOCAL_DB_SOCIAL_KEY must derive from STORAGE_KEYS');
         assert.ok(portalStoreCode.includes('STORAGE_KEY_ADOPTME_BUCKS = STORAGE_KEYS.ADOPTME_BUCKS'), 'STORAGE_KEY_ADOPTME_BUCKS must derive from STORAGE_KEYS');
         assert.ok(portalStoreCode.includes('STORAGE_KEY_ADOPTME_PETS = STORAGE_KEYS.ADOPTME_PETS'), 'STORAGE_KEY_ADOPTME_PETS must derive from STORAGE_KEYS');
+
+        const portalUiCode = fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'PortalUI.js'), 'utf8');
+        assert.ok(portalUiCode.includes('STORAGE_KEYS.CHAT_MESSAGES'), 'PortalUI must derive STORAGE_KEY_DIRECT_MESSAGES from STORAGE_KEYS.CHAT_MESSAGES');
+        assert.ok(portalUiCode.includes('STORAGE_KEYS.CHAT_UNREAD'), 'PortalUI must derive STORAGE_KEY_UNREAD_MESSAGES from STORAGE_KEYS.CHAT_UNREAD');
     });
 
     it('enforces isCurrentUserAdmin accepts optional user and handles both Vendeez and isAdmin', () => {

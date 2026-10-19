@@ -5188,8 +5188,12 @@ function renderPeopleResultsGrid() {
  * BOTTOM-RIGHT LOBBY DIRECT CHAT WIDGET
  * ============================================================================ */
 let activeLobbyChatPartnerId = '';
-const STORAGE_KEY_DIRECT_MESSAGES = 'boblox_direct_messages_v2';
-const STORAGE_KEY_UNREAD_MESSAGES = 'boblox_unread_messages_v2';
+const STORAGE_KEY_DIRECT_MESSAGES = (typeof STORAGE_KEYS !== 'undefined' && STORAGE_KEYS.CHAT_MESSAGES)
+    ? STORAGE_KEYS.CHAT_MESSAGES
+    : 'boblox_direct_messages_v2';
+const STORAGE_KEY_UNREAD_MESSAGES = (typeof STORAGE_KEYS !== 'undefined' && STORAGE_KEYS.CHAT_UNREAD)
+    ? STORAGE_KEYS.CHAT_UNREAD
+    : 'boblox_unread_messages_v2';
 
 let lobbyDirectMessages = (() => {
     try {
@@ -5205,6 +5209,10 @@ let unreadDirectMessages = (() => {
     } catch { return {}; }
 })();
 
+function getLobbyDirectMessages() {
+    return lobbyDirectMessages;
+}
+
 function saveLobbyDirectMessages() {
     try {
         localStorage.setItem(STORAGE_KEY_DIRECT_MESSAGES, JSON.stringify(lobbyDirectMessages));
@@ -5216,6 +5224,73 @@ function saveUnreadDirectMessages() {
         localStorage.setItem(STORAGE_KEY_UNREAD_MESSAGES, JSON.stringify(unreadDirectMessages));
     } catch (e) {}
     updateLobbyChatBadge();
+}
+
+async function syncDirectChatMessages(partnerName = null) {
+    if (typeof apiRequest !== 'function') return;
+    const isLogged = typeof authState !== 'undefined' && authState.user && authState.user.username;
+    if (!isLogged) return;
+    const myName = (authState.user.username || authState.user.displayName || '').toLowerCase();
+
+    try {
+        const query = partnerName ? ('?partner=' + encodeURIComponent(partnerName)) : '';
+        const res = await apiRequest('/api/chat/messages' + query, { method: 'GET' });
+        if (!res || !res.ok || !res.data || !Array.isArray(res.data.messages)) {
+            return;
+        }
+
+        let hasNew = false;
+        res.data.messages.forEach(msg => {
+            if (!msg || !msg.text) return;
+            const fromLower = (msg.from || '').toLowerCase();
+            const toLower = (msg.to || '').toLowerCase();
+            const isMe = fromLower === myName;
+            const partner = isMe ? toLower : fromLower;
+            const convKey = getConversationKey(partner);
+            if (!convKey) return;
+
+            if (!lobbyDirectMessages[convKey]) {
+                lobbyDirectMessages[convKey] = [];
+            }
+
+            const existing = lobbyDirectMessages[convKey].some(m => {
+                if (msg.id && m.id && m.id === msg.id) return true;
+                return m.text === msg.text && Math.abs((m.timestamp || 0) - (msg.timestamp || 0)) < 1500;
+            });
+
+            if (!existing) {
+                lobbyDirectMessages[convKey].push({
+                    id: msg.id || ('msg_' + (msg.timestamp || Date.now())),
+                    from: msg.from,
+                    to: msg.to,
+                    text: msg.text,
+                    isMe: isMe,
+                    timestamp: Number(msg.timestamp) || Date.now()
+                });
+                hasNew = true;
+            }
+        });
+
+        if (hasNew) {
+            Object.keys(lobbyDirectMessages).forEach(k => {
+                if (Array.isArray(lobbyDirectMessages[k])) {
+                    lobbyDirectMessages[k].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+                }
+            });
+            saveLobbyDirectMessages();
+
+            if (isLobbyChatDrawerOpen()) {
+                if (activeLobbyChatPartnerId) {
+                    renderLobbyDirectChatMessages();
+                } else {
+                    renderLobbyChatFriendsList();
+                }
+            }
+            updateLobbyChatBadge();
+        }
+    } catch (e) {
+        console.warn('[DirectChat] Chyba při synchronizaci chatu ze serveru:', e.message || e);
+    }
 }
 
 function getConversationKey(playerOrId) {
@@ -5258,6 +5333,9 @@ function toggleLobbyChatDrawer(forceState) {
     body.classList.toggle('flex', nextOpen);
 
     if (nextOpen) {
+        if (typeof syncDirectChatMessages === 'function') {
+            syncDirectChatMessages().catch(() => {});
+        }
         if (activeLobbyChatPartnerId) {
             showLobbyChatConversationView();
         } else {
@@ -5295,13 +5373,18 @@ function backToLobbyChatFriendsList() {
 function openBottomChatWithPlayer(playerId) {
     if (!playerId) return;
     activeLobbyChatPartnerId = playerId;
-    const key = getConversationKey(playerId);
+    const partner = typeof getPlayerById === 'function' ? getPlayerById(playerId) : null;
+    const partnerName = partner ? (partner.username || partner.displayName) : null;
+    const key = getConversationKey(partner || playerId);
     if (unreadDirectMessages[key]) {
         delete unreadDirectMessages[key];
         saveUnreadDirectMessages();
     }
     toggleLobbyChatDrawer(true);
     showLobbyChatConversationView();
+    if (partnerName && typeof syncDirectChatMessages === 'function') {
+        syncDirectChatMessages(partnerName).catch(() => {});
+    }
 }
 
 function renderLobbyChatFriendsList() {
@@ -5512,6 +5595,21 @@ function sendLobbyDirectChatMessage() {
 
     if (typeof sendSocialBroadcast === 'function') {
         sendSocialBroadcast('direct_chat_message', packet);
+    }
+
+    // Persist to backend server via apiRequest for cross-device synchronization
+    if (typeof apiRequest === 'function') {
+        apiRequest('/api/chat/messages', {
+            method: 'POST',
+            body: {
+                recipient: partnerName,
+                text: clean,
+                id: msgObj.id,
+                timestamp: msgObj.timestamp
+            }
+        }).catch(err => {
+            console.warn('[DirectChat] Nelze uložit zprávu na API:', err);
+        });
     }
 
     renderLobbyDirectChatMessages();
@@ -5786,6 +5884,11 @@ try {
     }
 } catch (e) {}
 
+if (typeof window !== 'undefined') {
+    window.syncDirectChatMessages = syncDirectChatMessages;
+    window.getLobbyDirectMessages = getLobbyDirectMessages;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         formatBobuxTransaction,
@@ -5804,6 +5907,8 @@ if (typeof module !== 'undefined' && module.exports) {
         showUpdateNotificationModal,
         checkForBobloxUpdates,
         drawRobloxAvatarCardPortrait,
+        syncDirectChatMessages,
+        getLobbyDirectMessages,
         ...(AdminUIModule || {})
     };
 }

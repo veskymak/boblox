@@ -11,6 +11,15 @@ Dokumentované standardy pro vývoj a review kódu v projektu Boblox. Tento doku
   - Je zakázáno vytvářet v UI komponentách sekundární redundantní větve s přímým voláním `fetch('/api/...')`.
   - Veškerý přístup k lokálnímu úložišti (`localStorage`) musí používat zmrazený slovník `STORAGE_KEYS` v [`src/state/PortalStore.js`](src/state/PortalStore.js).
 
+- **Perzistence a Cross-Device synchronizace (Zákaz izolovaného LocalStorage):**
+  - Uživatelská data a interakce (zprávy, přátelé, nákupy, transakce, postup) musí být vázána na uživatelský profil a perzistována na backendu (`server.js` SQLite / Supabase).
+  - `localStorage` slouží výhradně jako rychlá klientská mezipaměť (cache) nebo offline fallback pro statický hosting, nikoliv jako primární a jediné úložiště nových funkcí.
+  - Každá nová funkce pracující s uživatelskými daty musí obsahovat:
+    1. Databázovou tabulku/pole na backendu (`server.js`).
+    2. Bezpečné REST API endpointy (`POST`/`GET`) s autentizací (`requireAuth`).
+    3. Klientskou synchronizační funkci volanou při přihlášení (`applyAuthenticatedUser`) a při otevření daného UI pohledu.
+    4. Automatizovaný integrační test ověřující dostupnost dat na novém zařízení (simulace přechodu mobil -> PC s prázdným `localStorage`).
+
 - **UI Moduly:**
   - Každá doména má svůj dedikovaný UI modul v `src/ui/` (např. [`src/ui/AdminUI.js`](src/ui/AdminUI.js) pro administraci a dev menu).
   - Nepřidávat nesouvisející logiku do [`src/ui/PortalUI.js`](src/ui/PortalUI.js) (*Divergent Change*).

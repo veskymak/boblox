@@ -69,8 +69,22 @@ db.exec(`
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS direct_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        msg_id TEXT UNIQUE,
+        sender_id INTEGER NOT NULL,
+        sender_username TEXT NOT NULL COLLATE NOCASE,
+        recipient_id INTEGER,
+        recipient_username TEXT NOT NULL COLLATE NOCASE,
+        content TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
     CREATE INDEX IF NOT EXISTS idx_comments_game_id ON comments(game_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_ratings_game_id ON game_ratings(game_id);
+    CREATE INDEX IF NOT EXISTS idx_dm_participants ON direct_messages(sender_username, recipient_username, created_at ASC);
+    CREATE INDEX IF NOT EXISTS idx_dm_created ON direct_messages(created_at ASC);
 `);
 
 // Migration for existing databases
@@ -415,6 +429,118 @@ app.post('/api/daily-claim', requireAuth, (req, res) => {
     } catch (err) {
         console.error('Daily claim error:', err);
         return res.status(500).json({ error: 'Chyba při vyzvedávání denního bonusu.' });
+    }
+});
+
+/* ============================================================================
+ * 5B. DIRECT CHAT MESSAGES PERSISTENCE & CROSS-DEVICE SYNC (/api/chat/messages)
+ * ============================================================================ */
+app.post('/api/chat/messages', requireAuth, (req, res) => {
+    try {
+        const body = req.body || {};
+        const recipientRaw = (body.recipient || body.to || '').trim();
+        const text = sanitizePlainText(body.text, 250);
+        if (!recipientRaw) {
+            return res.status(400).json({ error: 'Chybí příjemce zprávy.' });
+        }
+        if (!text) {
+            return res.status(400).json({ error: 'Zpráva nesmí být prázdná.' });
+        }
+
+        const senderId = req.userRow.id;
+        const senderUsername = req.userRow.username;
+        const recipientUser = db.prepare('SELECT id, username FROM users WHERE username = ? COLLATE NOCASE').get(recipientRaw);
+        const recipientId = recipientUser ? recipientUser.id : null;
+        const recipientUsername = recipientUser ? recipientUser.username : recipientRaw;
+
+        const msgId = (typeof body.id === 'string' && body.id.trim())
+            ? body.id.trim().slice(0, 80)
+            : ('msg_' + Date.now() + '_' + crypto.randomBytes(4).toString('hex'));
+        const createdAt = (typeof body.timestamp === 'number' && Number.isFinite(body.timestamp))
+            ? Math.floor(body.timestamp)
+            : Date.now();
+
+        // Deduplicate in case client retries
+        const existing = db.prepare('SELECT id FROM direct_messages WHERE msg_id = ?').get(msgId);
+        if (!existing) {
+            db.prepare(`
+                INSERT INTO direct_messages (msg_id, sender_id, sender_username, recipient_id, recipient_username, content, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            `).run(msgId, senderId, senderUsername, recipientId, recipientUsername, text, createdAt);
+        }
+
+        const responseMsg = {
+            id: msgId,
+            from: senderUsername,
+            to: recipientUsername,
+            text: text,
+            timestamp: createdAt,
+            isMe: true
+        };
+
+        // If recipient is connected via WebSocket, forward in real time
+        const forwardPayload = JSON.stringify({
+            type: 'social_event',
+            event: 'direct_chat_message',
+            payload: {
+                id: msgId,
+                fromUsername: senderUsername,
+                toUsername: recipientUsername,
+                text: text,
+                timestamp: createdAt
+            }
+        });
+        for (const [otherWs, otherInfo] of clients.entries()) {
+            if (otherWs.readyState === 1 && otherInfo.username && otherInfo.username.toLowerCase() === recipientUsername.toLowerCase()) {
+                otherWs.send(forwardPayload);
+            }
+        }
+
+        return res.json({ ok: true, message: responseMsg });
+    } catch (err) {
+        console.error('Chat send error:', err);
+        return res.status(500).json({ error: 'Chyba při odesílání zprávy.' });
+    }
+});
+
+app.get('/api/chat/messages', requireAuth, (req, res) => {
+    try {
+        const myUsername = req.userRow.username;
+        const partner = typeof req.query.partner === 'string' ? req.query.partner.trim() : null;
+
+        let rows = [];
+        if (partner) {
+            rows = db.prepare(`
+                SELECT msg_id, sender_username, recipient_username, content, created_at
+                FROM direct_messages
+                WHERE (sender_username = ? COLLATE NOCASE AND recipient_username = ? COLLATE NOCASE)
+                   OR (sender_username = ? COLLATE NOCASE AND recipient_username = ? COLLATE NOCASE)
+                ORDER BY created_at ASC
+                LIMIT 200
+            `).all(myUsername, partner, partner, myUsername);
+        } else {
+            rows = db.prepare(`
+                SELECT msg_id, sender_username, recipient_username, content, created_at
+                FROM direct_messages
+                WHERE sender_username = ? COLLATE NOCASE OR recipient_username = ? COLLATE NOCASE
+                ORDER BY created_at ASC
+                LIMIT 500
+            `).all(myUsername, myUsername);
+        }
+
+        const messages = rows.map(r => ({
+            id: r.msg_id || ('msg_' + r.created_at),
+            from: r.sender_username,
+            to: r.recipient_username,
+            text: r.content,
+            timestamp: Number(r.created_at),
+            isMe: r.sender_username.toLowerCase() === myUsername.toLowerCase()
+        }));
+
+        return res.json({ ok: true, messages });
+    } catch (err) {
+        console.error('Chat fetch error:', err);
+        return res.status(500).json({ error: 'Chyba při načítání historie chatu.' });
     }
 });
 
@@ -861,6 +987,33 @@ wss.on('connection', (ws) => {
         }
 
         if (msg.type === 'social_event') {
+            if (msg.event === 'direct_chat_message' && msg.payload && msg.payload.text) {
+                try {
+                    const p = msg.payload;
+                    const fromU = sanitizePlainText(p.fromUsername || info.username, 20);
+                    const toU = sanitizePlainText(p.toUsername, 20);
+                    const txt = sanitizePlainText(p.text, 250);
+                    const mId = (typeof p.id === 'string' && p.id.trim())
+                        ? p.id.trim().slice(0, 80)
+                        : ('msg_' + Date.now() + '_' + crypto.randomBytes(4).toString('hex'));
+                    const ts = (typeof p.timestamp === 'number' && Number.isFinite(p.timestamp))
+                        ? Math.floor(p.timestamp)
+                        : Date.now();
+                    if (fromU && toU && txt) {
+                        const sUser = db.prepare('SELECT id FROM users WHERE username = ? COLLATE NOCASE').get(fromU);
+                        const rUser = db.prepare('SELECT id FROM users WHERE username = ? COLLATE NOCASE').get(toU);
+                        const exists = db.prepare('SELECT id FROM direct_messages WHERE msg_id = ?').get(mId);
+                        if (!exists) {
+                            db.prepare(`
+                                INSERT INTO direct_messages (msg_id, sender_id, sender_username, recipient_id, recipient_username, content, created_at)
+                                VALUES (?, ?, ?, ?, ?, ?, ?)
+                            `).run(mId, sUser ? sUser.id : 0, fromU, rUser ? rUser.id : null, toU, txt, ts);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[WS] Error storing direct chat message:', e.message);
+                }
+            }
             const forwardMsg = JSON.stringify(msg);
             for (const [otherWs, otherInfo] of clients.entries()) {
                 if (otherWs === ws || otherWs.readyState !== 1) continue;
