@@ -892,119 +892,9 @@ function getServerPlayersList() {
 
 function drawRobloxAvatarCardPortrait(canvas, player) {
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const w = canvas.width;
-    const h = canvas.height;
-    ctx.clearRect(0, 0, w, h);
-
-    ctx.save();
-    ctx.translate(w * 0.5, h * 0.54);
-
-    // Subtle ground shadow ellipse
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.38)';
-    ctx.beginPath();
-    ctx.ellipse(0, 38, 22, 6, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Slightly angled 3D-style R15/Blocky character pose (like Screenshot 2)
-    const shirtItem = player.outfit && player.outfit.shirt && typeof SHOP_ITEM_MAP !== 'undefined'
-        ? SHOP_ITEM_MAP[player.outfit.shirt]
-        : null;
-    const pantsItem = player.outfit && player.outfit.pants && typeof SHOP_ITEM_MAP !== 'undefined'
-        ? SHOP_ITEM_MAP[player.outfit.pants]
-        : null;
-
-    const torsoCol = (shirtItem && shirtItem.color) || player.torsoHex || '#1f2937';
-    const legCol = (pantsItem && pantsItem.color) || '#111827';
-
-    // Legs (dark pants + white sneakers like Screenshot 2)
-    ctx.fillStyle = legCol;
-    ctx.fillRect(-13, 12, 11, 22);
-    ctx.fillRect(2, 12, 11, 22);
-
-    // White shoes
-    ctx.fillStyle = '#f8fafc';
-    ctx.fillRect(-14, 30, 12, 6);
-    ctx.fillRect(2, 30, 12, 6);
-    ctx.fillStyle = '#94a3b8';
-    ctx.fillRect(-14, 34, 12, 2);
-    ctx.fillRect(2, 34, 12, 2);
-
-    // Left & Right Arms (slightly angled out)
-    ctx.save();
-    ctx.translate(-15, -14);
-    ctx.rotate(0.14);
-    ctx.fillStyle = torsoCol;
-    ctx.fillRect(-8, 0, 9, 21);
-    ctx.fillStyle = '#eac086'; // hand
-    ctx.fillRect(-8, 21, 9, 5);
-    ctx.restore();
-
-    ctx.save();
-    ctx.translate(15, -14);
-    ctx.rotate(-0.14);
-    ctx.fillStyle = torsoCol;
-    ctx.fillRect(-1, 0, 9, 21);
-    ctx.fillStyle = '#eac086'; // hand
-    ctx.fillRect(-1, 21, 9, 5);
-    ctx.restore();
-
-    // Torso with plaid/flannel texture pattern
-    ctx.fillStyle = torsoCol;
-    ctx.fillRect(-14, -15, 28, 28);
-
-    // Subtle plaid grid lines on torso
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
-    ctx.lineWidth = 1.5;
-    for (let x = -9; x <= 9; x += 6) {
-        ctx.beginPath();
-        ctx.moveTo(x, -15);
-        ctx.lineTo(x, 13);
-        ctx.stroke();
+    if (typeof drawPlayerHeadshotCanvas === 'function') {
+        drawPlayerHeadshotCanvas(canvas, player);
     }
-    for (let y = -10; y <= 10; y += 6) {
-        ctx.beginPath();
-        ctx.moveTo(-14, y);
-        ctx.lineTo(14, y);
-        ctx.stroke();
-    }
-
-    // Head
-    ctx.fillStyle = '#eac086';
-    ctx.beginPath();
-    ctx.roundRect(-11, -35, 22, 20, 4);
-    ctx.fill();
-
-    // Cool Sunglasses
-    ctx.fillStyle = '#090a0c';
-    ctx.fillRect(-10, -28, 9, 6);
-    ctx.fillRect(1, -28, 9, 6);
-    ctx.fillRect(-2, -27, 4, 2);
-    ctx.fillStyle = 'rgba(255,255,255,0.28)';
-    ctx.fillRect(-8, -27, 3, 2);
-    ctx.fillRect(3, -27, 3, 2);
-
-    // Slight confident smirk
-    ctx.strokeStyle = '#1f2937';
-    ctx.lineWidth = 1.8;
-    ctx.beginPath();
-    ctx.arc(0, -20, 4, 0.15 * Math.PI, 0.85 * Math.PI);
-    ctx.stroke();
-
-    // Styled spiky brown hair on top (matching Screenshot 2)
-    ctx.fillStyle = '#5c3317';
-    ctx.beginPath();
-    ctx.moveTo(-13, -32);
-    ctx.lineTo(-10, -42);
-    ctx.lineTo(-4, -38);
-    ctx.lineTo(0, -44);
-    ctx.lineTo(5, -39);
-    ctx.lineTo(11, -42);
-    ctx.lineTo(13, -32);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.restore();
 }
 
 function renderRobloxTopRightPlayerList() {
@@ -5913,6 +5803,7 @@ if (typeof module !== 'undefined' && module.exports) {
         getAppClientVersion,
         showUpdateNotificationModal,
         checkForBobloxUpdates,
+        drawRobloxAvatarCardPortrait,
         ...(AdminUIModule || {})
     };
 }

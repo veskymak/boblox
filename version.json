@@ -1,7 +1,7 @@
 {
-  "version": "5.9",
-  "buildTime": 1792432715000,
-  "updatedAt": "2026-10-19T17:58:00Z",
-  "title": "Boblox Aktualizace v5.9",
-  "message": "Oprava načítání herních světů odstraněním duplicitních deklarací a prevence černé obrazovky."
+  "version": "6.0",
+  "buildTime": 1792434009742,
+  "updatedAt": "2026-10-19T18:20:09Z",
+  "title": "Boblox Aktualizace v6.0",
+  "message": "Dynamické vykreslení 3D headshotu avatara a outfitu hráčů v herním Roblox ESC menu."
 }
