@@ -1237,7 +1237,13 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
         }
         try {
             let req = sb.from('profiles').select('id, username, coins, inventory, created_at, last_login_at, last_active_at');
-            const { data, error } = await req.order('created_at', { ascending: false }).limit(200);
+            let { data, error } = await req.order('created_at', { ascending: false }).limit(200);
+            if (error && (error.message?.includes('column') || error.code === '42703' || error.code === 'PGRST204')) {
+                const fallbackReq = sb.from('profiles').select('id, username, coins, inventory, created_at');
+                const fallbackRes = await fallbackReq.order('created_at', { ascending: false }).limit(200);
+                data = fallbackRes.data;
+                error = fallbackRes.error;
+            }
             const profiles = (data && Array.isArray(data)) ? data : [];
             const userList = profiles.map(p => {
                 const inv = (typeof p.inventory === 'object' && p.inventory !== null)

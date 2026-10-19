@@ -1,7 +1,7 @@
 {
-  "version": "6.5",
-  "buildTime": 1792442400000,
-  "updatedAt": "2026-10-19T22:55:00Z",
-  "title": "Boblox Aktualizace v6.5",
-  "message": "Synchronizace chatu a transakcí v Supabase cloudu, admin RPC funkce admin_give_coins a obnova profilů přátel."
+  "version": "6.6",
+  "buildTime": 1792444000000,
+  "updatedAt": "2026-10-19T23:24:00Z",
+  "title": "Boblox Aktualizace v6.6",
+  "message": "Oprava načítání seznamu uživatelů v Admin panelu přes defenzivní fallback v Supabase dotazu."
 }
