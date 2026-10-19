@@ -356,17 +356,27 @@ async function fetchCloudUsers(searchQuery = '') {
     const sb = getSupabaseClient();
     if (sb) {
         try {
-            let req = sb.from('profiles').select('id, username, coins, inventory, created_at');
+            let req = sb.from('profiles').select('id, username, coins, inventory, created_at, bio');
             const q = (searchQuery || '').trim();
             if (q) {
                 req = req.ilike('username', `%${q}%`);
             }
-            const { data, error } = await req.order('username', { ascending: true }).limit(50);
+            let { data, error } = await req.order('username', { ascending: true }).limit(50);
+            if (error && (error.message?.includes('column') || error.code === 'PGRST204')) {
+                let fallbackReq = sb.from('profiles').select('id, username, coins, inventory, created_at');
+                if (q) fallbackReq = fallbackReq.ilike('username', `%${q}%`);
+                const fallbackRes = await fallbackReq.order('username', { ascending: true }).limit(50);
+                data = fallbackRes.data;
+                error = fallbackRes.error;
+            }
             if (!error && Array.isArray(data)) {
                 const currentCache = getCloudUsersCache();
                 const map = new Map(currentCache.map(u => [u.username.toLowerCase(), u]));
                 data.forEach(u => {
                     if (u && u.username && isAppropriateUsername(u.username)) {
+                        if (!u.bio && u.inventory && typeof u.inventory === 'object' && u.inventory.bio) {
+                            u.bio = u.inventory.bio;
+                        }
                         map.set(u.username.toLowerCase(), u);
                     }
                 });
@@ -657,11 +667,17 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
             currentUser.coins = updatePayload.coins;
         }
 
+        if (typeof body.bio === 'string') {
+            updatePayload.bio = body.bio.slice(0, 160);
+            currentUser.bio = updatePayload.bio;
+        }
+
         const currentInv = (typeof currentUser.inventory === 'object' && currentUser.inventory !== null)
             ? currentUser.inventory
             : (typeof currentUser.inventory === 'string' ? (() => { try { return JSON.parse(currentUser.inventory); } catch (e) { return {}; } })() : {});
         updatePayload.inventory = {
             ...currentInv,
+            bio: updatePayload.bio !== undefined ? updatePayload.bio : (currentInv.bio || currentUser.bio || ''),
             owned: Array.isArray(body.owned) ? body.owned : (currentInv.owned || []),
             outfit: body.outfit || currentInv.outfit || {},
             torsoHex: body.torsoHex || currentInv.torsoHex || '#0D69AC',
@@ -693,6 +709,9 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
         if (updErr && (updErr.message?.toLowerCase().includes('column') || updErr.code === 'PGRST204')) {
             const fallbackPayload = { ...updatePayload };
             delete fallbackPayload.last_active_at;
+            if (updErr.message?.toLowerCase().includes('bio')) {
+                delete fallbackPayload.bio;
+            }
             const retryRes = await sb.from('profiles').update(fallbackPayload).eq('id', currentUser.id);
             updErr = retryRes.error;
         }
@@ -1237,6 +1256,9 @@ async function handleOfflineApiFallback(path, options = {}) {
         const uid = parseInt(authState.token.replace('local_jwt_', ''), 10);
         currentUser = users.find(u => u.id === uid) || null;
     }
+    if (!currentUser && authState.user) {
+        currentUser = users.find(u => (u.id && u.id === authState.user.id) || (u.username && authState.user.username && u.username.toLowerCase() === authState.user.username.toLowerCase())) || null;
+    }
 
     if (path === '/api/auth/register' && method === 'POST') {
         const uname = (body.username || '').trim();
@@ -1303,10 +1325,12 @@ async function handleOfflineApiFallback(path, options = {}) {
     if (path === '/api/user/sync' && method === 'POST') {
         if (!currentUser) return { ok: false, status: 401, data: { error: 'Nepřihlášen' } };
         if (typeof body.coins === 'number') currentUser.coins = Math.floor(body.coins);
+        if (typeof body.bio === 'string') currentUser.bio = body.bio.slice(0, 160);
         currentUser.last_active_at = now;
         const currentInv = currentUser.inventory || {};
         currentUser.inventory = {
             ...currentInv,
+            bio: typeof body.bio === 'string' ? body.bio.slice(0, 160) : currentInv.bio,
             owned: Array.isArray(body.owned) ? body.owned : (currentInv.owned || []),
             outfit: body.outfit || currentInv.outfit,
             torsoHex: body.torsoHex || currentInv.torsoHex,
@@ -1685,6 +1709,23 @@ async function handleOfflineApiFallback(path, options = {}) {
 function applyAuthenticatedUser(user) {
     if (!user) return;
     authState.user = user;
+    if (typeof user.bio === 'string' && user.bio && user.bio !== 'No bio yet') {
+        authState.user.bio = user.bio;
+        try { localStorage.setItem('boblox_custom_bio_v1', user.bio); } catch (e) {}
+    } else if (user.inventory && typeof user.inventory.bio === 'string' && user.inventory.bio && user.inventory.bio !== 'No bio yet') {
+        authState.user.bio = user.inventory.bio;
+        try { localStorage.setItem('boblox_custom_bio_v1', user.inventory.bio); } catch (e) {}
+    } else {
+        const localBio = (typeof localStorage !== 'undefined' && localStorage.getItem('boblox_custom_bio_v1')) || '';
+        if (localBio && localBio !== 'No bio yet') {
+            authState.user.bio = localBio;
+        } else {
+            authState.user.bio = user.bio || 'No bio yet';
+            if (user.bio) {
+                try { localStorage.setItem('boblox_custom_bio_v1', user.bio); } catch (e) {}
+            }
+        }
+    }
     if (typeof user.coins === 'number') {
         bobuxBalance = user.coins;
         localStorage.setItem(STORAGE_KEY_BOBUX, String(bobuxBalance));
@@ -1781,10 +1822,15 @@ async function syncAccountToServer() {
         : [];
     const sentReqsList = (typeof sentFriendRequests !== 'undefined') ? Object.values(sentFriendRequests) : [];
     const receivedReqsList = (typeof receivedFriendRequests !== 'undefined') ? Object.values(receivedFriendRequests) : [];
-    await apiRequest('/api/user/sync', {
+    const currentBio = (authState.user && typeof authState.user.bio === 'string')
+        ? authState.user.bio
+        : ((typeof localStorage !== 'undefined' && localStorage.getItem('boblox_custom_bio_v1')) || '');
+
+    const syncResp = await apiRequest('/api/user/sync', {
         method: 'POST',
         body: {
             coins: bobuxBalance,
+            bio: currentBio,
             owned: [...ownedShopItems],
             outfit: avatarOutfit,
             torsoHex: avatarTorsoHex,
@@ -1797,6 +1843,13 @@ async function syncAccountToServer() {
             received_friend_requests: receivedReqsList
         }
     });
+
+    if (syncResp && syncResp.user && typeof syncResp.user.bio === 'string') {
+        authState.user.bio = syncResp.user.bio;
+        try {
+            localStorage.setItem('boblox_custom_bio_v1', syncResp.user.bio || 'No bio yet');
+        } catch (e) {}
+    }
 }
 
 function formatDateTimeUserFriendly(val, isCurrentOnlineCheck = false) {
@@ -2280,6 +2333,8 @@ if (typeof window !== 'undefined') {
     window.handleSupabaseApiRequest = handleSupabaseApiRequest;
     window.getLocalUsersDB = getLocalUsersDB;
     window.saveLocalUsersDB = saveLocalUsersDB;
+    window.syncAccountToServer = syncAccountToServer;
+    window.sanitizeTextClient = sanitizeTextClient;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -2287,6 +2342,8 @@ if (typeof module !== 'undefined' && module.exports) {
         applyAuthenticatedUser,
         logoutAccount,
         apiRequest,
+        syncAccountToServer,
+        sanitizeTextClient,
         handleOfflineApiFallback,
         handleSupabaseApiRequest,
         getLocalUsersDB,

@@ -41,6 +41,7 @@ db.exec(`
         password_hash TEXT NOT NULL,
         inventory TEXT NOT NULL DEFAULT '{"owned":["face_classic"],"outfit":{"shirt":null,"pants":null,"face":"face_classic","hat":null},"torsoHex":"#0D69AC","gamesPlayed":0}',
         coins INTEGER NOT NULL DEFAULT 250,
+        bio TEXT NOT NULL DEFAULT '',
         daily_claim_date INTEGER NOT NULL DEFAULT 0,
         game_ratings TEXT NOT NULL DEFAULT '{}',
         comments TEXT NOT NULL DEFAULT '[]',
@@ -90,6 +91,7 @@ db.exec(`
 // Migration for existing databases
 try { db.exec(`ALTER TABLE users ADD COLUMN last_login_at INTEGER NOT NULL DEFAULT 0;`); } catch (e) {}
 try { db.exec(`ALTER TABLE users ADD COLUMN last_active_at INTEGER NOT NULL DEFAULT 0;`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN bio TEXT NOT NULL DEFAULT '';`); } catch (e) {}
 
 /* ============================================================================
  * 2. SECURITY & SANITIZATION HELPERS (XSS & SQL/NoSQL INJECTION PROTECTION)
@@ -137,6 +139,7 @@ function serializeUserForClient(row) {
     return {
         id: row.id,
         username: row.username,
+        bio: typeof row.bio === 'string' ? row.bio : '',
         coins: Number(row.coins) || 0,
         inventory: safeParseJSON(row.inventory, {
             owned: ['face_classic'],
@@ -253,8 +256,8 @@ app.post('/api/auth/register', async (req, res) => {
         });
 
         const insertStmt = db.prepare(`
-            INSERT INTO users (username, password_hash, inventory, coins, daily_claim_date, game_ratings, comments, last_comment_at, last_login_at, last_active_at, created_at)
-            VALUES (?, ?, ?, 250, 0, '{}', '[]', 0, ?, ?, ?)
+            INSERT INTO users (username, password_hash, inventory, coins, bio, daily_claim_date, game_ratings, comments, last_comment_at, last_login_at, last_active_at, created_at)
+            VALUES (?, ?, ?, 250, '', 0, '{}', '[]', 0, ?, ?, ?)
         `);
         const info = insertStmt.run(username, passwordHash, defaultInv, now, now, now);
         const userRow = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
@@ -333,10 +336,10 @@ app.get('/api/users/search', (req, res) => {
         const q = sanitizePlainText(req.query.q || '', 50);
         let rows;
         if (q) {
-            const stmt = db.prepare('SELECT id, username, coins, inventory, created_at FROM users WHERE username LIKE ? ORDER BY username ASC LIMIT 100');
+            const stmt = db.prepare('SELECT id, username, coins, bio, inventory, created_at FROM users WHERE username LIKE ? ORDER BY username ASC LIMIT 100');
             rows = stmt.all(`%${q}%`);
         } else {
-            const stmt = db.prepare('SELECT id, username, coins, inventory, created_at FROM users ORDER BY username ASC LIMIT 100');
+            const stmt = db.prepare('SELECT id, username, coins, bio, inventory, created_at FROM users ORDER BY username ASC LIMIT 100');
             rows = stmt.all();
         }
         return res.json(rows);
@@ -374,9 +377,14 @@ app.post('/api/user/sync', requireAuth, (req, res) => {
             received_friend_requests: Array.isArray(body.received_friend_requests) ? body.received_friend_requests.slice(0, 100) : (currentInv.received_friend_requests || [])
         };
 
+        let nextBio = req.userRow.bio || '';
+        if (typeof body.bio === 'string') {
+            nextBio = sanitizePlainText(body.bio, 160);
+        }
+
         const now = Date.now();
-        db.prepare('UPDATE users SET coins = ?, inventory = ?, last_active_at = ? WHERE id = ?')
-            .run(nextCoins, JSON.stringify(updatedInv), now, req.userRow.id);
+        db.prepare('UPDATE users SET coins = ?, bio = ?, inventory = ?, last_active_at = ? WHERE id = ?')
+            .run(nextCoins, nextBio, JSON.stringify(updatedInv), now, req.userRow.id);
 
         const fresh = db.prepare('SELECT * FROM users WHERE id = ?').get(req.userRow.id);
         return res.json({ user: serializeUserForClient(fresh), serverTime: now });
@@ -799,7 +807,7 @@ app.post('/api/games/:gameId/comments', requireAuth, (req, res) => {
 app.get('/api/admin/users', requireAdmin, (req, res) => {
     try {
         const rows = db.prepare(`
-            SELECT id, username, coins, daily_claim_date, last_login_at, last_active_at, created_at, inventory
+            SELECT id, username, coins, bio, daily_claim_date, last_login_at, last_active_at, created_at, inventory
             FROM users
             ORDER BY id ASC
         `).all();
@@ -809,6 +817,7 @@ app.get('/api/admin/users', requireAdmin, (req, res) => {
             return {
                 id: r.id,
                 username: r.username,
+                bio: typeof r.bio === 'string' ? r.bio : '',
                 coins: Number(r.coins) || 0,
                 gamesPlayed: Number(inv.gamesPlayed) || 0,
                 daily_claim_date: Number(r.daily_claim_date) || 0,

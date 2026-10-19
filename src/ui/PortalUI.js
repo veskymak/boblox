@@ -852,14 +852,17 @@ function getLocalRobloxPlayerProfile() {
     const username = isLogged
         ? authState.user.username
         : (typeof mpState !== 'undefined' && mpState.nickname && mpState.nickname !== 'Guest' ? mpState.nickname : (typeof getGuestNickname === 'function' ? getGuestNickname() : 'Guest'));
-    const savedBio = localStorage.getItem('boblox_custom_bio_v1');
+    const savedBio = (typeof localStorage !== 'undefined' && localStorage.getItem) ? localStorage.getItem('boblox_custom_bio_v1') : null;
+    const currentBio = (typeof authState !== 'undefined' && authState.user && typeof authState.user.bio === 'string' && authState.user.bio)
+        ? authState.user.bio
+        : (savedBio || 'No bio yet');
 
     return {
         id: 'local',
         username: username,
         displayName: username,
         handle: `@${username.replace(/\s+/g, '')}`,
-        bio: savedBio || 'No bio yet',
+        bio: currentBio,
         torsoHex: (typeof avatarTorsoHex !== 'undefined') ? avatarTorsoHex : '#0D69AC',
         outfit: typeof avatarOutfit !== 'undefined' ? avatarOutfit : null,
         followers: 0,
@@ -4593,8 +4596,24 @@ function closeEditProfileModal() {
 }
 
 function saveEditedProfile() {
-    const bVal = sanitizeTextClient(document.getElementById('edit-profile-bio')?.value || '', 160);
-    localStorage.setItem('boblox_custom_bio_v1', bVal || 'No bio yet');
+    const rawBio = document.getElementById('edit-profile-bio')?.value || '';
+    const bVal = typeof sanitizeTextClient === 'function'
+        ? sanitizeTextClient(rawBio, 160)
+        : rawBio.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').trim().slice(0, 160);
+    const finalBio = bVal || 'No bio yet';
+    if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('boblox_custom_bio_v1', finalBio);
+    }
+
+    if (typeof authState !== 'undefined' && authState.user) {
+        authState.user.bio = finalBio;
+    }
+
+    if (typeof syncAccountToServer === 'function') {
+        syncAccountToServer().catch(err => {
+            console.warn('Bio sync warning:', err);
+        });
+    }
 
     if (typeof sfx !== 'undefined' && sfx.playCoin) sfx.playCoin();
     closeEditProfileModal();
@@ -5943,6 +5962,10 @@ if (typeof window !== 'undefined') {
     window.toggleFriendStatus = toggleFriendStatus;
     window.acceptFriendRequest = acceptFriendRequest;
     window.cancelFriendRequest = cancelFriendRequest;
+    window.saveEditedProfile = saveEditedProfile;
+    window.openEditProfileModal = openEditProfileModal;
+    window.closeEditProfileModal = closeEditProfileModal;
+    window.getLocalRobloxPlayerProfile = getLocalRobloxPlayerProfile;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -5974,6 +5997,10 @@ if (typeof module !== 'undefined' && module.exports) {
         toggleFriendStatus,
         acceptFriendRequest,
         cancelFriendRequest,
+        saveEditedProfile,
+        openEditProfileModal,
+        closeEditProfileModal,
+        getLocalRobloxPlayerProfile,
         ...(AdminUIModule || {})
     };
 }

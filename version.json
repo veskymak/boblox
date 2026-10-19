@@ -1,7 +1,7 @@
 {
-  "version": "6.3",
-  "buildTime": 1792440000000,
-  "updatedAt": "2026-10-19T22:05:00Z",
-  "title": "Boblox Aktualizace v6.3",
-  "message": "Oprava admin Bobux tlačítek, perzistence přátel mezi PC a mobilem, odolnost komentářů/hodnocení a realtime server broadcast."
+  "version": "6.4",
+  "buildTime": 1792440300000,
+  "updatedAt": "2026-10-19T22:25:00Z",
+  "title": "Boblox Aktualizace v6.4",
+  "message": "Oprava synchronizace bio/profilu hráče mezi PC a mobilem (SQLite, Supabase cloud a offline fallback perzistence)."
 }
