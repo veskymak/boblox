@@ -1,7 +1,7 @@
 {
-  "version": "5.7",
-  "buildTime": 1792375000000,
-  "updatedAt": "2026-10-18T21:55:00Z",
-  "title": "Boblox Aktualizace v5.7",
-  "message": "Zpřísnění architektonického guardrailu proti unmediated API voláním v src/ui/ a sjednocení diagnostického logování [AdminUI]."
+  "version": "5.8",
+  "buildTime": 1792376000000,
+  "updatedAt": "2026-10-19T01:25:00Z",
+  "title": "Boblox Aktualizace v5.8",
+  "message": "Oprava persistence Bobuxů po reloadu v admin menu a propojení cloudové mezipaměti hráčů."
 }

@@ -148,6 +148,30 @@ function getFallbackAdminUsers() {
         } catch (err) {}
     }
 
+    let cloudUsers = [];
+    if (typeof getCloudUsersCache === 'function') {
+        try {
+            cloudUsers = getCloudUsersCache() || [];
+        } catch (err) {}
+    } else {
+        const cloudKey = (typeof STORAGE_KEYS !== 'undefined' && STORAGE_KEYS.CLOUD_USERS) ? STORAGE_KEYS.CLOUD_USERS : 'boblox_cloud_users_cache_v2';
+        try {
+            const raw = JSON.parse(localStorage.getItem(cloudKey) || '[]');
+            if (Array.isArray(raw)) cloudUsers = raw;
+        } catch (err) {}
+    }
+
+    for (const cu of cloudUsers) {
+        if (!cu || !cu.username) continue;
+        if (!localUsers.some(u => u.username && u.username.toLowerCase() === cu.username.toLowerCase())) {
+            localUsers.push({
+                id: cu.id || (localUsers.length + 1),
+                username: cu.username,
+                coins: Number(cu.coins) || 0
+            });
+        }
+    }
+
     const currentUser = (typeof authState !== 'undefined' && authState && authState.user) ? authState.user : null;
     const hasAdminInList = currentUser && localUsers.some(u => u.username && u.username.toLowerCase() === currentUser.username.toLowerCase());
     if (!hasAdminInList && currentUser && isCurrentUserAdmin(currentUser)) {
@@ -192,6 +216,10 @@ async function submitAdminGiveCoins(amount, action = 'add', targetUsername = nul
                 const bobuxKey = (typeof STORAGE_KEYS !== 'undefined' && STORAGE_KEYS.BOBUX) ? STORAGE_KEYS.BOBUX : 'boblox_bobux_balance_v1';
                 try {
                     localStorage.setItem(bobuxKey, String(data.coins));
+                } catch (e) {}
+                const userCacheKey = (typeof STORAGE_KEYS !== 'undefined' && STORAGE_KEYS.USER_CACHE) ? STORAGE_KEYS.USER_CACHE : 'boblox_auth_user_cache';
+                try {
+                    localStorage.setItem(userCacheKey, JSON.stringify(authState.user));
                 } catch (e) {}
                 if (typeof updateBobuxUI === 'function') updateBobuxUI();
             }

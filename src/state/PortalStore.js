@@ -1237,6 +1237,22 @@ async function handleOfflineApiFallback(path, options = {}) {
                 created_at: Number(u.created_at) || 0
             };
         });
+        const cloudUsers = typeof getCloudUsersCache === 'function' ? getCloudUsersCache() : [];
+        for (const cu of cloudUsers) {
+            if (!cu || !cu.username) continue;
+            if (!userList.some(u => u.username && u.username.toLowerCase() === cu.username.toLowerCase())) {
+                userList.push({
+                    id: cu.id || (userList.length + 1),
+                    username: cu.username,
+                    coins: Number(cu.coins) || 0,
+                    gamesPlayed: Number(cu.inventory?.gamesPlayed) || 0,
+                    daily_claim_date: Number(cu.daily_claim_date) || 0,
+                    last_login_at: Number(cu.last_login_at) || now,
+                    last_active_at: Number(cu.last_active_at) || now,
+                    created_at: Number(cu.created_at) || now
+                });
+            }
+        }
         if (authState.user && !userList.some(u => u.username && u.username.toLowerCase() === authState.user.username.toLowerCase())) {
             userList.unshift({
                 id: authState.user.id || 1,
@@ -1266,8 +1282,10 @@ async function handleOfflineApiFallback(path, options = {}) {
             return { ok: false, status: 400, data: { error: 'Částka musí být platné číslo.' } };
         }
         let targetUser = users.find(u => u.username && u.username.toLowerCase() === targetUsername.toLowerCase());
+        let wasSynthesized = false;
         if (!targetUser && authState.user && authState.user.username && authState.user.username.toLowerCase() === targetUsername.toLowerCase()) {
             targetUser = authState.user;
+            wasSynthesized = true;
         }
         if (!targetUser) {
             return { ok: false, status: 404, data: { error: 'Uživatel nenalezen.' } };
@@ -1275,11 +1293,23 @@ async function handleOfflineApiFallback(path, options = {}) {
         const currentCoins = Number(targetUser.coins) || 0;
         const newCoins = action === 'set' ? Math.max(0, Math.floor(rawAmount)) : Math.max(0, Math.floor(currentCoins + rawAmount));
         targetUser.coins = newCoins;
+        if (wasSynthesized && !users.some(u => u.username && u.username.toLowerCase() === targetUser.username.toLowerCase())) {
+            users.push({
+                id: targetUser.id || (users.length + 1),
+                username: targetUser.username,
+                coins: newCoins,
+                inventory: targetUser.inventory || {},
+                daily_claim_date: targetUser.daily_claim_date || 0,
+                last_login_at: targetUser.last_login_at || now,
+                last_active_at: now
+            });
+        }
         saveLocalUsersDB(users);
         if (authState.user && authState.user.username && authState.user.username.toLowerCase() === targetUsername.toLowerCase()) {
             authState.user.coins = newCoins;
             bobuxBalance = newCoins;
             try { localStorage.setItem(STORAGE_KEY_BOBUX, String(newCoins)); } catch (e) {}
+            try { localStorage.setItem(STORAGE_KEYS.USER_CACHE, JSON.stringify(authState.user)); } catch (e) {}
             if (typeof updateBobuxUI === 'function') updateBobuxUI();
         }
         return { ok: true, status: 200, data: { ok: true, username: targetUser.username, coins: newCoins, action } };
