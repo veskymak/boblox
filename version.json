@@ -1,7 +1,7 @@
 {
-  "version": "6.6",
-  "buildTime": 1792444000000,
-  "updatedAt": "2026-10-19T23:24:00Z",
-  "title": "Boblox Aktualizace v6.6",
-  "message": "Oprava načítání seznamu uživatelů v Admin panelu přes defenzivní fallback v Supabase dotazu."
+  "version": "6.7",
+  "buildTime": 1792445000000,
+  "updatedAt": "2026-10-19T23:43:00Z",
+  "title": "Boblox Aktualizace v6.7",
+  "message": "Automatická obnova Supabase session v initAuthSession a ověření admin RPC give-coins v cloudu."
 }

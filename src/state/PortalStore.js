@@ -2327,6 +2327,18 @@ async function initAuthSession() {
 
     const fallbackName = getGuestNickname();
     if (!authState.token) {
+        const sb = typeof getSupabaseClient === 'function' ? getSupabaseClient() : null;
+        if (sb && sb.auth) {
+            try {
+                const { data: sessionData } = await sb.auth.getSession();
+                if (sessionData?.session?.user) {
+                    authState.token = 'sb_jwt_' + sessionData.session.user.id;
+                    localStorage.setItem(STORAGE_KEY_JWT, authState.token);
+                }
+            } catch (e) {}
+        }
+    }
+    if (!authState.token) {
         if (typeof mpState !== 'undefined') {
             mpState.nickname = fallbackName;
         }
