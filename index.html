@@ -1646,6 +1646,19 @@
                             <button type="button" id="rblx-setting-audio" onclick="toggleAudioMute(); updateRobloxSettingsUI();"
                                 class="px-4 py-1 rounded bg-[#1e2024] hover:bg-[#383b42] text-gray-200 font-semibold border border-white/10">Zapnuto</button>
                         </div>
+                        <div class="bg-[#2b2d31] rounded-lg px-4 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div>
+                                <div class="font-bold text-white">Casino Music (Hudba)</div>
+                                <div class="text-[11px] text-gray-400">Hlasitost hudby v kasinu (ztlumení)</div>
+                            </div>
+                            <div class="flex items-center gap-2.5">
+                                <input type="range" id="rblx-setting-music-slider" min="0" max="100" value="35"
+                                    oninput="setMusicVolumeFromUI(this.value / 100)"
+                                    class="w-24 sm:w-28 accent-[#00B06F] cursor-pointer h-2 bg-[#1e2024] rounded-lg"
+                                    title="Hlasitost hudby v kasinu">
+                                <span id="rblx-setting-music-val" class="font-mono text-xs font-bold text-gray-200 min-w-[36px] text-right">35%</span>
+                            </div>
+                        </div>
                         <div class="bg-[#2b2d31] rounded-lg px-4 py-2.5 flex items-center justify-between">
                             <span class="font-bold text-white">Fullscreen [F11]</span>
                             <button type="button" id="rblx-setting-fullscreen" onclick="toggleRobloxFullscreen()"
@@ -1907,7 +1920,20 @@
                     </div>
                 </div>
 
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-2 sm:gap-3">
+                    <!-- Casino Music Quick Volume Control -->
+                    <div id="casino-music-pill" class="flex items-center gap-2 bg-[#121316]/90 border border-white/10 px-2.5 py-1.5 rounded-xl shadow text-xs">
+                        <button type="button" onclick="toggleMusicMute()" class="text-gray-300 hover:text-white transition focus:outline-none flex items-center justify-center p-0.5" title="Ztlumit / Zapnout hudbu">
+                            <span id="casino-music-mute-icon" class="text-base select-none">🔊</span>
+                        </button>
+                        <div class="flex items-center gap-1.5">
+                            <input type="range" id="casino-music-modal-slider" min="0" max="100" value="35"
+                                oninput="setMusicVolumeFromUI(this.value / 100)"
+                                class="w-16 sm:w-24 accent-[#00B06F] cursor-pointer h-1.5 bg-gray-700 rounded-lg"
+                                title="Hlasitost hudby (posunutím doleva ztišíš)">
+                            <span id="casino-music-modal-val" class="font-mono text-[11px] text-gray-300 min-w-[28px] text-right select-none">35%</span>
+                        </div>
+                    </div>
                     <!-- Bobux Chip Display Pill -->
                     <div class="flex items-center gap-2 bg-[#121316]/90 border border-[#FFE066]/40 px-3.5 py-1.5 rounded-xl shadow">
                         <span class="w-5 h-5 rounded-md bg-gradient-to-br from-[#FFE066] to-[#F59F00] text-[#191B1D] font-black text-xs flex items-center justify-center">B$</span>
@@ -2465,15 +2491,15 @@
     </div>
 
     <!-- BOBLOX Modular Architecture (Core Engine, State, Network, Games & UI with Cache-Busting) -->
-    <script src="src/core/SoundEngine.js?v=6.1" defer></script>
-    <script src="src/state/PortalStore.js?v=6.1" defer></script>
-    <script src="src/network/NetworkManager.js?v=6.1" defer></script>
-    <script src="src/ui/PortalUI.js?v=6.1" defer></script>
-    <script src="src/ui/AdminUI.js?v=6.1" defer></script>
-    <script src="src/core/AvatarAndShop.js?v=6.1" defer></script>
-    <script src="src/core/Engine.js?v=6.1" defer></script>
-    <script src="src/games/GameWorlds.js?v=6.1" defer></script>
-    <script src="src/core/PhysicsAndLoop.js?v=6.1" defer></script>
-    <script src="src/core/InputManager.js?v=6.1" defer></script>
+    <script src="src/core/SoundEngine.js?v=6.2" defer></script>
+    <script src="src/state/PortalStore.js?v=6.2" defer></script>
+    <script src="src/network/NetworkManager.js?v=6.2" defer></script>
+    <script src="src/ui/PortalUI.js?v=6.2" defer></script>
+    <script src="src/ui/AdminUI.js?v=6.2" defer></script>
+    <script src="src/core/AvatarAndShop.js?v=6.2" defer></script>
+    <script src="src/core/Engine.js?v=6.2" defer></script>
+    <script src="src/games/GameWorlds.js?v=6.2" defer></script>
+    <script src="src/core/PhysicsAndLoop.js?v=6.2" defer></script>
+    <script src="src/core/InputManager.js?v=6.2" defer></script>
 </body>
 </html>

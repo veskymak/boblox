@@ -1631,6 +1631,10 @@ function setupGame12Casino() {
     document.getElementById('hud-extra-label').textContent = 'Zůstatek: ';
     document.getElementById('hud-extra-value').textContent = `${bobuxBalance.toLocaleString('cs-CZ')} B$`;
 
+    if (typeof sfx !== 'undefined' && typeof sfx.playCasinoMusic === 'function') {
+        sfx.playCasinoMusic();
+    }
+
     playerState.spawnPoint.set(0, 3, 26);
     playerState.pos.copy(playerState.spawnPoint);
 
@@ -1849,6 +1853,12 @@ function openCasinoModal(tabName = 'blackjack') {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     updateCasinoBobuxDisplay();
+    if (typeof sfx !== 'undefined') {
+        if (typeof sfx.syncMusicUI === 'function') sfx.syncMusicUI();
+        if (sfx.isPlayingMusic && sfx.musicAudio && sfx.musicAudio.paused) {
+            sfx.musicAudio.play().catch(() => {});
+        }
+    }
     switchCasinoTab(tabName);
 }
 

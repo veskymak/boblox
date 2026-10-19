@@ -1,15 +1,138 @@
 /* ============================================================================
- * 1. WEB AUDIO API RETRO SYNTHESIZER (NO EXTERNAL AUDIO FILES)
+ * 1. WEB AUDIO API RETRO SYNTHESIZER & CASINO BACKGROUND MUSIC
+ * ============================================================================
+ * ⚙️ AUDIO CONFIGURATION: DEFAULT VOLUMES & SETTINGS
+ * Zde můžeš nastavit výchozí hlasitost hudby v casinu (hodnota mezi 0.0 a 1.0):
+ * Například 0.35 = 35% hlasitost.
  * ============================================================================ */
+const DEFAULT_CASINO_MUSIC_VOLUME = 0.35; // <- VÝCHOZÍ HLASITOST HUDBY V CASINU (0.35 = 35%)
+const CASINO_MUSIC_TRACK_URL = 'assets/audio/casino_bgm.mp3';
+
 class BobloxSoundEngine {
     constructor() {
         this.ctx = null;
         this.muted = false;
+        this.musicAudio = null;
+        this.currentMusicTrack = null;
+        this.musicVolume = DEFAULT_CASINO_MUSIC_VOLUME;
+        this.isMusicMuted = false;
+        this.isPlayingMusic = false;
+        this.initMusicVolume();
+    }
+
+    initMusicVolume() {
+        try {
+            if (typeof localStorage !== 'undefined') {
+                const storageKey = (typeof window !== 'undefined' && window.STORAGE_KEYS && window.STORAGE_KEYS.MUSIC_VOLUME)
+                    ? window.STORAGE_KEYS.MUSIC_VOLUME
+                    : 'boblox_music_volume_v1';
+                const saved = localStorage.getItem(storageKey);
+                if (saved !== null) {
+                    const parsed = parseFloat(saved);
+                    if (!isNaN(parsed) && parsed >= 0 && parsed <= 1) {
+                        this.musicVolume = parsed;
+                    }
+                }
+            }
+        } catch (e) {}
+    }
+
+    getEffectiveMusicVolume() {
+        if (this.muted || this.isMusicMuted) return 0;
+        return this.musicVolume;
+    }
+
+    setMusicVolume(vol) {
+        const parsed = parseFloat(vol);
+        if (isNaN(parsed)) return;
+        this.musicVolume = Math.max(0, Math.min(1, parsed));
+        if (this.musicAudio) {
+            this.musicAudio.volume = this.getEffectiveMusicVolume();
+        }
+        try {
+            if (typeof localStorage !== 'undefined') {
+                const storageKey = (typeof window !== 'undefined' && window.STORAGE_KEYS && window.STORAGE_KEYS.MUSIC_VOLUME)
+                    ? window.STORAGE_KEYS.MUSIC_VOLUME
+                    : 'boblox_music_volume_v1';
+                localStorage.setItem(storageKey, String(this.musicVolume));
+            }
+        } catch (e) {}
+        this.syncMusicUI();
+    }
+
+    toggleMusicMute() {
+        this.isMusicMuted = !this.isMusicMuted;
+        if (this.musicAudio) {
+            this.musicAudio.volume = this.getEffectiveMusicVolume();
+        }
+        this.syncMusicUI();
+        return this.isMusicMuted;
+    }
+
+    syncMusicUI() {
+        if (typeof document === 'undefined') return;
+        const pct = Math.round(this.musicVolume * 100);
+
+        // 1. In Roblox ESC Menu Settings modal
+        const rblxSlider = document.getElementById('rblx-setting-music-slider');
+        const rblxVal = document.getElementById('rblx-setting-music-val');
+        if (rblxSlider) rblxSlider.value = String(pct);
+        if (rblxVal) rblxVal.textContent = (this.muted || this.isMusicMuted) ? 'Muted (0%)' : `${pct}%`;
+
+        // 2. In Casino modal header
+        const casinoSlider = document.getElementById('casino-music-modal-slider');
+        const casinoVal = document.getElementById('casino-music-modal-val');
+        const casinoMuteIcon = document.getElementById('casino-music-mute-icon');
+        if (casinoSlider) casinoSlider.value = String(pct);
+        if (casinoVal) casinoVal.textContent = (this.muted || this.isMusicMuted) ? '0%' : `${pct}%`;
+        if (casinoMuteIcon) {
+            casinoMuteIcon.textContent = (this.muted || this.isMusicMuted || pct === 0) ? '🔇' : (pct < 40 ? '🔉' : '🔊');
+        }
+    }
+
+    playMusic(trackUrl = CASINO_MUSIC_TRACK_URL, loop = true) {
+        if (typeof window === 'undefined' || typeof Audio === 'undefined') return;
+        try {
+            if (!this.musicAudio) {
+                this.musicAudio = new Audio();
+                this.musicAudio.preload = 'auto';
+            }
+            if (this.currentMusicTrack !== trackUrl || !this.musicAudio.src) {
+                this.musicAudio.src = trackUrl;
+                this.currentMusicTrack = trackUrl;
+            }
+            this.musicAudio.loop = loop;
+            this.musicAudio.volume = this.getEffectiveMusicVolume();
+            this.isPlayingMusic = true;
+
+            const playPromise = this.musicAudio.play();
+            if (playPromise && typeof playPromise.catch === 'function') {
+                playPromise.catch(() => {
+                    // Browser autoplay policy might delay audio until user interaction
+                });
+            }
+        } catch (e) {
+            console.warn('[BobloxSoundEngine] playMusic error:', e);
+        }
+    }
+
+    playCasinoMusic() {
+        this.playMusic(CASINO_MUSIC_TRACK_URL, true);
+    }
+
+    stopMusic() {
+        if (this.musicAudio) {
+            try {
+                this.musicAudio.pause();
+                this.musicAudio.currentTime = 0;
+            } catch (e) {}
+        }
+        this.isPlayingMusic = false;
     }
 
     init() {
         if (!this.ctx) {
-            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            const AudioCtx = (typeof window !== 'undefined') ? (window.AudioContext || window.webkitAudioContext) : null;
             if (AudioCtx) {
                 this.ctx = new AudioCtx();
             }
@@ -341,7 +464,41 @@ const sfx = new BobloxSoundEngine();
 
 function toggleAudioMute() {
     sfx.muted = !sfx.muted;
-    document.getElementById('icon-sound-on').classList.toggle('hidden', sfx.muted);
-    document.getElementById('icon-sound-off').classList.toggle('hidden', !sfx.muted);
+    if (sfx.musicAudio) {
+        sfx.musicAudio.volume = sfx.getEffectiveMusicVolume();
+    }
+    sfx.syncMusicUI();
+    const iconOn = typeof document !== 'undefined' ? document.getElementById('icon-sound-on') : null;
+    const iconOff = typeof document !== 'undefined' ? document.getElementById('icon-sound-off') : null;
+    if (iconOn) iconOn.classList.toggle('hidden', sfx.muted);
+    if (iconOff) iconOff.classList.toggle('hidden', !sfx.muted);
+    if (typeof updateRobloxSettingsUI === 'function') {
+        updateRobloxSettingsUI();
+    }
+}
+
+function setMusicVolumeFromUI(val) {
+    if (typeof sfx !== 'undefined') {
+        sfx.setMusicVolume(val);
+    }
+}
+
+function toggleMusicMute() {
+    if (typeof sfx !== 'undefined') {
+        return sfx.toggleMusicMute();
+    }
+    return false;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        BobloxSoundEngine,
+        sfx,
+        DEFAULT_CASINO_MUSIC_VOLUME,
+        CASINO_MUSIC_TRACK_URL,
+        toggleAudioMute,
+        setMusicVolumeFromUI,
+        toggleMusicMute
+    };
 }
 

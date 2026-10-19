@@ -1199,6 +1199,9 @@ function updateRobloxSettingsUI() {
     if (ffBtn) {
         ffBtn.textContent = robloxUiState.forcefieldEnabled ? 'Active' : 'Off';
     }
+    if (typeof sfx !== 'undefined' && typeof sfx.syncMusicUI === 'function') {
+        sfx.syncMusicUI();
+    }
 }
 
 function toggleRobloxSetting(key) {

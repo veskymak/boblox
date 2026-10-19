@@ -18,7 +18,8 @@ const STORAGE_KEYS = Object.freeze({
     MP_NICK: 'boblox_mp_nick',
     API_BASE: 'boblox_api_base',
     CHAT_MESSAGES: 'boblox_direct_messages_v2',
-    CHAT_UNREAD: 'boblox_unread_messages_v2'
+    CHAT_UNREAD: 'boblox_unread_messages_v2',
+    MUSIC_VOLUME: 'boblox_music_volume_v1'
 });
 if (typeof window !== 'undefined') {
     window.STORAGE_KEYS = STORAGE_KEYS;

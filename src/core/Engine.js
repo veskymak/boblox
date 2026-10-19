@@ -473,6 +473,9 @@ function cleanupCurrentGame() {
     if (typeof _juiceParticlePool !== 'undefined') _juiceParticlePool = [];
     if (typeof _camTargetInitialized !== 'undefined') _camTargetInitialized = false;
     if (typeof closeCasinoModal === 'function') closeCasinoModal();
+    if (typeof sfx !== 'undefined' && typeof sfx.stopMusic === 'function') {
+        sfx.stopMusic();
+    }
     gameSpecificData = {};
     playerAvatar = null;
     Object.values(mpState.remotePlayers).forEach(rp => { rp.meshData = null; });
