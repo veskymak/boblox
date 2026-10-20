@@ -1,7 +1,7 @@
 {
-  "version": "6.7",
-  "buildTime": 1792445000000,
-  "updatedAt": "2026-10-19T23:43:00Z",
-  "title": "Boblox Aktualizace v6.7",
-  "message": "Automatická obnova Supabase session v initAuthSession a ověření admin RPC give-coins v cloudu."
+  "version": "6.8",
+  "buildTime": 1792497600000,
+  "updatedAt": "2026-10-20T12:00:00Z",
+  "title": "Boblox Aktualizace v6.8",
+  "message": "Automatické opakování zatočení v kole štěstí."
 }

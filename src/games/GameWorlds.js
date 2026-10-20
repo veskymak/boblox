@@ -2333,6 +2333,7 @@ const WHEEL_PRIZES = [
 const STORAGE_KEY_CASINO_WHEEL = 'boblox_casino_wheel_last_spin_v2';
 let wheelCurrentAngle = 0;
 let isWheelSpinning = false;
+let wheelAutoSpin = false;
 
 function isDailyWheelFree() {
     const last = parseInt(localStorage.getItem(STORAGE_KEY_CASINO_WHEEL) || '0', 10);
@@ -2434,12 +2435,23 @@ function renderCasinoWheel(rotation = wheelCurrentAngle) {
     ctx.restore();
 }
 
+function toggleWheelAutoSpin() {
+    const cb = document.getElementById('wheel-auto-spin');
+    wheelAutoSpin = !!(cb && cb.checked);
+    if (wheelAutoSpin && !isWheelSpinning) {
+        spinDailyWheel();
+    }
+}
+
 function spinDailyWheel() {
     if (isWheelSpinning) return;
     const isFree = isDailyWheelFree();
 
     if (!isFree) {
         if (bobuxBalance < 100) {
+            wheelAutoSpin = false;
+            const cb = document.getElementById('wheel-auto-spin');
+            if (cb) cb.checked = false;
             showHudToast('Nemáš 100 Bobuxů na placené zatočení kola!', 'red');
             return;
         }
@@ -2507,6 +2519,12 @@ function spinDailyWheel() {
                 msgEl.className = 'py-2.5 px-4 rounded-xl bg-pink-950/80 border border-pink-400 text-xs sm:text-sm font-black text-pink-200 shadow';
                 localStorage.removeItem(STORAGE_KEY_CASINO_WHEEL);
                 updateDailyWheelTimer();
+            }
+
+            if (wheelAutoSpin) {
+                setTimeout(() => {
+                    if (wheelAutoSpin && !isWheelSpinning) spinDailyWheel();
+                }, 1200);
             }
         }
     }
