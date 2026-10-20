@@ -1911,6 +1911,7 @@ const bjState = {
     dealerHand: [],
     playerHand: [],
     bet: 50,
+    betBeforeDouble: null,
     phase: 'betting' // 'betting' | 'playing' | 'dealer' | 'finished'
 };
 
@@ -2070,6 +2071,7 @@ function doubleBlackjack() {
         return;
     }
     spendBobux(bjState.bet, 'Blackjack Double Down');
+    bjState.betBeforeDouble = bjState.bet;
     bjState.bet *= 2;
     updateCasinoBobuxDisplay();
     document.getElementById('bj-current-bet').textContent = `${bjState.bet} B$`;
@@ -2170,6 +2172,13 @@ function finishBlackjackRound(result, msg = '', payout = 0) {
     document.getElementById('bj-btn-hit').disabled = true;
     document.getElementById('bj-btn-stand').disabled = true;
     document.getElementById('bj-btn-double').disabled = true;
+
+    if (bjState.betBeforeDouble !== null) {
+        bjState.bet = bjState.betBeforeDouble;
+        bjState.betBeforeDouble = null;
+        const betDisplay = document.getElementById('bj-current-bet');
+        if (betDisplay) betDisplay.textContent = `${bjState.bet} B$`;
+    }
 }
 
 /* ============================================================================
@@ -2807,5 +2816,4 @@ function finishDerbyRace(winnerId) {
         resultBanner.innerHTML = `Bohužel, tvůj kůň #${chosen.id} ${chosen.name} nevyhrál.<br>Vítězem dostihů se stal <strong class="text-white">#${winner.id} ${winner.name}</strong>. Zkus to v dalším závodě!`;
     }
 }
-
 

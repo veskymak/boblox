@@ -1,7 +1,7 @@
 {
-  "version": "6.8",
-  "buildTime": 1792497600000,
-  "updatedAt": "2026-10-20T12:00:00Z",
-  "title": "Boblox Aktualizace v6.8",
-  "message": "Automatické opakování zatočení v kole štěstí."
+  "version": "6.9",
+  "buildTime": 1792485159470,
+  "updatedAt": "2026-10-20T08:32:39Z",
+  "title": "Boblox Aktualizace v6.9",
+  "message": "Oprava resetu sázky po zdvojnásobení v Blackjacku."
 }
