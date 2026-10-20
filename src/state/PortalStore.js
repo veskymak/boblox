@@ -2023,6 +2023,8 @@ function applyAuthenticatedUser(user) {
     }
 }
 
+let accountSyncQueue = null;
+
 async function syncAccountToServer() {
     if (!authState.user) return;
     const adopt = typeof loadAdoptMeSavedData === 'function' ? loadAdoptMeSavedData() : null;
@@ -2035,24 +2037,39 @@ async function syncAccountToServer() {
         ? authState.user.bio
         : ((typeof localStorage !== 'undefined' && localStorage.getItem('boblox_custom_bio_v1')) || '');
 
-    const syncResp = await apiRequest('/api/user/sync', {
-        method: 'POST',
-        body: {
-            coins: bobuxBalance,
-            bio: currentBio,
-            owned: [...ownedShopItems],
-            outfit: avatarOutfit,
-            torsoHex: avatarTorsoHex,
-            gamesPlayed: gamesPlayedCount,
-            adoptme_pets: adopt ? adopt.pets : undefined,
-            adoptme_bucks: adopt ? adopt.bucks : undefined,
-            daily_claim_date: lastClaimTimestamp,
-            friends: friendsList,
-            sent_friend_requests: sentReqsList,
-            received_friend_requests: receivedReqsList,
-            transactions: (typeof bobuxTransactions !== 'undefined' && Array.isArray(bobuxTransactions)) ? bobuxTransactions.slice(0, 50) : []
-        }
+    const syncIdentity = `${authState.user.id ?? authState.user.username}:${authState.token || ''}`;
+    const syncBody = {
+        coins: bobuxBalance,
+        bio: currentBio,
+        owned: [...ownedShopItems],
+        outfit: avatarOutfit,
+        torsoHex: avatarTorsoHex,
+        gamesPlayed: gamesPlayedCount,
+        adoptme_pets: adopt ? adopt.pets : undefined,
+        adoptme_bucks: adopt ? adopt.bucks : undefined,
+        daily_claim_date: lastClaimTimestamp,
+        friends: friendsList,
+        sent_friend_requests: sentReqsList,
+        received_friend_requests: receivedReqsList,
+        transactions: (typeof bobuxTransactions !== 'undefined' && Array.isArray(bobuxTransactions)) ? bobuxTransactions.slice(0, 50) : []
+    };
+    const runSync = () => {
+        const currentIdentity = authState.user
+            ? `${authState.user.id ?? authState.user.username}:${authState.token || ''}`
+            : null;
+        if (currentIdentity !== syncIdentity) return Promise.resolve(null);
+        return apiRequest('/api/user/sync', {
+            method: 'POST',
+            body: syncBody
+        });
+    };
+    const syncOperation = accountSyncQueue ? accountSyncQueue.then(runSync, runSync) : runSync();
+    const queuedSync = syncOperation.then(() => undefined, () => undefined);
+    accountSyncQueue = queuedSync;
+    queuedSync.then(() => {
+        if (accountSyncQueue === queuedSync) accountSyncQueue = null;
     });
+    const syncResp = await syncOperation;
 
     if (syncResp && syncResp.user && typeof syncResp.user.bio === 'string') {
         authState.user.bio = syncResp.user.bio;
@@ -2573,6 +2590,3 @@ if (typeof module !== 'undefined' && module.exports) {
         STORAGE_KEYS
     };
 }
-
-
-
