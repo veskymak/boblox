@@ -14,6 +14,6 @@ describe('Casino wheel auto spin', () => {
 
     it('continues spinning while enabled and disables itself when funds run out', () => {
         assert.match(gameWorlds, /if \(wheelAutoSpin\) \{\s*setTimeout\(\(\) => \{\s*if \(wheelAutoSpin && !isWheelSpinning\) spinDailyWheel\(\);\s*\}, 1200\);\s*\}/);
-        assert.match(gameWorlds, /if \(bobuxBalance < 100\) \{\s*wheelAutoSpin = false;\s*const cb = document\.getElementById\('wheel-auto-spin'\);\s*if \(cb\) cb\.checked = false;/);
+        assert.match(gameWorlds, /if \(bobuxBalance < WHEEL_PAID_SPIN_PRICE\) \{\s*wheelAutoSpin = false;\s*const cb = document\.getElementById\('wheel-auto-spin'\);\s*if \(cb\) cb\.checked = false;/);
     });
 });

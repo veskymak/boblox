@@ -2339,6 +2339,7 @@ const WHEEL_PRIZES = [
     { label: 'JACKPOT 2500', type: 'bobux', amount: 2500, color: '#eab308', icon: '⭐' }
 ];
 
+const WHEEL_PAID_SPIN_PRICE = 600;
 const STORAGE_KEY_CASINO_WHEEL = 'boblox_casino_wheel_last_spin_v2';
 let wheelCurrentAngle = 0;
 let isWheelSpinning = false;
@@ -2364,8 +2365,8 @@ function updateDailyWheelTimer() {
         const remMs = Math.max(0, 24 * 3600 * 1000 - (Date.now() - last));
         const remHms = formatHMS(remMs);
         if (statusEl) statusEl.textContent = `⏳ Další volné zatočení za: ${remHms}`;
-        if (btnText) btnText.textContent = 'ZATOČIT (100 B$)';
-        if (timerEl) timerEl.textContent = `Denní bonus vyčerpán. Další zdarma za ${remHms}, nebo toč za 100 B$.`;
+        if (btnText) btnText.textContent = `ZATOČIT (${WHEEL_PAID_SPIN_PRICE} B$)`;
+        if (timerEl) timerEl.textContent = `Denní bonus vyčerpán. Další zdarma za ${remHms}, nebo toč za ${WHEEL_PAID_SPIN_PRICE} B$.`;
     }
 }
 
@@ -2457,14 +2458,14 @@ function spinDailyWheel() {
     const isFree = isDailyWheelFree();
 
     if (!isFree) {
-        if (bobuxBalance < 100) {
+        if (bobuxBalance < WHEEL_PAID_SPIN_PRICE) {
             wheelAutoSpin = false;
             const cb = document.getElementById('wheel-auto-spin');
             if (cb) cb.checked = false;
-            showHudToast('Nemáš 100 Bobuxů na placené zatočení kola!', 'red');
+            showHudToast(`Nemáš ${WHEEL_PAID_SPIN_PRICE} Bobuxů na placené zatočení kola!`, 'red');
             return;
         }
-        if (!spendBobux(100, 'Zatočení Kola Štěstí (100 B$)')) return;
+        if (!spendBobux(WHEEL_PAID_SPIN_PRICE, `Zatočení Kola Štěstí (${WHEEL_PAID_SPIN_PRICE} B$)`)) return;
         updateCasinoBobuxDisplay();
     } else {
         localStorage.setItem(STORAGE_KEY_CASINO_WHEEL, String(Date.now()));
@@ -2816,4 +2817,3 @@ function finishDerbyRace(winnerId) {
         resultBanner.innerHTML = `Bohužel, tvůj kůň #${chosen.id} ${chosen.name} nevyhrál.<br>Vítězem dostihů se stal <strong class="text-white">#${winner.id} ${winner.name}</strong>. Zkus to v dalším závodě!`;
     }
 }
-
