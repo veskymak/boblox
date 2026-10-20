@@ -3,7 +3,12 @@ const assert = require('node:assert');
 
 // Global browser shims
 global.window = global;
-global.window.addEventListener = () => {};
+const windowListeners = new Map();
+global.window.addEventListener = (event, handler) => {
+    const handlers = windowListeners.get(event) || [];
+    handlers.push(handler);
+    windowListeners.set(event, handlers);
+};
 global.window.location = { protocol: 'https:', hostname: 'veskymak.github.io' };
 const storageStore = {};
 global.localStorage = {
@@ -213,5 +218,67 @@ describe('Supabase Chat, Transactions & Friends Cache Synchronization (v6.5)', (
         assert.strictEqual(rpcCalledWith.target_username, 'AgentTester_1');
         assert.strictEqual(rpcCalledWith.amount, 250);
         assert.strictEqual(res.data.coins, 500);
+    });
+
+    it('uses keepalive for Supabase account writes triggered by pagehide', async () => {
+        let requestOptions;
+        let resolveRequestSeen;
+        const requestSeen = new Promise((resolve) => {
+            resolveRequestSeen = resolve;
+        });
+        const originalFetch = global.fetch;
+        global.fetch = async (_input, options) => {
+            requestOptions = options;
+            resolveRequestSeen();
+            return { ok: true, status: 204 };
+        };
+        global.ownedShopItems = new Set(['face_classic']);
+        global.avatarOutfit = { shirt: null, pants: null, face: 'face_classic', hat: null };
+        global.avatarTorsoHex = '#0D69AC';
+        global.gamesPlayedCount = 0;
+        global.window.supabase = {
+            createClient(_url, _key, options) {
+                const supabaseFetch = options.global.fetch;
+                return {
+                    auth: {
+                        getUser: async () => ({ data: { user: { id: 'uuid-vendeez' } } })
+                    },
+                    from: (table) => {
+                        if (table !== 'profiles') return {};
+                        return {
+                            select: () => ({
+                                eq: () => ({
+                                    maybeSingle: async () => ({
+                                        data: {
+                                            id: 'uuid-vendeez',
+                                            username: 'Vendeez',
+                                            coins: 1000,
+                                            inventory: {}
+                                        }
+                                    })
+                                })
+                            }),
+                            update: () => ({
+                                eq: async () => {
+                                    await supabaseFetch('https://example.test/rest/v1/profiles', {
+                                        method: 'PATCH'
+                                    });
+                                    return { error: null };
+                                }
+                            })
+                        };
+                    }
+                };
+            }
+        };
+
+        try {
+            for (const handler of windowListeners.get('pagehide') || []) handler();
+            await requestSeen;
+            assert.equal(requestOptions.keepalive, true);
+        } finally {
+            global.fetch = originalFetch;
+            delete global.window.supabase;
+        }
     });
 });

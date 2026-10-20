@@ -321,11 +321,19 @@ async function hashPasswordClientFallback(password) {
 const SUPABASE_URL = 'https://vfbdsclqvsjbzzhyaegw.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_lG31mqqwY-JFiSYbtkJqzg_-vR53iJh';
 let supabaseClient = null;
+let supabaseKeepalive = false;
 
 function getSupabaseClient() {
     if (!supabaseClient && window.supabase && typeof window.supabase.createClient === 'function') {
         try {
-            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+                global: {
+                    fetch: (input, options = {}) => fetch(input, {
+                        ...options,
+                        keepalive: options.keepalive === true || supabaseKeepalive
+                    })
+                }
+            });
         } catch (e) {
             console.warn('Nepodařilo se inicializovat Supabase klienta:', e);
         }
@@ -1415,7 +1423,8 @@ async function apiRequest(path, options = {}) {
             method: options.method || 'GET',
             headers,
             credentials: CUSTOM_API_BASE ? 'include' : 'same-origin',
-            body: options.body ? JSON.stringify(options.body) : undefined
+            body: options.body ? JSON.stringify(options.body) : undefined,
+            keepalive: options.keepalive === true
         });
 
         const contentType = (resp.headers.get('content-type') || '').toLowerCase();
@@ -2025,7 +2034,7 @@ function applyAuthenticatedUser(user) {
 
 let accountSyncQueue = null;
 
-async function syncAccountToServer() {
+async function syncAccountToServer({ bypassQueue = false } = {}) {
     if (!authState.user) return;
     const adopt = typeof loadAdoptMeSavedData === 'function' ? loadAdoptMeSavedData() : null;
     const friendsList = (typeof friendsSet !== 'undefined')
@@ -2060,10 +2069,13 @@ async function syncAccountToServer() {
         if (currentIdentity !== syncIdentity) return Promise.resolve(null);
         return apiRequest('/api/user/sync', {
             method: 'POST',
-            body: syncBody
+            body: syncBody,
+            keepalive: bypassQueue
         });
     };
-    const syncOperation = accountSyncQueue ? accountSyncQueue.then(runSync, runSync) : runSync();
+    const syncOperation = !bypassQueue && accountSyncQueue
+        ? accountSyncQueue.then(runSync, runSync)
+        : runSync();
     const queuedSync = syncOperation.then(() => undefined, () => undefined);
     accountSyncQueue = queuedSync;
     queuedSync.then(() => {
@@ -2077,6 +2089,20 @@ async function syncAccountToServer() {
             localStorage.setItem('boblox_custom_bio_v1', syncResp.user.bio || 'No bio yet');
         } catch (e) {}
     }
+}
+
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    window.addEventListener('pagehide', () => {
+        if (!authState.user) return;
+        supabaseKeepalive = true;
+        syncAccountToServer({ bypassQueue: true }).then(
+            () => { supabaseKeepalive = false; },
+            (error) => {
+                supabaseKeepalive = false;
+                console.error('Uložení účtu před zavřením stránky selhalo:', error);
+            }
+        );
+    });
 }
 
 function formatDateTimeUserFriendly(val, isCurrentOnlineCheck = false) {
@@ -2582,6 +2608,8 @@ if (typeof module !== 'undefined' && module.exports) {
         logoutAccount,
         apiRequest,
         syncAccountToServer,
+        addBobux,
+        spendBobux,
         sanitizeTextClient,
         handleOfflineApiFallback,
         handleSupabaseApiRequest,
