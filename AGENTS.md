@@ -30,3 +30,15 @@ Canonical triage label vocabulary (needs-triage, needs-info, ready-for-agent, re
 
 ### Domain docs
 Single-context repository layout (`GLOSSARY.md` and `docs/adr/`). See `docs/agents/domain.md`.
+
+### ⚠️ Supabase Log Query Quota & Best Practices
+
+- **Limit (Free Plan):** 100 GB prohledaných logů na fakturační období.
+- **Stav k 21. 10. 2026:** Vyčerpáno přes 60 % (~60,6 GB / 100 GB), velký jednorázový nárůst proběhl 17. 10. (~56,5 GB).
+- **Vliv na produkci:** 
+  - Překročení limitu **neovlivňuje** chod databáze, API ani aplikace.
+    - Při dosažení 100 GB se do konce zúčtovacího období zablokuje vyhledávání a filtrování logů v administraci / Logs Exploreru.
+    - **Pravidla při inspekci a ladění logů:**
+      - **Vždy omezovat časový rozsah:** Nastavovat co nejkratší okno (např. *Last 15m* nebo *Last 1h*). Nikdy nepouštět široké dotazy (dny/týdny) bez nutnosti.
+        - **Používat přesné filtry:** Filtrovat primárně podle cesty, stavového kódu (`status_code >= 400`) nebo ID požadavku, aby se minimalizoval objem skenovaných dat.
+        
