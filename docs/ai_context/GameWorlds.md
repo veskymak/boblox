@@ -43,7 +43,9 @@
 - **Casino subsystém:**
   - `openCasinoModal(tabName?: string): void`: Otevře UI pro blackjack, automaty, kolo nebo dostihy.
   - `openLuckyWheelModal(): void`: Otevře samostatný modal Kola štěstí, aktualizuje zůstatek Bobuxů (`#wheel-modal-bobux-display`), stav AutoSpinu a překreslí plátno `#lucky-wheel-canvas`.
-  - `spinDailyWheel()` / `spinCasinoPaidWheel()`: Spustí roztočení kola štěstí s fyzikálním úhlem a výhrou (Jackpot uděluje `👑 VIP TAG` + 3 500 B$).
+  - `getOrCreateWheelDiscCache(radius, numSlices, sliceAngle)`: Vytvoří a nacachuje offscreen buffer s 20 výsečemi, texty a diamantovým středem, čímž eliminuje per-frame slice re-rendering lag během animace.
+  - `renderCasinoWheel(rotation)`: Vykreslí kolo štěstí s rotací s využitím offscreen disku; automaticky přeskakuje skrytá plátna (`offsetParent === null`).
+  - `spinDailyWheel()` / `spinCasinoPaidWheel()`: Spustí roztočení kola štěstí s fyzikálním úhlem a výhrou (Jackpot uděluje `👑 VIP TAG` + 3 500 B$). Synchronizuje 3D `wheelMesh`/`wheelRotor`.
   - `updateWheelAutoSpinUI()`: Synchronizuje stav AutoSpinu (text, záře tlačítka, ikona) mezi aktivním a vypnutým stavem.
   - `spinSlotMachine(betAmount: number): void`: Vyhodnotí sázku na výherním automatu.
 

@@ -2233,6 +2233,7 @@ function setupGame12Casino() {
     gameSpecificData = {
         stations: CASINO_STATIONS,
         wheelMesh: wheelSetup.wheelGroup,
+        wheelRotor: wheelSetup.wheelGroup,
         wheelHostess: wheelSetup.hostessChar,
         horses3D,
         dealerChar: bjTableObj.dealerChar,
@@ -3812,13 +3813,127 @@ function updateDailyWheelTimer() {
     }
 }
 
+// Cache for pre-rendered wheel discs (offscreen canvases by size)
+const _wheelDiscCache = new Map();
+
+function getOrCreateWheelDiscCache(radius, numSlices, sliceAngle) {
+    const key = `${Math.round(radius)}_${numSlices}`;
+    if (_wheelDiscCache.has(key)) {
+        return _wheelDiscCache.get(key);
+    }
+
+    const size = Math.ceil((radius + 10) * 2);
+    const discCanvas = (typeof document !== 'undefined' && document.createElement)
+        ? document.createElement('canvas')
+        : null;
+    if (!discCanvas) return null;
+
+    discCanvas.width = size;
+    discCanvas.height = size;
+    const ctx = discCanvas.getContext('2d');
+    if (!ctx) return null;
+
+    const center = size / 2;
+
+    ctx.save();
+    ctx.translate(center, center);
+
+    // 1. Slices with colors & gradients
+    for (let i = 0; i < numSlices; i++) {
+        const p = WHEEL_PRIZES[i];
+        const start = i * sliceAngle;
+        const end = start + sliceAngle;
+
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, radius, start, end);
+        ctx.closePath();
+        ctx.fillStyle = p.color;
+        ctx.fill();
+
+        // Slice separators
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        // Inner slice shading
+        const grad = ctx.createRadialGradient(0, 0, radius * 0.2, 0, 0, radius);
+        grad.addColorStop(0, 'rgba(0,0,0,0.35)');
+        grad.addColorStop(1, 'rgba(0,0,0,0.05)');
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // Label & Icon
+        ctx.save();
+        ctx.rotate(start + sliceAngle / 2);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = 'rgba(0,0,0,0.85)';
+        ctx.shadowBlur = 4;
+        ctx.font = 'bold 13px Fredoka, Inter, sans-serif';
+        ctx.fillText(`${p.icon} ${p.label}`, radius - 16, 5);
+        ctx.restore();
+    }
+
+    // 2. Heavy Chrome Outer Rim
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 9;
+    ctx.stroke();
+
+    // 3. Chrome / Metallic Outer Studs & Pegs
+    for (let i = 0; i < numSlices; i++) {
+        const ang = i * sliceAngle;
+        const px = Math.cos(ang) * (radius - 1);
+        const py = Math.sin(ang) * (radius - 1);
+        ctx.beginPath();
+        ctx.arc(px, py, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#f8fafc';
+        ctx.fill();
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+    }
+
+    // 4. Authentic Diamond Casino Center Emblem
+    ctx.beginPath();
+    ctx.arc(0, 0, 42, 0, Math.PI * 2);
+    ctx.fillStyle = '#090d16';
+    ctx.fill();
+    ctx.strokeStyle = '#FFE066';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    // Diamond Icon & Text in Center Hub
+    ctx.fillStyle = '#FFE066';
+    ctx.font = 'bold 18px Fredoka, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('💎', 0, -4);
+    ctx.font = 'bold 10px sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('DIAMOND', 0, 16);
+
+    ctx.restore();
+
+    const cacheEntry = { canvas: discCanvas, size, center };
+    _wheelDiscCache.set(key, cacheEntry);
+    return cacheEntry;
+}
+
 function renderCasinoWheel(rotation = wheelCurrentAngle) {
     const canvases = Array.from(document.querySelectorAll('#casino-wheel-canvas, #lucky-wheel-canvas')).filter(Boolean);
 
     if (canvases.length === 0) return;
 
     canvases.forEach(canvas => {
+        // Performance optimization: skip rendering if canvas or parent modal is hidden
+        if (canvas.offsetParent === null && !(canvas.offsetWidth || canvas.offsetHeight)) {
+            return;
+        }
+
         const ctx = canvas.getContext('2d');
+        if (!ctx) return;
         const cx = canvas.width / 2;
         const cy = canvas.height / 2;
         const radius = cx - 14;
@@ -3838,89 +3953,44 @@ function renderCasinoWheel(rotation = wheelCurrentAngle) {
         ctx.stroke();
         ctx.restore();
 
-        // 2. Wheel Disc with Slices
+        // 2. High-performance Cached Wheel Disc Draw
+        const cachedDisc = getOrCreateWheelDiscCache(radius, numSlices, sliceAngle);
         ctx.save();
         ctx.translate(cx, cy);
         ctx.rotate(rotation);
 
-        for (let i = 0; i < numSlices; i++) {
-            const p = WHEEL_PRIZES[i];
-            const start = i * sliceAngle;
-            const end = start + sliceAngle;
+        if (cachedDisc && cachedDisc.canvas) {
+            ctx.drawImage(cachedDisc.canvas, -cachedDisc.center, -cachedDisc.center);
+        } else {
+            // Fallback: draw directly if canvas caching unavailable
+            for (let i = 0; i < numSlices; i++) {
+                const p = WHEEL_PRIZES[i];
+                const start = i * sliceAngle;
+                const end = start + sliceAngle;
 
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.arc(0, 0, radius, start, end);
-            ctx.closePath();
-            ctx.fillStyle = p.color;
-            ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.arc(0, 0, radius, start, end);
+                ctx.closePath();
+                ctx.fillStyle = p.color;
+                ctx.fill();
 
-            // Slice separators
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 2.5;
-            ctx.stroke();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2.5;
+                ctx.stroke();
 
-            // Inner slice shading
-            const grad = ctx.createRadialGradient(0, 0, radius * 0.2, 0, 0, radius);
-            grad.addColorStop(0, 'rgba(0,0,0,0.35)');
-            grad.addColorStop(1, 'rgba(0,0,0,0.05)');
-            ctx.fillStyle = grad;
-            ctx.fill();
-
-            // Label & Icon
-            ctx.save();
-            ctx.rotate(start + sliceAngle / 2);
-            ctx.textAlign = 'right';
-            ctx.fillStyle = '#ffffff';
-            ctx.shadowColor = 'rgba(0,0,0,0.85)';
-            ctx.shadowBlur = 4;
-            ctx.font = 'bold 13px Fredoka, Inter, sans-serif';
-            ctx.fillText(`${p.icon} ${p.label}`, radius - 16, 5);
-            ctx.restore();
+                ctx.save();
+                ctx.rotate(start + sliceAngle / 2);
+                ctx.textAlign = 'right';
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 13px Fredoka, Inter, sans-serif';
+                ctx.fillText(`${p.icon} ${p.label}`, radius - 16, 5);
+                ctx.restore();
+            }
         }
-
-        // 3. Heavy Chrome Outer Rim
-        ctx.beginPath();
-        ctx.arc(0, 0, radius, 0, Math.PI * 2);
-        ctx.strokeStyle = '#e2e8f0';
-        ctx.lineWidth = 9;
-        ctx.stroke();
-
-        // 4. Chrome / Metallic Outer Studs & Pegs
-        for (let i = 0; i < numSlices; i++) {
-            const ang = i * sliceAngle;
-            const px = Math.cos(ang) * (radius - 1);
-            const py = Math.sin(ang) * (radius - 1);
-            ctx.beginPath();
-            ctx.arc(px, py, 4.5, 0, Math.PI * 2);
-            ctx.fillStyle = '#f8fafc';
-            ctx.fill();
-            ctx.strokeStyle = '#64748b';
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
-        }
-
-        // 5. Authentic Diamond Casino Center Emblem
-        ctx.beginPath();
-        ctx.arc(0, 0, 42, 0, Math.PI * 2);
-        ctx.fillStyle = '#090d16';
-        ctx.fill();
-        ctx.strokeStyle = '#FFE066';
-        ctx.lineWidth = 4;
-        ctx.stroke();
-
-        // Diamond Icon & Text in Center Hub
-        ctx.fillStyle = '#FFE066';
-        ctx.font = 'bold 18px Fredoka, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('💎', 0, -4);
-        ctx.font = 'bold 10px sans-serif';
-        ctx.fillStyle = '#ffffff';
-        ctx.fillText('DIAMOND', 0, 16);
-
         ctx.restore();
 
-        // 6. Top Golden Triangular Pointer Pin
+        // 3. Top Golden Triangular Pointer Pin
         ctx.save();
         ctx.beginPath();
         ctx.moveTo(cx, cy - radius + 18);
