@@ -35,7 +35,7 @@
 ## 4. Lifecycle & Execution Hooks
 - **Start aplikace:** `window.addEventListener('DOMContentLoaded', bootBobloxPortal)` a `window.addEventListener('load', bootBobloxPortal)`.
 - **Události klávesnice:**
-  - `keydown`: Zaznamená klávesu do `keysPressed`, klávesy `1`–`5` volají `equipWeaponSlot()`, `Space` vyvolá skok, `F` přebití zbraně, `E` spustí interakci / aktivitu stanice (`triggerCasinoProximityAction` v kasínu), `/` otevře herní chat, `Escape` přepne ESC menu. V otevřeném Roblox menu slouží klávesa `R` pro Respawn postavy a `L` pro Leave (při běžném hraní je klávesa `R` pro okamžitý reset deaktivována, aby nedocházelo k nechtěnému umírání).
+  - `keydown`: Zaznamená klávesu do `keysPressed`, klávesy `1`–`5` volají `equipWeaponSlot()`, `Space` vyvolá skok, `F` přebití zbraně, `E` spustí interakci / aktivitu stanice (`triggerCasinoProximityAction` v kasínu), `/` otevře herní chat, `Escape` přepne ESC menu. Při usednutí ke stolu Blackjacku v kasínu (`isPlayerSeatedAtBj`) zachytává specifické herní klávesy (`H` Hit, `S` Stand, `D` Double, `P` Split, `Space`/`Enter` Potvrdit sázku, `Escape`/`Q`/`E` Vstát). V otevřeném Roblox menu slouží klávesa `R` pro Respawn postavy a `L` pro Leave (při běžném hraní je klávesa `R` pro okamžitý reset deaktivována, aby nedocházelo k nechtěnému umírání).
   - `keyup`: Odstraní klávesu z `keysPressed`.
 - **Události myši & PointerLock:**
   - Kliknutí do plátna `#three-canvas`: Požadavek na `requestPointerLock()`.

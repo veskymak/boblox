@@ -837,11 +837,15 @@ function gameLoop(now) {
         if (typeof bjTableState !== 'undefined' && bjTableState.localSeat >= 0) {
             const seat = bjTableState.seats[bjTableState.localSeat];
             if (seat) {
-                playerState.pos.set(seat.worldPos.x, seat.worldPos.y + 0.15, seat.worldPos.z);
-                playerState.vel.set(0, 0, 0);
-                playerAvatar.root.position.copy(playerState.pos);
-                const lookAngle = Math.atan2(-18 - seat.worldPos.x, 0 - seat.worldPos.z);
-                playerAvatar.root.rotation.y = lookAngle;
+                const sPos = seat.pos || seat.chairPos;
+                if (sPos) {
+                    playerState.pos.set(sPos.x, sPos.y + 0.15, sPos.z);
+                    playerState.vel.set(0, 0, 0);
+                    playerAvatar.root.position.copy(playerState.pos);
+                    // Look toward table center (-18, -8.0)
+                    const lookAngle = Math.atan2(-18 - sPos.x, -8.0 - sPos.z);
+                    playerAvatar.root.rotation.y = lookAngle;
+                }
             }
         }
     }
@@ -903,18 +907,32 @@ function gameLoop(now) {
     broadcastLocalPlayerState(dt);
     updateRemotePlayersInScene(dt);
 
-    // 5. Third-Person Orbital Camera Follow with Smooth Lerp & Screen Shake
+    // 5. First-Person Camera View when seated at 3D Blackjack table
     if (activeGameMode === 'casino' && gameSpecificData && gameSpecificData.isPlayerSeatedAtBj && typeof bjTableState !== 'undefined' && bjTableState.localSeat >= 0) {
         const seat = bjTableState.seats[bjTableState.localSeat];
         if (seat) {
-            // GTA 5 Online Blackjack camera: Looking across table felt toward dealer
-            const tableFeltCenter = new THREE.Vector3(-18, 2.35, 0);
-            const seatDir = new THREE.Vector3(seat.worldPos.x - (-18), 0, seat.worldPos.z - 0).normalize();
-            const camTargetPos = new THREE.Vector3().copy(seat.worldPos).addScaledVector(seatDir, 1.85);
-            camTargetPos.y += 1.8;
-            camera.position.lerp(camTargetPos, Math.min(1, dt * 10));
-            camera.lookAt(tableFeltCenter);
-            _smoothLookTarget.copy(tableFeltCenter);
+            const sPos = seat.pos || seat.chairPos;
+            if (sPos) {
+                // Vector pointing from seat toward center of table (-18, -8.0)
+                const toTableX = -18 - sPos.x;
+                const toTableZ = -8.0 - sPos.z;
+                const dist = Math.hypot(toTableX, toTableZ) || 1;
+                const dirX = toTableX / dist;
+                const dirZ = toTableZ / dist;
+
+                // First person eye position: at seated head height (~0.95m above seat), slightly forward
+                const eyeX = sPos.x + dirX * 0.45;
+                const eyeY = sPos.y + 0.95;
+                const eyeZ = sPos.z + dirZ * 0.45;
+                const camTargetPos = new THREE.Vector3(eyeX, eyeY, eyeZ);
+
+                // Table felt look target: looking down across the table felt where cards & dealer are visible
+                const tableFeltCenter = new THREE.Vector3(-18, 2.05, -7.5);
+
+                camera.position.lerp(camTargetPos, Math.min(1, dt * 15));
+                camera.lookAt(tableFeltCenter);
+                _smoothLookTarget.copy(tableFeltCenter);
+            }
         }
     } else {
         _lookTarget.set(playerState.pos.x, playerState.pos.y + 2.6, playerState.pos.z);

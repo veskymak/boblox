@@ -42,6 +42,9 @@
   - `completeAdoptMeNeed(needId: string): boolean`: Splní potřebu mazlíčka a vyplatí Adopt Me Bucks.
 - **Casino subsystém:**
   - `triggerCasinoProximityAction(): void`: Spustí aktivitu stanice, u které hráč právě stojí (`activeProximityStation`) po stisku klávesy [E], mobilního akčního tlačítka nebo kliku na úkolový banner (Blackjack -> `sitAt3DBlackjackTable`, Kolo štěstí -> `openLuckyWheelModal`, Automaty/Dostihy/Pokladna -> `openCasinoModal`).
+  - `sitAt3DBlackjackTable(seatIdx?: number): void`: Usadí hráče ke stolu Blackjacku. Pokud není `seatIdx` zadán, automaticky vyhledá **nejbližší volnou židli** k aktuální pozici hráče (`playerState.pos`). Skryje mesh lokálního hráče pro first-person výhled a aktivuje herní HUD.
+  - `standUpFromBjTable(): void`: Zvedne hráče od stolu Blackjacku, obnoví viditelnost avatara, resetuje orbital kameru a vrátí hráče na podlahu kasína.
+  - `setup3DBlackjackTable(): { tableGroup, dealerChar }`: Vygeneruje 3D půlkruhový blackjackový stůl v +Z orientaci s plátnem, opěrkou (armrest), táckem na žetony a dealer botou. Karty dealera jsou umístěny na plátně před dealerem (Z = -7.4).
   - `openCasinoModal(tabName?: string): void`: Otevře UI pro blackjack, automaty, kolo nebo dostihy.
   - `openLuckyWheelModal(): void`: Otevře samostatný modal Kola štěstí, aktualizuje zůstatek Bobuxů (`#wheel-modal-bobux-display`), stav AutoSpinu a překreslí plátno `#lucky-wheel-canvas`.
   - `closeLuckyWheelModal(): void`: Zavře modal Kola štěstí, vypne AutoSpin a vrátí fokus plátnu `#three-canvas` pro plynulé pokračování v hraní.

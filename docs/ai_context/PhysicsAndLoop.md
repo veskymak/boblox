@@ -40,6 +40,8 @@
   - Společný aktualizační cyklus pro částice konfet (`gameSpecificData.confettiParticles`) sdílený mezi Obby cílem a Kasínem. Podporuje jednotný kontrakt `{ mesh, vel, life, rotSpeed }` i přímé mesh objekty s `userData`, automaticky uvolňuje Three.js geometrie a materiály.
 - `triggerScreenShake(intensity?: number, duration?: number): void`
   - Nastaví parametry třesu kamery pro dramatický efekt při poškození či explozi.
+- **Kamera a usednutí u Blackjack stolu v Kasínu**:
+  - Když `activeGameMode === 'casino'` a `gameSpecificData.isPlayerSeatedAtBj`, hráč je usazen na židli u stolu (`seat.pos` / `seat.chairPos`), rotace těla směřuje ke středu stolu (-18, -8) a kamera přechází do plynulého First-Person pohledu v úrovni očí s pohledem dolů na hrací plátno a rozdané karty. Vlastní avatar hráče je v first-person pohledu dočasně skryt, aby nepřekážel ve výhledu.
 
 ---
 

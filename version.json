@@ -1,7 +1,7 @@
 {
-  "version": "8.0",
-  "buildTime": 1793056580000,
-  "updatedAt": "2026-10-26T22:16:20.000Z",
-  "title": "Boblox Aktualizace v8.0",
-  "message": "Úprava klávesové zkratky: klávesa R pro reset postavy je nyní aktivní pouze v otevřeném Roblox menu."
+  "version": "8.1",
+  "buildTime": 1793053756898,
+  "updatedAt": "2026-10-26T22:29:16.898Z",
+  "title": "Boblox Aktualizace v8.1",
+  "message": "Oprava Blackjack stolu: vyřešen freeze herní smyčky při usednutí, zarovnání 3D geometrie stolu, výběr nejbližší volné židle při stisku [E] a first-person pohled kamery na stůl a karty."
 }

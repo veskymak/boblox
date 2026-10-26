@@ -1629,15 +1629,16 @@ const CASINO_STATIONS = [
 
 // 4 Seats around the Semicircular Blackjack Table (X = -18, Z = -8)
 const BJ_TABLE_SEATS = [
-    { id: 0, label: 'Místo 1', pos: new THREE.Vector3(-21.2, 1.8, -5.8), chairPos: new THREE.Vector3(-21.2, 0.9, -5.0), cardPos: new THREE.Vector3(-20.5, 2.32, -6.8), betPos: new THREE.Vector3(-20.5, 2.32, -5.8), rotY: Math.PI * 0.25, cameraYaw: Math.PI * 0.25 },
-    { id: 1, label: 'Místo 2', pos: new THREE.Vector3(-19.3, 1.8, -4.8), chairPos: new THREE.Vector3(-19.3, 0.9, -4.0), cardPos: new THREE.Vector3(-19.0, 2.32, -6.4), betPos: new THREE.Vector3(-19.0, 2.32, -5.4), rotY: Math.PI * 0.08, cameraYaw: Math.PI * 0.08 },
-    { id: 2, label: 'Místo 3', pos: new THREE.Vector3(-16.7, 1.8, -4.8), chairPos: new THREE.Vector3(-16.7, 0.9, -4.0), cardPos: new THREE.Vector3(-17.0, 2.32, -6.4), betPos: new THREE.Vector3(-17.0, 2.32, -5.4), rotY: -Math.PI * 0.08, cameraYaw: -Math.PI * 0.08 },
-    { id: 3, label: 'Místo 4', pos: new THREE.Vector3(-14.8, 1.8, -5.8), chairPos: new THREE.Vector3(-14.8, 0.9, -5.0), cardPos: new THREE.Vector3(-15.5, 2.32, -6.8), betPos: new THREE.Vector3(-15.5, 2.32, -6.1), rotY: -Math.PI * 0.25, cameraYaw: -Math.PI * 0.25 }
+    { id: 0, label: 'Místo 1', pos: new THREE.Vector3(-21.2, 1.8, -5.8), chairPos: new THREE.Vector3(-21.2, 0.9, -5.0), worldPos: new THREE.Vector3(-21.2, 1.8, -5.8), cardPos: new THREE.Vector3(-20.5, 2.32, -6.8), betPos: new THREE.Vector3(-20.5, 2.32, -5.8), rotY: Math.PI * 0.25, cameraYaw: Math.PI * 0.25 },
+    { id: 1, label: 'Místo 2', pos: new THREE.Vector3(-19.3, 1.8, -4.8), chairPos: new THREE.Vector3(-19.3, 0.9, -4.0), worldPos: new THREE.Vector3(-19.3, 1.8, -4.8), cardPos: new THREE.Vector3(-19.0, 2.32, -6.4), betPos: new THREE.Vector3(-19.0, 2.32, -5.4), rotY: Math.PI * 0.08, cameraYaw: Math.PI * 0.08 },
+    { id: 2, label: 'Místo 3', pos: new THREE.Vector3(-16.7, 1.8, -4.8), chairPos: new THREE.Vector3(-16.7, 0.9, -4.0), worldPos: new THREE.Vector3(-16.7, 1.8, -4.8), cardPos: new THREE.Vector3(-17.0, 2.32, -6.4), betPos: new THREE.Vector3(-17.0, 2.32, -5.4), rotY: -Math.PI * 0.08, cameraYaw: -Math.PI * 0.08 },
+    { id: 3, label: 'Místo 4', pos: new THREE.Vector3(-14.8, 1.8, -5.8), chairPos: new THREE.Vector3(-14.8, 0.9, -5.0), worldPos: new THREE.Vector3(-14.8, 1.8, -5.8), cardPos: new THREE.Vector3(-15.5, 2.32, -6.8), betPos: new THREE.Vector3(-15.5, 2.32, -6.1), rotY: -Math.PI * 0.25, cameraYaw: -Math.PI * 0.25 }
 ];
 
 let bjTableState = {
     seats: BJ_TABLE_SEATS.map(s => ({
         ...s,
+        worldPos: s.pos,
         occupied: false,
         peerId: null,
         username: '',
@@ -1747,44 +1748,60 @@ function createBlackjackFeltTexture() {
 function setup3DBlackjackTable() {
     const tableGroup = new THREE.Group();
 
-    // 1. Mahogany Base Structure
+    // 1. Mahogany Base Structure (Semicircle in +Z from -PI/2 to PI/2)
     const baseMesh = new THREE.Mesh(
-        new THREE.CylinderGeometry(4.8, 5.0, 1.4, 28, 1, false, 0, Math.PI),
+        new THREE.CylinderGeometry(4.8, 5.0, 1.4, 32, 1, false, -Math.PI / 2, Math.PI),
         new THREE.MeshStandardMaterial({ color: 0x27170e, roughness: 0.5, metalness: 0.15 })
     );
     baseMesh.position.set(0, 0.7, 0);
-    baseMesh.rotation.y = Math.PI;
     tableGroup.add(baseMesh);
 
-    // Brass Footrail around curved base
+    // Brass Footrail around curved base (curves into +Z)
     const railMesh = new THREE.Mesh(
-        new THREE.TorusGeometry(5.2, 0.08, 8, 28, Math.PI),
+        new THREE.TorusGeometry(5.2, 0.08, 8, 32, Math.PI),
         new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.85, roughness: 0.2 })
     );
     railMesh.position.set(0, 0.35, 0);
     railMesh.rotation.x = Math.PI / 2;
-    railMesh.rotation.z = Math.PI;
     tableGroup.add(railMesh);
 
     // 2. Semicircular Felt Top with Printed Markings
     const feltTex = createBlackjackFeltTexture();
     const feltMat = new THREE.MeshStandardMaterial({ map: feltTex, roughness: 0.75, metalness: 0.05 });
-    const feltMesh = new THREE.Mesh(
-        new THREE.CylinderGeometry(4.7, 4.7, 0.18, 32, 1, false, 0, Math.PI),
-        feltMat
-    );
+    const feltGeo = new THREE.CylinderGeometry(4.7, 4.7, 0.18, 36, 1, false, -Math.PI / 2, Math.PI);
+
+    // Custom UV alignment for felt top playing surface
+    if (feltGeo.attributes && feltGeo.attributes.position && feltGeo.attributes.uv) {
+        const fPos = feltGeo.attributes.position;
+        const fUvs = feltGeo.attributes.uv;
+        for (let i = 0; i < fPos.count; i++) {
+            const x = fPos.getX(i);
+            const y = fPos.getY(i);
+            const z = fPos.getZ(i);
+            if (y > 0.05) {
+                // Map x in [-4.7, 4.7] and z in [0, 4.7] to canvas texture
+                // Canvas width 1024, height 512, arc center at (512, 100), radius 360
+                const u = 0.5 + (x / 4.7) * (360 / 1024);
+                const v = 1.0 - (100 + (z / 4.7) * 360) / 512;
+                fUvs.setXY(i, Math.max(0, Math.min(1, u)), Math.max(0, Math.min(1, v)));
+            } else {
+                fUvs.setXY(i, 0.05, 0.05); // solid emerald background for rim/sides
+            }
+        }
+        fUvs.needsUpdate = true;
+    }
+
+    const feltMesh = new THREE.Mesh(feltGeo, feltMat);
     feltMesh.position.set(0, 1.45, 0);
-    feltMesh.rotation.y = Math.PI;
     tableGroup.add(feltMesh);
 
-    // 3. Padded Black Leather Bolster (Armrest Rim around curve)
+    // 3. Padded Black Leather Bolster (Armrest Rim around curve in +Z)
     const armrestMesh = new THREE.Mesh(
-        new THREE.TorusGeometry(4.8, 0.28, 12, 32, Math.PI),
+        new THREE.TorusGeometry(4.8, 0.28, 12, 36, Math.PI),
         new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.35, metalness: 0.1 })
     );
     armrestMesh.position.set(0, 1.55, 0);
     armrestMesh.rotation.x = Math.PI / 2;
-    armrestMesh.rotation.z = Math.PI;
     tableGroup.add(armrestMesh);
 
     // Flat mahogany dealer bumper bar along straight edge
@@ -1795,7 +1812,7 @@ function setup3DBlackjackTable() {
     dealerBumper.position.set(0, 1.55, 0);
     tableGroup.add(dealerBumper);
 
-    // 4. Dealer Chip Tray with 3D Chips
+    // 4. Dealer Chip Tray with 3D Chips (Sitting on felt in front of dealer)
     const trayGroup = new THREE.Group();
     const trayBox = new THREE.Mesh(
         new THREE.BoxGeometry(2.4, 0.18, 0.9),
@@ -1815,10 +1832,10 @@ function setup3DBlackjackTable() {
             trayGroup.add(chip);
         }
     }
-    trayGroup.position.set(0, 1.58, -0.6);
+    trayGroup.position.set(0, 1.58, 0.4);
     tableGroup.add(trayGroup);
 
-    // 5. Acrylic Card Dealing Shoe (on Dealer's Right)
+    // 5. Acrylic Card Dealing Shoe (on Dealer's Right, on table felt)
     const shoeGroup = new THREE.Group();
     const shoeBody = new THREE.Mesh(
         new THREE.BoxGeometry(0.8, 0.5, 1.4),
@@ -1832,17 +1849,18 @@ function setup3DBlackjackTable() {
     );
     shoeDeck.position.set(0, 0.05, 0);
     shoeGroup.add(shoeDeck);
-    shoeGroup.position.set(2.4, 1.72, -0.4);
+    shoeGroup.position.set(2.4, 1.72, 0.5);
     shoeGroup.rotation.y = -0.3;
     shoeGroup.rotation.x = 0.15;
     tableGroup.add(shoeGroup);
 
-    // 6. Clear Acrylic Discard Holder (on Dealer's Left)
+    // 6. Clear Acrylic Discard Holder (on Dealer's Left, on table felt)
     const discardRack = new THREE.Mesh(
         new THREE.BoxGeometry(0.75, 0.6, 0.95),
         new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.45, roughness: 0.1 })
     );
-    discardRack.position.set(-2.5, 1.75, -0.4);
+    discardRack.position.set(-2.5, 1.75, 0.5);
+    tableGroup.add(discardRack);
     tableGroup.add(discardRack);
 
     // 7. Four 3D Casino Armchairs / Swivel Stools
@@ -1880,13 +1898,13 @@ function setup3DBlackjackTable() {
         scene.add(chairGroup);
     });
 
-    // 8. 3D Dealer NPC Character
+    // 8. 3D Dealer NPC Character (Standing behind dealer bumper facing table)
     const dealerChar = createBlockyCharacterMesh({
         headColor: 0xF5CD30,
         torsoColor: 0x111827, // Tuxedo Vest
         legColor: 0x1e293b
     });
-    dealerChar.root.position.set(-18, 1.8, -11.5);
+    dealerChar.root.position.set(-18, 1.8, -9.6);
     scene.add(dealerChar.root);
 
     // Position table group in casino world
@@ -2650,8 +2668,26 @@ function sitAt3DBlackjackTable(seatIdx = null) {
     if (typeof bjTableState === 'undefined' || !bjTableState.seats) return;
 
     if (seatIdx === null || seatIdx < 0 || seatIdx >= bjTableState.seats.length) {
-        seatIdx = bjTableState.seats.findIndex(s => !s.occupied);
-        if (seatIdx === -1) seatIdx = 1;
+        let bestIdx = -1;
+        let bestDist = Infinity;
+        for (let i = 0; i < bjTableState.seats.length; i++) {
+            const s = bjTableState.seats[i];
+            if (s.occupied) continue;
+            const targetPos = s.chairPos || s.pos;
+            const dist = (typeof playerState !== 'undefined' && playerState && playerState.pos)
+                ? playerState.pos.distanceTo(targetPos)
+                : 0;
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestIdx = i;
+            }
+        }
+        if (bestIdx !== -1) {
+            seatIdx = bestIdx;
+        } else {
+            seatIdx = bjTableState.seats.findIndex(s => !s.occupied);
+            if (seatIdx === -1) seatIdx = 1;
+        }
     }
 
     const seat = bjTableState.seats[seatIdx];
@@ -2672,6 +2708,11 @@ function sitAt3DBlackjackTable(seatIdx = null) {
     if (typeof playerState !== 'undefined') {
         playerState.pos.copy(seat.pos);
         playerState.vel.set(0, 0, 0);
+    }
+
+    // Hide local avatar root for true first-person table view
+    if (typeof playerAvatar !== 'undefined' && playerAvatar && playerAvatar.root) {
+        playerAvatar.root.visible = false;
     }
 
     const hud = document.getElementById('blackjack-3d-hud');
@@ -2714,6 +2755,13 @@ function standUpFromBjTable() {
 
     if (typeof playerState !== 'undefined') {
         playerState.pos.set(-18, 1.8, -3.2);
+    }
+
+    if (typeof playerAvatar !== 'undefined' && playerAvatar && playerAvatar.root) {
+        playerAvatar.root.visible = true;
+    }
+    if (typeof _camTargetInitialized !== 'undefined') {
+        _camTargetInitialized = false;
     }
 
     const hud = document.getElementById('blackjack-3d-hud');
@@ -2957,7 +3005,7 @@ function startInWorldBlackjackDealing() {
             const cardMesh = create3DCardMesh(card, step.faceDown);
             if (cardMesh && typeof scene !== 'undefined') {
                 const dOffset = (bjTableState.dealerHand.length - 1) * 0.45;
-                cardMesh.position.set(-18.0 + dOffset - 0.22, 2.32, -9.2);
+                cardMesh.position.set(-18.0 + dOffset - 0.22, 2.32, -7.4);
                 scene.add(cardMesh);
                 bjTableState.dealerCardMeshes.push(cardMesh);
             }
@@ -3006,7 +3054,7 @@ function updateDealerScoreBadge(scoreObj, hideHole = false) {
     const bg = scoreObj.isBust ? 'rgba(239, 68, 68, 0.9)' : 'rgba(15, 23, 42, 0.85)';
     const sprite = createInWorldScoreSprite(label, bg);
     if (sprite) {
-        sprite.position.set(-18.0, 2.9, -9.2);
+        sprite.position.set(-18.0, 2.9, -7.4);
         scene.add(sprite);
         bjTableState.dealerScoreSprite = sprite;
     }
@@ -3235,7 +3283,7 @@ function startInWorldBlackjackDealerTurn() {
             const cardMesh = create3DCardMesh(card, false);
             if (cardMesh && typeof scene !== 'undefined') {
                 const dOffset = (bjTableState.dealerHand.length - 1) * 0.45;
-                cardMesh.position.set(-18.0 + dOffset - 0.22, 2.32, -9.2);
+                cardMesh.position.set(-18.0 + dOffset - 0.22, 2.32, -7.4);
                 scene.add(cardMesh);
                 bjTableState.dealerCardMeshes.push(cardMesh);
             }
