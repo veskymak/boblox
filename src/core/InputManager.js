@@ -331,8 +331,6 @@ window.addEventListener('keydown', (e) => {
 
     if (e.code === 'KeyF') {
         reloadCurrentWeapon();
-    } else if (e.code === 'KeyR') {
-        respawnPlayerManual();
     } else if (e.code === 'KeyE') {
         if (activeGameMode === 'casino') {
             if (typeof triggerCasinoProximityAction === 'function') {

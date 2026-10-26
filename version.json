@@ -1,7 +1,7 @@
 {
-  "version": "7.9",
-  "buildTime": 1793055950000,
-  "updatedAt": "2026-10-26T22:10:30.000Z",
-  "title": "Boblox Aktualizace v7.9",
-  "message": "Oprava zamrzání hry v Kasínu po zatočení kolem štěstí a sjednocení životního cyklu částicových efektů."
+  "version": "8.0",
+  "buildTime": 1793056580000,
+  "updatedAt": "2026-10-26T22:16:20.000Z",
+  "title": "Boblox Aktualizace v8.0",
+  "message": "Úprava klávesové zkratky: klávesa R pro reset postavy je nyní aktivní pouze v otevřeném Roblox menu."
 }
