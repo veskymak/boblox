@@ -872,7 +872,7 @@ function initLiveSocketAndPresence() {
                     }
                 } else if (msg.type === 'admin_broadcast') {
                     handleIncomingAdminBroadcast(msg);
-                } else if (msg.type === 'playerState' || msg.type === 'weaponSwitch' || msg.type === 'hostGameSelect' || msg.type === 'chatMessage') {
+                } else if (msg.type === 'playerState' || msg.type === 'weaponSwitch' || msg.type === 'hostGameSelect' || msg.type === 'chatMessage' || msg.type === 'casino_event' || msg.type === 'casinoEvent') {
                     handleMultiplayerPacket(msg, null);
                 }
             };
@@ -1088,6 +1088,13 @@ function handleMultiplayerPacket(packet, sourceConn) {
         mpState.connections.forEach(c => {
             if (c !== sourceConn && c.open) c.send(packet);
         });
+    }
+
+    if ((packet.type === 'casino_event' || packet.type === 'casinoEvent') && packet.id !== mpState.myId) {
+        if (typeof handleIncomingCasinoEvent === 'function') {
+            handleIncomingCasinoEvent(packet);
+        }
+        return;
     }
 
     if (packet.type === 'hostGameSelect' && packet.gameMode) {

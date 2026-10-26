@@ -1092,7 +1092,7 @@ wss.on('connection', (ws) => {
             return;
         }
 
-        if (msg.type === 'playerState' || msg.type === 'weaponSwitch' || msg.type === 'gameEvent' || msg.type === 'hostGameSelect') {
+        if (msg.type === 'playerState' || msg.type === 'weaponSwitch' || msg.type === 'gameEvent' || msg.type === 'casino_event' || msg.type === 'casinoEvent' || msg.type === 'hostGameSelect') {
             // Relay multiplayer packet to all players in the same room (public matchmaking pool for gameId OR private party roomCode)
             for (const [otherWs, otherInfo] of clients.entries()) {
                 if (otherWs === ws || otherWs.readyState !== 1) continue;

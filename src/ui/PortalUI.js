@@ -1711,6 +1711,10 @@ function handleIncomingSocialPacket(event, payload) {
         if (typeof handleIncomingDirectChatMessage === 'function') {
             handleIncomingDirectChatMessage(payload);
         }
+    } else if (event === 'casino_jackpot_win') {
+        if (typeof handleIncomingJackpotWin === 'function') {
+            handleIncomingJackpotWin(payload);
+        }
     } else if (event === 'admin_broadcast') {
         if (typeof handleIncomingAdminBroadcast === 'function') {
             handleIncomingAdminBroadcast(payload);

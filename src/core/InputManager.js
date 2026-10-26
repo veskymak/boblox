@@ -79,6 +79,40 @@ function initMobileTouchControls() {
     if (moveZone) {
         moveZone.addEventListener('touchstart', (e) => {
             if (!activeGameMode) return;
+
+    // 0. 3D In-World Blackjack controls when seated
+    if (activeGameMode === 'casino' && typeof gameSpecificData !== 'undefined' && gameSpecificData.isPlayerSeatedAtBj) {
+        if (e.code === 'Escape' || e.code === 'KeyQ') {
+            e.preventDefault();
+            if (typeof standUpFromBjTable === 'function') standUpFromBjTable();
+            return;
+        }
+        if (e.code === 'KeyH') {
+            e.preventDefault();
+            if (typeof executeBjAction === 'function') executeBjAction('hit');
+            return;
+        }
+        if (e.code === 'KeyS') {
+            e.preventDefault();
+            if (typeof executeBjAction === 'function') executeBjAction('stand');
+            return;
+        }
+        if (e.code === 'KeyD') {
+            e.preventDefault();
+            if (typeof executeBjAction === 'function') executeBjAction('double');
+            return;
+        }
+        if (e.code === 'KeyP') {
+            e.preventDefault();
+            if (typeof executeBjAction === 'function') executeBjAction('split');
+            return;
+        }
+        if (e.code === 'Space' || e.code === 'Enter') {
+            e.preventDefault();
+            if (typeof confirmInWorldBjBet === 'function') confirmInWorldBjBet();
+            return;
+        }
+    }
             e.preventDefault();
             for (let i = 0; i < e.changedTouches.length; i++) {
                 const t = e.changedTouches[i];

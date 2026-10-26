@@ -12,6 +12,17 @@ function triggerPrimaryAction() {
     // 0B. Casino Game UI Hotbar Triggers (Slots 1-5) or Proximity Prompt [E]
     if (activeGameMode === 'casino') {
         if (w.type === 'casino_ui' || (w.id && w.id.startsWith('casino_'))) {
+            if (w.id === 'casino_blackjack') {
+                if (typeof sitAt3DBlackjackTable === 'function') {
+                    sitAt3DBlackjackTable();
+                    return;
+                }
+            } else if (w.id === 'casino_wheel') {
+                if (typeof openLuckyWheelModal === 'function') {
+                    openLuckyWheelModal();
+                    return;
+                }
+            }
             if (typeof openCasinoModal === 'function') {
                 const tabMap = {
                     casino_blackjack: 'blackjack',
@@ -25,8 +36,20 @@ function triggerPrimaryAction() {
             return;
         }
         if (gameSpecificData && gameSpecificData.activeProximityStation) {
+            const stId = gameSpecificData.activeProximityStation.id;
+            if (stId === 'blackjack') {
+                if (typeof sitAt3DBlackjackTable === 'function') {
+                    sitAt3DBlackjackTable();
+                    return;
+                }
+            } else if (stId === 'wheel') {
+                if (typeof openLuckyWheelModal === 'function') {
+                    openLuckyWheelModal();
+                    return;
+                }
+            }
             if (typeof openCasinoModal === 'function') {
-                openCasinoModal(gameSpecificData.activeProximityStation.id);
+                openCasinoModal(stId);
             }
             return;
         }
@@ -746,9 +769,10 @@ function gameLoop(now) {
 
     // 2. Player Movement Input relative to Camera Yaw (Zero-GC Scratch Vectors)
     const menuOpen = typeof robloxUiState !== 'undefined' && robloxUiState.isMenuOpen;
+    const isSeatedAtBj = (activeGameMode === 'casino' && typeof gameSpecificData !== 'undefined' && gameSpecificData.isPlayerSeatedAtBj);
     let moveForward = 0;
     let moveRight = 0;
-    if (!menuOpen) {
+    if (!menuOpen && !isSeatedAtBj) {
         if (keysPressed['KeyW'] || keysPressed['ArrowUp']) moveForward += 1;
         if (keysPressed['KeyS'] || keysPressed['ArrowDown']) moveForward -= 1;
         if (keysPressed['KeyD'] || keysPressed['ArrowRight']) moveRight += 1;
@@ -805,7 +829,7 @@ function gameLoop(now) {
     // Jump & Ladder Climbing (Keyboard Space or Mobile Touch Jump Button)
     const wasOnGround = playerState.onGround;
     const prevVelY = playerState.vel.y;
-    const wantJump = !menuOpen && (keysPressed['Space'] || touchState.jumpPressed);
+    const wantJump = !menuOpen && !isSeatedAtBj && (keysPressed['Space'] || touchState.jumpPressed);
     if (activeGameMode === 'adoptme' && gameSpecificData && gameSpecificData.isRidingPet && wantJump) {
         playerState.vel.y = 11.5;
         playerState.onGround = false;
@@ -847,10 +871,25 @@ function gameLoop(now) {
     playerAvatar.root.position.copy(playerState.pos);
     if (activeGameMode === 'adoptme' && gameSpecificData && gameSpecificData.isRidingPet) {
         playerAvatar.root.position.y += 0.72; // Sit elevated on pet's back
+    } else if (activeGameMode === 'casino' && gameSpecificData && gameSpecificData.isPlayerSeatedAtBj) {
+        if (typeof bjTableState !== 'undefined' && bjTableState.localSeat >= 0) {
+            const seat = bjTableState.seats[bjTableState.localSeat];
+            if (seat) {
+                playerState.pos.set(seat.worldPos.x, seat.worldPos.y + 0.15, seat.worldPos.z);
+                playerState.vel.set(0, 0, 0);
+                playerAvatar.root.position.copy(playerState.pos);
+                const lookAngle = Math.atan2(-18 - seat.worldPos.x, 0 - seat.worldPos.z);
+                playerAvatar.root.rotation.y = lookAngle;
+            }
+        }
     }
     const horizSpeed = Math.hypot(playerState.vel.x, playerState.vel.z);
 
-    if (!playerState.onGround) {
+    if (activeGameMode === 'casino' && gameSpecificData && gameSpecificData.isPlayerSeatedAtBj) {
+        playerAvatar.leftLegPivot.rotation.x = -Math.PI / 2;
+        playerAvatar.rightLegPivot.rotation.x = -Math.PI / 2;
+        playerAvatar.leftArmPivot.rotation.x = 0.35;
+    } else if (!playerState.onGround) {
         playerAvatar.leftLegPivot.rotation.x = -0.35;
         playerAvatar.rightLegPivot.rotation.x = 0.35;
         playerAvatar.leftArmPivot.rotation.x = 2.6;
@@ -903,29 +942,43 @@ function gameLoop(now) {
     updateRemotePlayersInScene(dt);
 
     // 5. Third-Person Orbital Camera Follow with Smooth Lerp & Screen Shake
-    _lookTarget.set(playerState.pos.x, playerState.pos.y + 2.6, playerState.pos.z);
-    if (!_camTargetInitialized || _smoothLookTarget.distanceToSquared(_lookTarget) > 100) {
-        _smoothLookTarget.copy(_lookTarget);
-        _camTargetInitialized = true;
+    if (activeGameMode === 'casino' && gameSpecificData && gameSpecificData.isPlayerSeatedAtBj && typeof bjTableState !== 'undefined' && bjTableState.localSeat >= 0) {
+        const seat = bjTableState.seats[bjTableState.localSeat];
+        if (seat) {
+            // GTA 5 Online Blackjack camera: Looking across table felt toward dealer
+            const tableFeltCenter = new THREE.Vector3(-18, 2.35, 0);
+            const seatDir = new THREE.Vector3(seat.worldPos.x - (-18), 0, seat.worldPos.z - 0).normalize();
+            const camTargetPos = new THREE.Vector3().copy(seat.worldPos).addScaledVector(seatDir, 1.85);
+            camTargetPos.y += 1.8;
+            camera.position.lerp(camTargetPos, Math.min(1, dt * 10));
+            camera.lookAt(tableFeltCenter);
+            _smoothLookTarget.copy(tableFeltCenter);
+        }
     } else {
-        _smoothLookTarget.lerp(_lookTarget, Math.min(1, dt * 20));
+        _lookTarget.set(playerState.pos.x, playerState.pos.y + 2.6, playerState.pos.z);
+        if (!_camTargetInitialized || _smoothLookTarget.distanceToSquared(_lookTarget) > 100) {
+            _smoothLookTarget.copy(_lookTarget);
+            _camTargetInitialized = true;
+        } else {
+            _smoothLookTarget.lerp(_lookTarget, Math.min(1, dt * 20));
+        }
+
+        let shakeX = 0, shakeY = 0;
+        if (_shakeTimer > 0) {
+            _shakeTimer = Math.max(0, _shakeTimer - dt);
+            const mag = (_shakeTimer / _shakeDuration) * _shakeIntensity;
+            shakeX = (Math.random() - 0.5) * 2 * mag;
+            shakeY = (Math.random() - 0.5) * 2 * mag;
+        }
+
+        const cosPitch = Math.cos(camState.pitch);
+        const camX = _smoothLookTarget.x + Math.sin(camState.yaw) * cosPitch * camState.distance + shakeX;
+        const camY = _smoothLookTarget.y + Math.sin(camState.pitch) * camState.distance + shakeY;
+        const camZ = _smoothLookTarget.z + Math.cos(camState.yaw) * cosPitch * camState.distance;
+
+        camera.position.set(camX, Math.max(playerState.pos.y - 1, camY), camZ);
+        camera.lookAt(_smoothLookTarget);
     }
-
-    let shakeX = 0, shakeY = 0;
-    if (_shakeTimer > 0) {
-        _shakeTimer = Math.max(0, _shakeTimer - dt);
-        const mag = (_shakeTimer / _shakeDuration) * _shakeIntensity;
-        shakeX = (Math.random() - 0.5) * 2 * mag;
-        shakeY = (Math.random() - 0.5) * 2 * mag;
-    }
-
-    const cosPitch = Math.cos(camState.pitch);
-    const camX = _smoothLookTarget.x + Math.sin(camState.yaw) * cosPitch * camState.distance + shakeX;
-    const camY = _smoothLookTarget.y + Math.sin(camState.pitch) * camState.distance + shakeY;
-    const camZ = _smoothLookTarget.z + Math.cos(camState.yaw) * cosPitch * camState.distance;
-
-    camera.position.set(camX, Math.max(playerState.pos.y - 1, camY), camZ);
-    camera.lookAt(_smoothLookTarget);
 
     renderer.render(scene, camera);
 }
@@ -1777,22 +1830,28 @@ function updateGame12Casino(dt, elapsedSec) {
     const gd = gameSpecificData;
     if (!gd || activeGameMode !== 'casino') return;
 
-    // 1. Update confetti particles (from casino wins)
+    // 1. Update confetti particles (from casino wins / lucky wheel jackpot)
     if (typeof updateGame1Obby === 'function') {
         updateGame1Obby(dt);
     }
 
-    // 2. Idle 3D prize wheel rotation
-    if (gd.wheelMesh) {
+    // 2. Update 3D Blackjack in-world game loop (timer, dealing, scores, cards)
+    if (typeof update3DBlackjackGame === 'function') {
+        update3DBlackjackGame(dt, elapsedSec);
+    }
+
+    // 3. Idle 3D prize wheel rotation (only when not actively spinning)
+    const isSpinning = typeof isWheelSpinning !== 'undefined' && isWheelSpinning;
+    if (gd.wheelMesh && !gd.wheelSpinning && !isSpinning) {
         gd.wheelMesh.rotation.z += dt * 0.45;
     }
 
-    // 3. Dealer NPC breathing / idle bounce
+    // 4. Dealer NPC breathing / idle bounce
     if (gd.dealerChar && gd.dealerChar.root) {
         gd.dealerChar.root.position.y = 1.8 + Math.sin(elapsedSec * 2.5) * 0.05;
     }
 
-    // 4. Proximity detection to tables / stations
+    // 5. Proximity detection to tables / stations
     let nearStation = null;
     let minDist = 999;
     if (gd.stations) {
@@ -1811,9 +1870,20 @@ function updateGame12Casino(dt, elapsedSec) {
     const titleEl = document.getElementById('hud-objective-title');
     const textEl = document.getElementById('hud-objective-text');
 
-    if (nearStation) {
+    if (gd.isPlayerSeatedAtBj) {
+        if (titleEl) titleEl.textContent = '♠️ 3D BLACKJACK STŮL';
+        if (textEl) textEl.textContent = 'Stiskni [Q] nebo [ESC] pro opuštění stolu.';
+    } else if (nearStation) {
         if (titleEl) titleEl.textContent = `${nearStation.icon} ${nearStation.name.toUpperCase()}`;
-        if (textEl) textEl.textContent = `Stiskni [E] nebo klepni sem pro hraní!`;
+        if (textEl) {
+            if (nearStation.id === 'blackjack') {
+                textEl.textContent = 'Stiskni [E] pro usednutí ke stolu!';
+            } else if (nearStation.id === 'wheel') {
+                textEl.textContent = 'Stiskni [E] pro roztočení Kola štěstí!';
+            } else {
+                textEl.textContent = 'Stiskni [E] nebo klepni sem pro hraní!';
+            }
+        }
     } else {
         if (titleEl && titleEl.textContent !== '🎰 BLOX VEGAS CASINO') {
             titleEl.textContent = '🎰 BLOX VEGAS CASINO';
