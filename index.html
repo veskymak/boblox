@@ -2349,7 +2349,7 @@
          3D MULTIPLAYER BLACKJACK IN-WORLD HUD (GTA 5 ONLINE STYLE)
          ======================================================================= -->
     <div id="blackjack-3d-hud" class="fixed inset-0 pointer-events-none z-[115] hidden flex-col justify-between p-4 select-none">
-        <!-- Top Status Bar & GTA-style Notification -->
+        <!-- Top Status Bar & Phase/Dealer Badges -->
         <div class="flex items-start justify-between w-full max-w-5xl mx-auto">
             <!-- GTA 5 Notification Pill (Top Left) -->
             <div id="bj-gta-notification" class="pointer-events-auto hidden bg-black/90 border-l-4 border-[#00d2ff] px-4 py-3 text-white text-xs sm:text-sm font-bold shadow-2xl rounded-r-xl max-w-sm flex items-center gap-3 backdrop-blur-md transition-all">
@@ -2357,6 +2357,18 @@
                 <div>
                     <div id="bj-gta-title" class="text-xs uppercase text-[#00d2ff] font-black tracking-wider">Blackjack (21)</div>
                     <div id="bj-gta-message" class="text-white text-sm font-extrabold leading-snug">Vítej u stolu! Zvol svou sázku.</div>
+                </div>
+            </div>
+
+            <!-- Center Phase Timer & Dealer Score Badge (Top Center) -->
+            <div class="pointer-events-auto flex flex-col items-center gap-2">
+                <div id="bj-table-phase-banner" class="bg-[#121418]/90 border-2 border-[#00d2ff]/60 px-5 py-2 rounded-2xl shadow-[0_0_25px_rgba(0,210,255,0.3)] backdrop-blur-md text-center">
+                    <div id="bj-table-phase-title" class="text-[11px] font-black uppercase tracking-widest text-[#00d2ff]">FÁZE SÁZEK</div>
+                    <div id="bj-table-phase-timer" class="text-base sm:text-xl font-black text-[#FFE066]">SÁZKY KONČÍ ZA: 10s</div>
+                </div>
+                <div id="bj-inworld-dealer-badge" class="hidden bg-[#121418]/90 border border-white/20 px-4 py-1.5 rounded-xl shadow-lg flex items-center gap-2">
+                    <span class="text-xs font-bold text-gray-300">KRUPIÉR:</span>
+                    <span id="bj-inworld-dealer-val" class="text-sm sm:text-base font-black text-[#FFE066]">-</span>
                 </div>
             </div>
 
@@ -2373,16 +2385,19 @@
             </div>
         </div>
 
-        <!-- Center Phase Timer / Status Banner -->
-        <div class="self-center pointer-events-auto">
-            <div id="bj-table-phase-banner" class="bg-[#121418]/90 border-2 border-[#00d2ff]/60 px-6 py-2.5 rounded-2xl shadow-[0_0_25px_rgba(0,210,255,0.3)] backdrop-blur-md text-center">
-                <div id="bj-table-phase-title" class="text-xs font-black uppercase tracking-widest text-[#00d2ff]">FÁZE SÁZEK</div>
-                <div id="bj-table-phase-timer" class="text-lg sm:text-2xl font-black text-[#FFE066]">SÁZKY KONČÍ ZA: 10s</div>
-            </div>
-        </div>
+        <!-- Center area is clean and clear of clutter -->
+        <div class="flex-1 pointer-events-none"></div>
 
         <!-- Bottom Controls Bar (Betting Chips or Player Actions) -->
-        <div class="pointer-events-auto w-full max-w-2xl mx-auto space-y-3 pb-2 sm:pb-4">
+        <div class="pointer-events-auto w-full max-w-2xl mx-auto space-y-2 pb-2 sm:pb-4">
+            <!-- Player Hand Score Badge in GUI -->
+            <div id="bj-inworld-player-badge" class="hidden pointer-events-auto bg-[#121418]/95 border-2 border-[#00d2ff]/60 px-4 py-2 rounded-xl shadow-xl flex items-center justify-between">
+                <div class="flex items-center gap-2 text-xs sm:text-sm font-bold text-gray-300">
+                    <span>🃏 TVOJE KARTY:</span>
+                    <span id="bj-inworld-player-val" class="text-base sm:text-lg font-black text-[#00d2ff]">Součet: -</span>
+                </div>
+                <span class="text-[11px] text-gray-400 font-mono">Blackjack stůl</span>
+            </div>
             <!-- 1. Betting Phase Bar (Visible during betting phase) -->
             <div id="bj-betting-controls" class="bg-[#191B1D]/95 border border-[#393B3D] p-3 sm:p-4 rounded-2xl shadow-2xl backdrop-blur-md space-y-3">
                 <div class="flex items-center justify-between text-xs font-bold text-gray-300">
@@ -2685,15 +2700,15 @@
     </div>
 
     <!-- BOBLOX Modular Architecture (Core Engine, State, Network, Games & UI with Cache-Busting) -->
-    <script src="src/core/SoundEngine.js?v=8.3" defer></script>
-    <script src="src/state/PortalStore.js?v=8.3" defer></script>
-    <script src="src/network/NetworkManager.js?v=8.3" defer></script>
-    <script src="src/ui/PortalUI.js?v=8.3" defer></script>
-    <script src="src/ui/AdminUI.js?v=8.3" defer></script>
-    <script src="src/core/AvatarAndShop.js?v=8.3" defer></script>
-    <script src="src/core/Engine.js?v=8.3" defer></script>
-    <script src="src/games/GameWorlds.js?v=8.3" defer></script>
-    <script src="src/core/PhysicsAndLoop.js?v=8.3" defer></script>
-    <script src="src/core/InputManager.js?v=8.3" defer></script>
+    <script src="src/core/SoundEngine.js?v=8.4" defer></script>
+    <script src="src/state/PortalStore.js?v=8.4" defer></script>
+    <script src="src/network/NetworkManager.js?v=8.4" defer></script>
+    <script src="src/ui/PortalUI.js?v=8.4" defer></script>
+    <script src="src/ui/AdminUI.js?v=8.4" defer></script>
+    <script src="src/core/AvatarAndShop.js?v=8.4" defer></script>
+    <script src="src/core/Engine.js?v=8.4" defer></script>
+    <script src="src/games/GameWorlds.js?v=8.4" defer></script>
+    <script src="src/core/PhysicsAndLoop.js?v=8.4" defer></script>
+    <script src="src/core/InputManager.js?v=8.4" defer></script>
 </body>
 </html>

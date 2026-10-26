@@ -46,9 +46,9 @@
   - `addInWorldBjBet(amount: number): void`: Přidává žetony ke stávající sázce aditivně (`+10`, `+25`, `+50`, `+100`, `+250`, `+500`), kontroluje limit Bobuxů a vytváří/aktualizuje fyzický 3D sloupec žetonů na stole (`updateSeat3DChipStack`).
   - `clearInWorldBjBet(): void`: Resetuje sázku na 0 B$ (tlačítko `[✕]`) a odstraní 3D žetony ze stolu.
   - `updateSeat3DChipStack(seat)`: Spawnuje/aktualizuje 3D žetony na stole (výška `Y = 2.40`, přímo na zeleném plátně).
-  - `resolveInWorldBlackjackPayout(dScoreObj)`: Vyhodnotí sázky a vyplatí Bobuxy přes `addBobux` přesně jednou (bez duplikace z `finishBlackjackRound`).
-  - `standUpFromBjTable(): void`: Zvedne hráče od stolu Blackjacku, obnoví viditelnost avatara, resetuje orbital kameru a vrátí hráče na podlahu kasína.
-  - `setup3DBlackjackTable(): { tableGroup, dealerChar }`: Vygeneruje 3D půlkruhový blackjackový stůl v +Z orientaci s plátnem, opěrkou (armrest), táckem na žetony a dealer botou. Plátno stolu má povrch ve výšce Y = 2.39, karty i žetony jsou fyzicky umístěny na plátně (karty Y = 2.41, žetony Y = 2.40, dealer karty Z = -7.0). In-world skórovací štítky mají zapnutý `depthTest: true` a zmenšené měřítko, takže neblokují výhled na karty.
+  - `resolveInWorldBlackjackPayout(dScoreObj)`: Vyhodnotí sázky, vyplatí Bobuxy přes `addBobux` a okamžitě synchronizuje stav konta do databáze (`syncAccountToServer({ bypassQueue: true })`).
+  - `standUpFromBjTable(): void`: Zvedne hráče od stolu Blackjacku, obnoví viditelnost avatara, resetuje orbital kameru, skryje GUI score badge a vrátí hráče na podlahu kasína.
+  - `setup3DBlackjackTable(): { tableGroup, dealerChar }`: Vygeneruje 3D půlkruhový blackjackový stůl v +Z orientaci s plátnem, opěrkou (armrest), táckem na žetony a dealer botou. Plátno stolu má povrch ve výšce Y = 2.39, karty i žetony jsou fyzicky umístěny na plátně (karty Y = 2.41, žetony Y = 2.40 vedle karet, dealer karty Z = -7.0). Skóre karet krupiéra i hráče je navíc promítáno přímo do popředí v 2D GUI HUDu (`#bj-inworld-dealer-badge` a `#bj-inworld-player-badge`).
   - `openCasinoModal(tabName?: string): void`: Otevře UI pro blackjack, automaty, kolo nebo dostihy.
   - `openLuckyWheelModal(): void`: Otevře samostatný modal Kola štěstí, aktualizuje zůstatek Bobuxů (`#wheel-modal-bobux-display`), stav AutoSpinu a překreslí plátno `#lucky-wheel-canvas`.
   - `closeLuckyWheelModal(): void`: Zavře modal Kola štěstí, vypne AutoSpin a vrátí fokus plátnu `#three-canvas` pro plynulé pokračování v hraní.

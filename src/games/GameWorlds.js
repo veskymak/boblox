@@ -1629,10 +1629,10 @@ const CASINO_STATIONS = [
 
 // 4 Seats around the Semicircular Blackjack Table (X = -18, Z = -8)
 const BJ_TABLE_SEATS = [
-    { id: 0, label: 'Místo 1', pos: new THREE.Vector3(-23.0, 1.8, -5.4), chairPos: new THREE.Vector3(-23.0, 0.9, -5.4), worldPos: new THREE.Vector3(-23.0, 1.8, -5.4), cardPos: new THREE.Vector3(-20.7, 2.41, -6.6), betPos: new THREE.Vector3(-21.6, 2.41, -6.2), rotY: 2.05, cameraYaw: 2.05 },
-    { id: 1, label: 'Místo 2', pos: new THREE.Vector3(-20.1, 1.8, -2.7), chairPos: new THREE.Vector3(-20.1, 0.9, -2.7), worldPos: new THREE.Vector3(-20.1, 1.8, -2.7), cardPos: new THREE.Vector3(-19.1, 2.41, -5.2), betPos: new THREE.Vector3(-19.5, 2.41, -4.3), rotY: 2.76, cameraYaw: 2.76 },
-    { id: 2, label: 'Místo 3', pos: new THREE.Vector3(-15.9, 1.8, -2.7), chairPos: new THREE.Vector3(-15.9, 0.9, -2.7), worldPos: new THREE.Vector3(-15.9, 1.8, -2.7), cardPos: new THREE.Vector3(-16.9, 2.41, -5.2), betPos: new THREE.Vector3(-16.5, 2.41, -4.3), rotY: -2.76, cameraYaw: -2.76 },
-    { id: 3, label: 'Místo 4', pos: new THREE.Vector3(-12.9, 1.8, -5.4), chairPos: new THREE.Vector3(-12.9, 0.9, -5.4), worldPos: new THREE.Vector3(-12.9, 1.8, -5.4), cardPos: new THREE.Vector3(-15.3, 2.41, -6.6), betPos: new THREE.Vector3(-14.4, 2.41, -6.2), rotY: -2.05, cameraYaw: -2.05 }
+    { id: 0, label: 'Místo 1', pos: new THREE.Vector3(-23.0, 1.8, -5.4), chairPos: new THREE.Vector3(-23.0, 0.9, -5.4), worldPos: new THREE.Vector3(-23.0, 1.8, -5.4), cardPos: new THREE.Vector3(-20.7, 2.41, -6.6), betPos: new THREE.Vector3(-22.0, 2.41, -5.8), rotY: 2.05, cameraYaw: 2.05 },
+    { id: 1, label: 'Místo 2', pos: new THREE.Vector3(-20.1, 1.8, -2.7), chairPos: new THREE.Vector3(-20.1, 0.9, -2.7), worldPos: new THREE.Vector3(-20.1, 1.8, -2.7), cardPos: new THREE.Vector3(-19.1, 2.41, -5.2), betPos: new THREE.Vector3(-20.2, 2.41, -4.7), rotY: 2.76, cameraYaw: 2.76 },
+    { id: 2, label: 'Místo 3', pos: new THREE.Vector3(-15.9, 1.8, -2.7), chairPos: new THREE.Vector3(-15.9, 0.9, -2.7), worldPos: new THREE.Vector3(-15.9, 1.8, -2.7), cardPos: new THREE.Vector3(-16.9, 2.41, -5.2), betPos: new THREE.Vector3(-15.8, 2.41, -4.7), rotY: -2.76, cameraYaw: -2.76 },
+    { id: 3, label: 'Místo 4', pos: new THREE.Vector3(-12.9, 1.8, -5.4), chairPos: new THREE.Vector3(-12.9, 0.9, -5.4), worldPos: new THREE.Vector3(-12.9, 1.8, -5.4), cardPos: new THREE.Vector3(-15.3, 2.41, -6.6), betPos: new THREE.Vector3(-14.0, 2.41, -5.8), rotY: -2.05, cameraYaw: -2.05 }
 ];
 
 let bjTableState = {
@@ -2649,8 +2649,9 @@ function createInWorldScoreSprite(text, bgColor = 'rgba(15, 23, 42, 0.85)') {
     ctx.fillText(text, 64, 32);
 
     const texture = new THREE.CanvasTexture(canvas);
-    const spriteMat = new THREE.SpriteMaterial({ map: texture, depthTest: true });
+    const spriteMat = new THREE.SpriteMaterial({ map: texture, depthTest: false });
     const sprite = new THREE.Sprite(spriteMat);
+    sprite.renderOrder = 999;
     sprite.scale.set(0.65, 0.32, 1);
     return sprite;
 }
@@ -2780,6 +2781,10 @@ function standUpFromBjTable() {
         hud.classList.add('hidden');
         hud.classList.remove('flex');
     }
+    const dBadge = document.getElementById('bj-inworld-dealer-badge');
+    if (dBadge) dBadge.classList.add('hidden');
+    const pBadge = document.getElementById('bj-inworld-player-badge');
+    if (pBadge) pBadge.classList.add('hidden');
 
     if (typeof showHudToast === 'function') showHudToast('Vstal jsi od stolu Blackjacku.', 'blue');
 
@@ -3036,6 +3041,7 @@ function startInWorldBlackjackDealing() {
         if (seat.id === bjTableState.localSeat && typeof spendBobux === 'function') {
             spendBobux(seat.bet, `Blackjack sázka (${seat.bet} B$)`);
             if (typeof updateCasinoBobuxDisplay === 'function') updateCasinoBobuxDisplay();
+            if (typeof syncAccountToServer === 'function') syncAccountToServer({ bypassQueue: true });
         }
         seat.hands = [{
             cards: [],
@@ -3121,6 +3127,17 @@ function startInWorldBlackjackDealing() {
 }
 
 function updateSeatScoreBadge(seat, scoreObj) {
+    if (seat && typeof bjTableState !== 'undefined' && seat.id === bjTableState.localSeat) {
+        const pBadge = document.getElementById('bj-inworld-player-badge');
+        const pVal = document.getElementById('bj-inworld-player-val');
+        if (pBadge) pBadge.classList.remove('hidden');
+        if (pVal) {
+            if (scoreObj.isBlackjack) pVal.textContent = 'BLACKJACK (21)! 🎉';
+            else if (scoreObj.isBust) pVal.textContent = `PŘEKROČENO (${scoreObj.total})! 💥`;
+            else pVal.textContent = `Součet: ${scoreObj.total}`;
+        }
+    }
+
     if (typeof scene === 'undefined') return;
     if (seat.scoreSprite) {
         scene.remove(seat.scoreSprite);
@@ -3140,6 +3157,16 @@ function updateSeatScoreBadge(seat, scoreObj) {
 }
 
 function updateDealerScoreBadge(scoreObj, hideHole = false) {
+    const dBadge = document.getElementById('bj-inworld-dealer-badge');
+    const dVal = document.getElementById('bj-inworld-dealer-val');
+    if (dBadge) dBadge.classList.remove('hidden');
+    if (dVal) {
+        if (hideHole) dVal.textContent = `${scoreObj.total} + ?`;
+        else if (scoreObj.isBlackjack) dVal.textContent = 'BJ 21! 👑';
+        else if (scoreObj.isBust) dVal.textContent = `BUST (${scoreObj.total}) 💥`;
+        else dVal.textContent = `Součet: ${scoreObj.total}`;
+    }
+
     if (typeof scene === 'undefined') return;
     if (bjTableState.dealerScoreSprite) {
         scene.remove(bjTableState.dealerScoreSprite);
@@ -3464,6 +3491,10 @@ function resolveInWorldBlackjackPayout(dScoreObj) {
         });
     });
 
+    if (typeof syncAccountToServer === 'function') {
+        syncAccountToServer({ bypassQueue: true });
+    }
+
     bjTableState.phase = 'cooldown';
     bjTableState.phaseTimer = 5;
     updateInWorldBjUI();
@@ -3502,6 +3533,10 @@ function resetBlackjackTableForNewRound() {
     if (elInworld) elInworld.textContent = '0 B$';
     const elModal = document.getElementById('bj-current-bet');
     if (elModal) elModal.textContent = '0 B$';
+    const dBadge = document.getElementById('bj-inworld-dealer-badge');
+    if (dBadge) dBadge.classList.add('hidden');
+    const pBadge = document.getElementById('bj-inworld-player-badge');
+    if (pBadge) pBadge.classList.add('hidden');
     updateInWorldBjUI();
 
     if (bjTableState.localSeat >= 0) {

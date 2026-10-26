@@ -41,7 +41,7 @@
 - `triggerScreenShake(intensity?: number, duration?: number): void`
   - Nastaví parametry třesu kamery pro dramatický efekt při poškození či explozi.
 - **Kamera a usednutí u Blackjack stolu v Kasínu**:
-  - Když `activeGameMode === 'casino'` a `gameSpecificData.isPlayerSeatedAtBj`, hráč je usazen na židli u stolu (`seat.pos` / `seat.chairPos`), rotace těla směřuje ke středu stolu (-18, -8) a kamera přechází do vyvýšeného First-Person pohledu (výška očí ~3.25m, cíl `(-18, 1.7, -7.2)`), což zajišťuje přehledný širokoúhlý výhled na celý stůl, vlastní i cizí karty, žetony i krupiéra bez zaclánění táckem. Vlastní avatar hráče je v first-person pohledu dočasně skryt, aby nepřekážel ve výhledu.
+  - Když `activeGameMode === 'casino'` a `gameSpecificData.isPlayerSeatedAtBj`, hráč je usazen na židli u stolu (`seat.pos` / `seat.chairPos`), rotace těla směřuje ke středu stolu (-18, -8) a kamera přechází do vyvýšeného pohledu shora (výška očí ~4.15m, cíl `(-18, 2.1, -6.8)`), což zajišťuje přehledný širokoúhlý výhled shora na celý stůl, vlastní i krupiérovy karty a žetony bez jakéhokoliv zakrývání. Vlastní avatar hráče je v first-person pohledu dočasně skryt, aby nepřekážel ve výhledu.
 
 ---
 

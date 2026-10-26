@@ -33,9 +33,9 @@
 - `grantCurrentUserVip(): void`
   - Udělí univerzální VIP status, zapíše do LocalStorage, nastaví `is_vip: true` v `authState.user`, spustí cloudový sync `syncAccountToServer()`, aktualizuje UI lobby odznaků a rozešle přítomnost do multiplayeru.
 - `addBobux(amount: number, reasonText?: string): void`
-  - Přičte Bobuxy, vytvoří transakční záznam, aktualizuje UI a naplánuje `syncAccountToServer()`.
+  - Přičte Bobuxy, aktualizuje `authState.user.coins` i `USER_CACHE`, vytvoří transakční záznam, aktualizuje UI a naplánuje `syncAccountToServer()`.
 - `spendBobux(amount: number, reasonText?: string): boolean`
-  - Ověří dostatek prostředků. Pokud ano, odečte Bobuxy, zaloguje transakci, spustí sync a vrátí `true`. Při nedostatku vrátí `false`.
+  - Ověří dostatek prostředků. Pokud ano, odečte Bobuxy, aktualizuje `authState.user.coins` i `USER_CACHE`, zaloguje transakci, spustí sync a vrátí `true`. Při nedostatku vrátí `false`.
 - `handleSupabaseApiRequest(sb: Object, path: string, options?: Object): Promise<any>`
   - Plnohodnotná klientská emulace REST API běžící přímo nad tabulkami Supabase (`profiles`, `game_ratings`, `comments`, `direct_messages`).
 - `sanitizeTextClient(input: string, maxLen?: number): string`

@@ -2179,11 +2179,20 @@ async function syncAccountToServer({ bypassQueue = false } = {}) {
     });
     const syncResp = await syncOperation;
 
-    if (syncResp && syncResp.user && typeof syncResp.user.bio === 'string') {
-        authState.user.bio = syncResp.user.bio;
-        try {
-            localStorage.setItem('boblox_custom_bio_v1', syncResp.user.bio || 'No bio yet');
-        } catch (e) {}
+    if (syncResp) {
+        const u = syncResp.user || (syncResp.data && syncResp.data.user);
+        if (u && authState.user) {
+            if (typeof u.bio === 'string') {
+                authState.user.bio = u.bio;
+                try { localStorage.setItem('boblox_custom_bio_v1', u.bio || 'No bio yet'); } catch (e) {}
+            }
+            if (typeof u.coins === 'number') {
+                authState.user.coins = u.coins;
+            }
+            try {
+                localStorage.setItem(STORAGE_KEYS.USER_CACHE, JSON.stringify(authState.user));
+            } catch (e) {}
+        }
     }
 }
 
@@ -2560,6 +2569,10 @@ function recordBobuxTransaction(amount, reasonText = '') {
 function addBobux(amount, reasonText = '') {
     bobuxBalance += amount;
     localStorage.setItem(STORAGE_KEY_BOBUX, String(bobuxBalance));
+    if (authState.user) {
+        authState.user.coins = bobuxBalance;
+        try { localStorage.setItem(STORAGE_KEYS.USER_CACHE, JSON.stringify(authState.user)); } catch (e) {}
+    }
     recordBobuxTransaction(amount, reasonText);
     updateBobuxUI();
     sfx.playCoin();
@@ -2577,6 +2590,10 @@ function spendBobux(amount, reasonText = '') {
     }
     bobuxBalance -= amount;
     localStorage.setItem(STORAGE_KEY_BOBUX, String(bobuxBalance));
+    if (authState.user) {
+        authState.user.coins = bobuxBalance;
+        try { localStorage.setItem(STORAGE_KEYS.USER_CACHE, JSON.stringify(authState.user)); } catch (e) {}
+    }
     recordBobuxTransaction(-amount, reasonText);
     updateBobuxUI();
     syncAccountToServer();

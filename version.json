@@ -1,7 +1,7 @@
 {
-  "version": "8.3",
-  "buildTime": 1793055907801,
-  "updatedAt": "2026-10-26T23:05:07.801Z",
-  "title": "Boblox Aktualizace v8.3",
-  "message": "Blackjack 3D physical chips, visible card heights on felt, additive betting controls"
+  "version": "8.4",
+  "buildTime": 1793056599638,
+  "updatedAt": "2026-10-26T23:16:39.638Z",
+  "title": "Boblox Aktualizace v8.4",
+  "message": "Elevated Blackjack camera view, in-world GUI card score badges, Bobux database persistence sync"
 }
