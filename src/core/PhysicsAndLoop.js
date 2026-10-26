@@ -920,14 +920,14 @@ function gameLoop(now) {
                 const dirX = toTableX / dist;
                 const dirZ = toTableZ / dist;
 
-                // First person eye position: at seated head height (~0.95m above seat), slightly forward
-                const eyeX = sPos.x + dirX * 0.45;
-                const eyeY = sPos.y + 0.95;
-                const eyeZ = sPos.z + dirZ * 0.45;
+                // First person eye position: elevated head height (~3.25m), keeping camera comfortably back at the chair
+                const eyeX = sPos.x + dirX * 0.15;
+                const eyeY = sPos.y + 1.45;
+                const eyeZ = sPos.z + dirZ * 0.15;
                 const camTargetPos = new THREE.Vector3(eyeX, eyeY, eyeZ);
 
-                // Table felt look target: looking down across the table felt where cards & dealer are visible
-                const tableFeltCenter = new THREE.Vector3(-18, 2.05, -7.5);
+                // Table felt look target: looking down across the table felt where all cards, chips & dealer are in full view
+                const tableFeltCenter = new THREE.Vector3(-18, 1.7, -7.2);
 
                 camera.position.lerp(camTargetPos, Math.min(1, dt * 15));
                 camera.lookAt(tableFeltCenter);

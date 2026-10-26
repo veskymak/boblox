@@ -1629,10 +1629,10 @@ const CASINO_STATIONS = [
 
 // 4 Seats around the Semicircular Blackjack Table (X = -18, Z = -8)
 const BJ_TABLE_SEATS = [
-    { id: 0, label: 'Místo 1', pos: new THREE.Vector3(-21.2, 1.8, -5.8), chairPos: new THREE.Vector3(-21.2, 0.9, -5.0), worldPos: new THREE.Vector3(-21.2, 1.8, -5.8), cardPos: new THREE.Vector3(-20.5, 2.32, -6.8), betPos: new THREE.Vector3(-20.5, 2.32, -5.8), rotY: Math.PI * 0.25, cameraYaw: Math.PI * 0.25 },
-    { id: 1, label: 'Místo 2', pos: new THREE.Vector3(-19.3, 1.8, -4.8), chairPos: new THREE.Vector3(-19.3, 0.9, -4.0), worldPos: new THREE.Vector3(-19.3, 1.8, -4.8), cardPos: new THREE.Vector3(-19.0, 2.32, -6.4), betPos: new THREE.Vector3(-19.0, 2.32, -5.4), rotY: Math.PI * 0.08, cameraYaw: Math.PI * 0.08 },
-    { id: 2, label: 'Místo 3', pos: new THREE.Vector3(-16.7, 1.8, -4.8), chairPos: new THREE.Vector3(-16.7, 0.9, -4.0), worldPos: new THREE.Vector3(-16.7, 1.8, -4.8), cardPos: new THREE.Vector3(-17.0, 2.32, -6.4), betPos: new THREE.Vector3(-17.0, 2.32, -5.4), rotY: -Math.PI * 0.08, cameraYaw: -Math.PI * 0.08 },
-    { id: 3, label: 'Místo 4', pos: new THREE.Vector3(-14.8, 1.8, -5.8), chairPos: new THREE.Vector3(-14.8, 0.9, -5.0), worldPos: new THREE.Vector3(-14.8, 1.8, -5.8), cardPos: new THREE.Vector3(-15.5, 2.32, -6.8), betPos: new THREE.Vector3(-15.5, 2.32, -6.1), rotY: -Math.PI * 0.25, cameraYaw: -Math.PI * 0.25 }
+    { id: 0, label: 'Místo 1', pos: new THREE.Vector3(-23.0, 1.8, -5.4), chairPos: new THREE.Vector3(-23.0, 0.9, -5.4), worldPos: new THREE.Vector3(-23.0, 1.8, -5.4), cardPos: new THREE.Vector3(-20.7, 2.32, -6.6), betPos: new THREE.Vector3(-21.6, 2.32, -6.2), rotY: 2.05, cameraYaw: 2.05 },
+    { id: 1, label: 'Místo 2', pos: new THREE.Vector3(-20.1, 1.8, -2.7), chairPos: new THREE.Vector3(-20.1, 0.9, -2.7), worldPos: new THREE.Vector3(-20.1, 1.8, -2.7), cardPos: new THREE.Vector3(-19.1, 2.32, -5.2), betPos: new THREE.Vector3(-19.5, 2.32, -4.3), rotY: 2.76, cameraYaw: 2.76 },
+    { id: 2, label: 'Místo 3', pos: new THREE.Vector3(-15.9, 1.8, -2.7), chairPos: new THREE.Vector3(-15.9, 0.9, -2.7), worldPos: new THREE.Vector3(-15.9, 1.8, -2.7), cardPos: new THREE.Vector3(-16.9, 2.32, -5.2), betPos: new THREE.Vector3(-16.5, 2.32, -4.3), rotY: -2.76, cameraYaw: -2.76 },
+    { id: 3, label: 'Místo 4', pos: new THREE.Vector3(-12.9, 1.8, -5.4), chairPos: new THREE.Vector3(-12.9, 0.9, -5.4), worldPos: new THREE.Vector3(-12.9, 1.8, -5.4), cardPos: new THREE.Vector3(-15.3, 2.32, -6.6), betPos: new THREE.Vector3(-14.4, 2.32, -6.2), rotY: -2.05, cameraYaw: -2.05 }
 ];
 
 let bjTableState = {
@@ -2754,7 +2754,7 @@ function standUpFromBjTable() {
     gameSpecificData.isPlayerSeatedAtBj = false;
 
     if (typeof playerState !== 'undefined') {
-        playerState.pos.set(-18, 1.8, -3.2);
+        playerState.pos.set(-18, 1.8, -1.2);
     }
 
     if (typeof playerAvatar !== 'undefined' && playerAvatar && playerAvatar.root) {
@@ -2926,7 +2926,7 @@ function update3DBlackjackGame(dt, elapsedSec) {
 
 function startInWorldBlackjackDealing() {
     if (typeof bjTableState === 'undefined') return;
-    const activeSeats = bjTableState.seats.filter(s => s.occupied && (s.confirmedBet || s.bet > 0));
+    const activeSeats = bjTableState.seats.filter(s => s.occupied && s.confirmedBet);
     if (activeSeats.length === 0) {
         bjTableState.phase = 'betting';
         bjTableState.phaseTimer = 10;
@@ -2936,6 +2936,14 @@ function startInWorldBlackjackDealing() {
 
     bjTableState.phase = 'dealing';
     updateInWorldBjUI();
+
+    // Ensure non-betting spectators have empty hands
+    bjTableState.seats.forEach(seat => {
+        if (!seat.confirmedBet) {
+            seat.hands = [];
+            seat.activeHandIdx = 0;
+        }
+    });
 
     activeSeats.forEach(seat => {
         if (seat.id === bjTableState.localSeat && typeof spendBobux === 'function') {
@@ -3364,7 +3372,7 @@ function resolveInWorldBlackjackPayout(dScoreObj) {
                     showGtaNotification('Prohra', outcomeMsg, '💥');
                 }
 
-                finishBlackjackRound(result, outcomeMsg, payout);
+                finishBlackjackRound(result, outcomeMsg, payout, false);
             }
         });
     });
@@ -3571,7 +3579,7 @@ function evaluateBlackjackWinner(pScore, dScore) {
     }
 }
 
-function finishBlackjackRound(result, msg = '', payout = 0) {
+function finishBlackjackRound(result, msg = '', payout = 0, shouldAwardBobux = true) {
     bjState.phase = 'finished';
     renderHandCards('bj-dealer-cards', bjState.dealerHand, false);
     const dScore = calculateHandScore(bjState.dealerHand);
@@ -3583,16 +3591,18 @@ function finishBlackjackRound(result, msg = '', payout = 0) {
         msgEl.textContent = msg || (result === 'win' ? 'Vyhrál jsi!' : 'Hra dokončena.');
     }
 
-    if (result === 'win' || result === 'blackjack') {
-        if (typeof sfx !== 'undefined' && sfx.playWinFanfare) sfx.playWinFanfare();
-        if (typeof addBobux === 'function') addBobux(payout, 'Výhra v Blackjacku');
-        if (typeof updateCasinoBobuxDisplay === 'function') updateCasinoBobuxDisplay();
-    } else if (result === 'push') {
-        if (typeof sfx !== 'undefined' && sfx.playCoin) sfx.playCoin();
-        if (typeof addBobux === 'function') addBobux(bjState.bet, 'Blackjack remíza');
-        if (typeof updateCasinoBobuxDisplay === 'function') updateCasinoBobuxDisplay();
-    } else if (result === 'bust' || result === 'lose') {
-        if (typeof sfx !== 'undefined' && sfx.playOof) sfx.playOof();
+    if (shouldAwardBobux) {
+        if (result === 'win' || result === 'blackjack') {
+            if (typeof sfx !== 'undefined' && sfx.playWinFanfare) sfx.playWinFanfare();
+            if (typeof addBobux === 'function') addBobux(payout, 'Výhra v Blackjacku');
+            if (typeof updateCasinoBobuxDisplay === 'function') updateCasinoBobuxDisplay();
+        } else if (result === 'push') {
+            if (typeof sfx !== 'undefined' && sfx.playCoin) sfx.playCoin();
+            if (typeof addBobux === 'function') addBobux(bjState.bet, 'Blackjack remíza');
+            if (typeof updateCasinoBobuxDisplay === 'function') updateCasinoBobuxDisplay();
+        } else if (result === 'bust' || result === 'lose') {
+            if (typeof sfx !== 'undefined' && sfx.playOof) sfx.playOof();
+        }
     }
 
     const dBtn = document.getElementById('bj-btn-deal');

@@ -1,7 +1,7 @@
 {
-  "version": "8.1",
-  "buildTime": 1793053756898,
-  "updatedAt": "2026-10-26T22:29:16.898Z",
-  "title": "Boblox Aktualizace v8.1",
-  "message": "Oprava Blackjack stolu: vyřešen freeze herní smyčky při usednutí, zarovnání 3D geometrie stolu, výběr nejbližší volné židle při stisku [E] a first-person pohled kamery na stůl a karty."
+  "version": "8.2",
+  "buildTime": 1793055014183,
+  "updatedAt": "2026-10-26T22:50:14.183Z",
+  "title": "Boblox Aktualizace v8.2",
+  "message": "Oprava Blackjacku: odstraněno clipování židlí ve stole, rozšířen pohled kamery na stůl a karty, opravena dvojitá výplata Bobuxů a podpora sedícího pozorovatele bez potvrzené sázky."
 }
