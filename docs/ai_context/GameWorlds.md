@@ -13,10 +13,11 @@
   - Tycoon: Seznam koupených upgradů, droppery, sběrné zóny a stav hotovosti.
   - Disasters: Typ aktivní katastrofy (meteority, potopa, tornádo), rozpadatelné cihly.
   - Adopt Me!: Stav peněz (`bucks`), seznam zvířátek (`pets`), aktivní potřeby (`needs`), 3D mesh mazlíčka pobíhající za hráčem.
-  - Casino: Herní stanice (`CASINO_STATIONS`), stav 3D blackjackového stolu (`bjTableState`), sloty (`slotsState`), kolo štěstí (`isWheelSpinning`), koňské dostihy (`derbyState`).
+  - Casino: Herní stanice (`CASINO_STATIONS`), stav 3D blackjackového stolu (`bjTableState`), sloty (`slotsState`), kolo štěstí (`isWheelSpinning`, `wheelAutoSpin`, oddělená plátna `#casino-wheel-canvas` a `#lucky-wheel-canvas`), koňské dostihy (`derbyState`).
 - **Čte a volá:**
   - `createBlock()`: Továrna na stavební prvky světa v `Engine.js`.
   - `addBobux()`, `spendBobux()`: Výplata odměn a sázení v `PortalStore.js`.
+  - `grantCurrentUserVip()`: Udělení univerzálního VIP statusu při jackpotu na Kole štěstí.
   - `sfx`: Zvukové efekty v `SoundEngine.js`.
 
 ---
@@ -41,7 +42,9 @@
   - `completeAdoptMeNeed(needId: string): boolean`: Splní potřebu mazlíčka a vyplatí Adopt Me Bucks.
 - **Casino subsystém:**
   - `openCasinoModal(tabName?: string): void`: Otevře UI pro blackjack, automaty, kolo nebo dostihy.
-  - `spinLuckyWheel(isPaid?: boolean): void`: Spustí roztočení kola štěstí s fyzikálním úhlem a výhrou.
+  - `openLuckyWheelModal(): void`: Otevře samostatný modal Kola štěstí, aktualizuje zůstatek Bobuxů (`#wheel-modal-bobux-display`), stav AutoSpinu a překreslí plátno `#lucky-wheel-canvas`.
+  - `spinDailyWheel()` / `spinCasinoPaidWheel()`: Spustí roztočení kola štěstí s fyzikálním úhlem a výhrou (Jackpot uděluje `👑 VIP TAG` + 3 500 B$).
+  - `updateWheelAutoSpinUI()`: Synchronizuje stav AutoSpinu (text, záře tlačítka, ikona) mezi aktivním a vypnutým stavem.
   - `spinSlotMachine(betAmount: number): void`: Vyhodnotí sázku na výherním automatu.
 
 ---

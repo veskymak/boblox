@@ -1,7 +1,7 @@
 {
-  "version": "7.5",
-  "buildTime": 1793043544459,
-  "updatedAt": "2026-10-26T19:39:04.459Z",
-  "title": "Boblox Aktualizace v7.5",
-  "message": "Overhaul 3D Blackjack in-world multiplayer & GTA 5 Diamond Lucky Wheel with global Jackpot event."
+  "version": "7.6",
+  "buildTime": 1793045000000,
+  "updatedAt": "2026-10-26T20:23:00.000Z",
+  "title": "Boblox Aktualizace v7.6",
+  "message": "Oprava Kola Štěstí (canvas, autospin, accurate bobux) a zavedení persistentního multiplayer VIP Tagu."
 }

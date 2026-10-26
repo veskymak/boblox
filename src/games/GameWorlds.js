@@ -2262,6 +2262,8 @@ function updateCasinoBobuxDisplay() {
     if (elHud) elHud.textContent = bobuxBalance.toLocaleString('cs-CZ');
     const elExtra = document.getElementById('hud-extra-value');
     if (elExtra && activeGameMode === 'casino') elExtra.textContent = `${bobuxBalance.toLocaleString('cs-CZ')} B$`;
+    const elWheel = document.getElementById('wheel-modal-bobux-display');
+    if (elWheel) elWheel.textContent = `${bobuxBalance.toLocaleString('cs-CZ')} B$`;
 }
 
 function openCasinoModal(tabName = 'blackjack') {
@@ -3728,7 +3730,7 @@ function spinSlots() {
  * C. DENNÍ KOLO ŠTĚSTÍ (DAILY LUCKY WHEEL) ENGINE - GTA 5 DIAMOND CASINO STYLE
  * ============================================================================ */
 const WHEEL_PRIZES = [
-    { label: 'SUPERKÁRA', type: 'bobux', amount: 3500, color: '#f59e0b', icon: '🚗', isJackpot: true, desc: 'Jackpot Vozidlo' },
+    { label: 'VIP TAG', type: 'bobux', amount: 3500, color: '#f59e0b', icon: '👑', isJackpot: true, desc: 'VIP Status + 3 500 B$' },
     { label: '500 B$', type: 'bobux', amount: 500, color: '#10b981', icon: '💵', desc: 'Hotovost' },
     { label: '150 RP', type: 'bobux', amount: 150, color: '#3b82f6', icon: '⭐', desc: 'Reputace' },
     { label: '300 ŽETONŮ', type: 'bobux', amount: 300, color: '#06b6d4', icon: '🪙', desc: 'Žetony' },
@@ -3763,43 +3765,55 @@ function isDailyWheelFree() {
 
 function updateDailyWheelTimer() {
     const isFree = isDailyWheelFree();
-    const statusEl = document.getElementById('wheel-daily-status');
-    const btnText = document.getElementById('wheel-btn-text');
-    const timerEl = document.getElementById('wheel-daily-timer');
+    const statusEls = [
+        document.getElementById('wheel-daily-status'),
+        document.getElementById('lucky-wheel-daily-status')
+    ].filter(Boolean);
+    const btnTexts = [
+        document.getElementById('wheel-btn-text'),
+        document.getElementById('lucky-wheel-btn-text')
+    ].filter(Boolean);
+    const timerEls = [
+        document.getElementById('wheel-daily-timer'),
+        document.getElementById('lucky-wheel-daily-timer')
+    ].filter(Boolean);
 
     // Also update GTA 5 modal elements
-    const gtaSpinBtn = document.getElementById('lucky-wheel-spin-btn');
+    const gtaSpinBtns = [
+        document.getElementById('lucky-wheel-spin-btn'),
+        document.getElementById('wheel-spin-btn')
+    ].filter(Boolean);
     const gtaSubtitle = document.getElementById('lucky-wheel-subtitle');
-    const gtaDailyStatus = document.getElementById('lucky-wheel-daily-status');
     const gtaSpinSubtext = document.getElementById('lucky-wheel-spin-subtext');
 
     if (isFree) {
-        if (statusEl) statusEl.textContent = '🎁 1 VOLNÉ ZATOČENÍ PŘIPRAVENO!';
-        if (btnText) btnText.textContent = 'ZATOČIT ZDARMA!';
-        if (timerEl) timerEl.textContent = 'Tvé denní volné zatočení je aktivní! Vytoč si až 3 500 B$ a Superkáru zdarma.';
-        if (gtaDailyStatus) gtaDailyStatus.textContent = '🎁 1 VOLNÉ ZATOČENÍ DNES ZDARMA!';
-        if (gtaSubtitle) gtaSubtitle.textContent = 'Zatoč kolem štěstí a vyhraj legendární Superkáru!';
+        statusEls.forEach(el => { el.textContent = '🎁 1 VOLNÉ ZATOČENÍ PŘIPRAVENO!'; });
+        btnTexts.forEach(el => { el.textContent = 'ZATOČIT ZDARMA!'; });
+        timerEls.forEach(el => { el.textContent = 'Tvé denní volné zatočení je aktivní! Vytoč si až 3 500 B$ a VIP Tag zdarma.'; });
+        if (gtaSubtitle) gtaSubtitle.textContent = 'Zatoč kolem štěstí a vyhraj exkluzivní VIP Status!';
         if (gtaSpinSubtext) gtaSpinSubtext.textContent = 'DENNÍ BONUS: ZDARMA';
-        if (gtaSpinBtn) gtaSpinBtn.querySelector('span') && (gtaSpinBtn.querySelector('span').textContent = 'ZATOČIT KOLO');
+        gtaSpinBtns.forEach(btn => {
+            const sp = btn.querySelector('span:last-child') || btn.querySelector('span');
+            if (sp && !isWheelSpinning) sp.textContent = 'ZATOČIT ZDARMA!';
+        });
     } else {
         const last = parseInt(localStorage.getItem(STORAGE_KEY_CASINO_WHEEL) || '0', 10);
         const remMs = Math.max(0, 24 * 3600 * 1000 - (Date.now() - last));
         const remHms = typeof formatHMS === 'function' ? formatHMS(remMs) : Math.ceil(remMs / 1000) + 's';
-        if (statusEl) statusEl.textContent = `⏳ Další volné zatočení za: ${remHms}`;
-        if (btnText) btnText.textContent = `ZATOČIT (${WHEEL_PAID_SPIN_PRICE} B$)`;
-        if (timerEl) timerEl.textContent = `Denní bonus vyčerpán. Další zdarma za ${remHms}, nebo toč za ${WHEEL_PAID_SPIN_PRICE} B$. Extra zatočení stojí ${WHEEL_PAID_SPIN_PRICE} B$. Další točení stojí ${WHEEL_PAID_SPIN_PRICE} B$.`;
-        if (gtaDailyStatus) gtaDailyStatus.textContent = `⏳ Volné zatočení za: ${remHms}`;
+        statusEls.forEach(el => { el.textContent = `⏳ Další volné zatočení za: ${remHms}`; });
+        btnTexts.forEach(el => { el.textContent = `ZATOČIT (${WHEEL_PAID_SPIN_PRICE} B$)`; });
+        timerEls.forEach(el => { el.textContent = `Denní bonus vyčerpán. Další zdarma za ${remHms}, nebo toč za ${WHEEL_PAID_SPIN_PRICE} B$. Extra zatočení stojí ${WHEEL_PAID_SPIN_PRICE} B$. Další točení stojí ${WHEEL_PAID_SPIN_PRICE} B$.`; });
         if (gtaSubtitle) gtaSubtitle.textContent = `Extra zatočení stojí ${WHEEL_PAID_SPIN_PRICE} B$. Další točení stojí ${WHEEL_PAID_SPIN_PRICE} B$.`;
         if (gtaSpinSubtext) gtaSpinSubtext.textContent = `CENA: ${WHEEL_PAID_SPIN_PRICE} B$`;
-        if (gtaSpinBtn) gtaSpinBtn.querySelector('span') && (gtaSpinBtn.querySelector('span').textContent = `ZATOČIT (${WHEEL_PAID_SPIN_PRICE} B$)`);
+        gtaSpinBtns.forEach(btn => {
+            const sp = btn.querySelector('span:last-child') || btn.querySelector('span');
+            if (sp && !isWheelSpinning) sp.textContent = `ZATOČIT (${WHEEL_PAID_SPIN_PRICE} B$)`;
+        });
     }
 }
 
 function renderCasinoWheel(rotation = wheelCurrentAngle) {
-    const canvases = [
-        document.getElementById('casino-wheel-canvas'),
-        document.getElementById('lucky-wheel-canvas')
-    ].filter(Boolean);
+    const canvases = Array.from(document.querySelectorAll('#casino-wheel-canvas, #lucky-wheel-canvas')).filter(Boolean);
 
     if (canvases.length === 0) return;
 
@@ -3925,13 +3939,62 @@ function renderCasinoWheel(rotation = wheelCurrentAngle) {
 }
 
 function openLuckyWheelModal() {
+    if (document.pointerLockElement) {
+        try { document.exitPointerLock(); } catch (e) {}
+    }
     const modal = document.getElementById('lucky-wheel-modal');
     if (!modal) return;
     modal.classList.remove('hidden');
     modal.classList.add('flex');
+    if (typeof updateCasinoBobuxDisplay === 'function') updateCasinoBobuxDisplay();
     updateDailyWheelTimer();
+    updateWheelAutoSpinUI();
     renderCasinoWheel(wheelCurrentAngle);
     if (typeof sfx !== 'undefined' && sfx.playCardFlip) sfx.playCardFlip();
+}
+
+function updateWheelAutoSpinUI() {
+    const autoBtns = [
+        document.getElementById('lucky-wheel-autospin-btn'),
+        document.getElementById('wheel-autospin-toggle-btn')
+    ].filter(Boolean);
+    const statusBadges = [
+        document.getElementById('lucky-wheel-autospin-status'),
+        document.getElementById('wheel-autospin-label')
+    ].filter(Boolean);
+    const icons = [
+        document.getElementById('wheel-autospin-icon')
+    ].filter(Boolean);
+    const checkboxes = Array.from(document.querySelectorAll('#wheel-auto-spin, #lucky-wheel-auto-spin'));
+
+    checkboxes.forEach(cb => { cb.checked = wheelAutoSpin; });
+
+    autoBtns.forEach(btn => {
+        if (wheelAutoSpin) {
+            btn.classList.add('bg-cyan-600', 'border-cyan-400', 'shadow-[0_0_15px_rgba(0,210,255,0.5)]');
+            btn.classList.remove('bg-[#232527]');
+        } else {
+            btn.classList.remove('bg-cyan-600', 'border-cyan-400', 'shadow-[0_0_15px_rgba(0,210,255,0.5)]');
+            btn.classList.add('bg-[#232527]');
+        }
+    });
+
+    statusBadges.forEach(badge => {
+        badge.textContent = wheelAutoSpin ? 'AUTOSPIN: ZAPNUTO' : 'AUTOSPIN: VYPNUTO';
+        if (wheelAutoSpin) {
+            badge.className = 'text-[10px] sm:text-xs font-black uppercase tracking-widest text-cyan-200';
+        } else {
+            badge.className = 'text-[10px] sm:text-xs font-black uppercase tracking-widest text-gray-300';
+        }
+    });
+
+    icons.forEach(ic => {
+        if (wheelAutoSpin) {
+            ic.classList.add('animate-spin');
+        } else {
+            ic.classList.remove('animate-spin');
+        }
+    });
 }
 
 function closeLuckyWheelModal() {
@@ -3941,61 +4004,24 @@ function closeLuckyWheelModal() {
     modal.classList.remove('flex');
     if (wheelAutoSpin) {
         wheelAutoSpin = false;
-        const cb = document.getElementById('wheel-auto-spin');
-        if (cb) cb.checked = false;
-        const autoBtn = document.getElementById('lucky-wheel-autospin-btn');
-        if (autoBtn) {
-            autoBtn.classList.remove('bg-cyan-500/30', 'border-cyan-400');
-            const statusBadge = document.getElementById('lucky-wheel-autospin-status');
-            if (statusBadge) statusBadge.textContent = 'VYPNUTO';
-        }
+        updateWheelAutoSpinUI();
     }
 }
 
 function toggleWheelAutoSpinBtn() {
     wheelAutoSpin = !wheelAutoSpin;
-    const cb = document.getElementById('wheel-auto-spin');
-    if (cb) cb.checked = wheelAutoSpin;
-    const autoBtn = document.getElementById('lucky-wheel-autospin-btn');
-    const statusBadge = document.getElementById('lucky-wheel-autospin-status');
-    if (wheelAutoSpin) {
-        if (autoBtn) autoBtn.classList.add('bg-cyan-500/30', 'border-cyan-400');
-        if (statusBadge) {
-            statusBadge.textContent = 'ZAPNUTO';
-            statusBadge.className = 'text-[10px] font-black uppercase tracking-widest text-cyan-300';
-        }
-        if (!isWheelSpinning) {
-            spinDailyWheel();
-        }
-    } else {
-        if (autoBtn) autoBtn.classList.remove('bg-cyan-500/30', 'border-cyan-400');
-        if (statusBadge) {
-            statusBadge.textContent = 'VYPNUTO';
-            statusBadge.className = 'text-[10px] font-black uppercase tracking-widest text-slate-400';
-        }
+    updateWheelAutoSpinUI();
+    if (wheelAutoSpin && !isWheelSpinning) {
+        spinDailyWheel();
     }
 }
 
 function toggleWheelAutoSpin() {
-    const cb = document.getElementById('wheel-auto-spin');
+    const cb = document.getElementById('wheel-auto-spin') || document.getElementById('lucky-wheel-auto-spin');
     wheelAutoSpin = !!(cb && cb.checked);
-    const autoBtn = document.getElementById('lucky-wheel-autospin-btn');
-    const statusBadge = document.getElementById('lucky-wheel-autospin-status');
-    if (wheelAutoSpin) {
-        if (autoBtn) autoBtn.classList.add('bg-cyan-500/30', 'border-cyan-400');
-        if (statusBadge) {
-            statusBadge.textContent = 'ZAPNUTO';
-            statusBadge.className = 'text-[10px] font-black uppercase tracking-widest text-cyan-300';
-        }
-        if (!isWheelSpinning) {
-            spinDailyWheel();
-        }
-    } else {
-        if (autoBtn) autoBtn.classList.remove('bg-cyan-500/30', 'border-cyan-400');
-        if (statusBadge) {
-            statusBadge.textContent = 'VYPNUTO';
-            statusBadge.className = 'text-[10px] font-black uppercase tracking-widest text-slate-400';
-        }
+    updateWheelAutoSpinUI();
+    if (wheelAutoSpin && !isWheelSpinning) {
+        spinDailyWheel();
     }
 }
 
@@ -4008,10 +4034,7 @@ function spinDailyWheel() {
             wheelAutoSpin = false;
             const cb = document.getElementById('wheel-auto-spin');
             if (cb) cb.checked = false;
-            const autoBtn = document.getElementById('lucky-wheel-autospin-btn');
-            if (autoBtn) autoBtn.classList.remove('bg-cyan-500/30', 'border-cyan-400');
-            const statusBadge = document.getElementById('lucky-wheel-autospin-status');
-            if (statusBadge) statusBadge.textContent = 'VYPNUTO';
+            updateWheelAutoSpinUI();
             if (typeof showHudToast === 'function') {
                 showHudToast(`Nemáš ${WHEEL_PAID_SPIN_PRICE} Bobuxů na placené zatočení kola!`, 'red');
             }
@@ -4021,6 +4044,7 @@ function spinDailyWheel() {
             if (!spendBobux(WHEEL_PAID_SPIN_PRICE, `Zatočení Kola Štěstí (${WHEEL_PAID_SPIN_PRICE} B$)`)) return;
         }
         if (typeof updateCasinoBobuxDisplay === 'function') updateCasinoBobuxDisplay();
+        if (typeof updateBobuxUI === 'function') updateBobuxUI();
     } else {
         localStorage.setItem(STORAGE_KEY_CASINO_WHEEL, String(Date.now()));
     }
@@ -4035,18 +4059,23 @@ function spinDailyWheel() {
     }
 
     isWheelSpinning = true;
-    const spinBtn = document.getElementById('wheel-spin-btn');
-    if (spinBtn) spinBtn.disabled = true;
-    const gtaSpinBtn = document.getElementById('lucky-wheel-spin-btn');
-    if (gtaSpinBtn) gtaSpinBtn.disabled = true;
+    const spinBtns = [
+        document.getElementById('wheel-spin-btn'),
+        document.getElementById('lucky-wheel-spin-btn')
+    ].filter(Boolean);
+    spinBtns.forEach(btn => {
+        btn.disabled = true;
+        btn.classList.add('opacity-60', 'cursor-not-allowed');
+    });
 
-    const msgEl = document.getElementById('wheel-status-msg');
-    if (msgEl) msgEl.textContent = 'Kolo štěstí se točí...';
-    const gtaStatusEl = document.getElementById('lucky-wheel-status-msg');
-    if (gtaStatusEl) {
-        gtaStatusEl.textContent = 'KOLO ŠTĚSTÍ SE TOČÍ...';
-        gtaStatusEl.className = 'py-2.5 px-4 rounded-xl bg-cyan-950/80 border border-cyan-400 text-xs sm:text-sm font-black text-cyan-200 shadow animate-pulse';
-    }
+    const msgEls = [
+        document.getElementById('wheel-status-msg'),
+        document.getElementById('lucky-wheel-status-msg')
+    ].filter(Boolean);
+    msgEls.forEach(el => {
+        el.textContent = 'Kolo štěstí se točí...';
+        el.className = 'py-2.5 px-4 rounded-xl bg-cyan-950/80 border border-cyan-400 text-xs sm:text-sm font-black text-cyan-200 shadow animate-pulse flex items-center justify-center';
+    });
 
     // Pick target prize
     const targetIdx = Math.floor(Math.random() * WHEEL_PRIZES.length);
@@ -4088,9 +4117,13 @@ function spinDailyWheel() {
             requestAnimationFrame(animateWheel);
         } else {
             isWheelSpinning = false;
-            if (spinBtn) spinBtn.disabled = false;
-            if (gtaSpinBtn) gtaSpinBtn.disabled = false;
+            spinBtns.forEach(btn => {
+                btn.disabled = false;
+                btn.classList.remove('opacity-60', 'cursor-not-allowed');
+            });
             updateDailyWheelTimer();
+            if (typeof updateCasinoBobuxDisplay === 'function') updateCasinoBobuxDisplay();
+            if (typeof updateBobuxUI === 'function') updateBobuxUI();
 
             const prize = WHEEL_PRIZES[targetIdx];
             if (prize.isJackpot) {
@@ -4103,27 +4136,20 @@ function spinDailyWheel() {
                 }
                 if (typeof addBobux === 'function') addBobux(prize.amount, `Kolo Štěstí (${prize.label})`);
                 if (typeof updateCasinoBobuxDisplay === 'function') updateCasinoBobuxDisplay();
+                if (typeof updateBobuxUI === 'function') updateBobuxUI();
                 const victoryText = `🎉 GRATULACE! Vyhrál jsi ${prize.label} (${prize.amount} Bobuxů)!`;
-                if (msgEl) {
-                    msgEl.textContent = victoryText;
-                    msgEl.className = 'py-2.5 px-4 rounded-xl bg-emerald-950/80 border border-emerald-400 text-xs sm:text-sm font-black text-emerald-200 shadow animate-bounce';
-                }
-                if (gtaStatusEl) {
-                    gtaStatusEl.textContent = victoryText;
-                    gtaStatusEl.className = 'py-2.5 px-4 rounded-xl bg-emerald-950/80 border border-emerald-400 text-xs sm:text-sm font-black text-emerald-200 shadow animate-bounce';
-                }
+                msgEls.forEach(el => {
+                    el.textContent = victoryText;
+                    el.className = 'py-2.5 px-4 rounded-xl bg-emerald-950/80 border border-emerald-400 text-xs sm:text-sm font-black text-emerald-200 shadow animate-bounce flex items-center justify-center';
+                });
                 spawnLuckyWheelConfettiBurst();
             } else {
                 if (typeof sfx !== 'undefined' && sfx.playWinFanfare) sfx.playWinFanfare();
                 const freeText = '🎁 EXTRA VOLNÉ ZATOČENÍ! Zatoč si ještě jednou zdarma!';
-                if (msgEl) {
-                    msgEl.textContent = freeText;
-                    msgEl.className = 'py-2.5 px-4 rounded-xl bg-pink-950/80 border border-pink-400 text-xs sm:text-sm font-black text-pink-200 shadow';
-                }
-                if (gtaStatusEl) {
-                    gtaStatusEl.textContent = freeText;
-                    gtaStatusEl.className = 'py-2.5 px-4 rounded-xl bg-pink-950/80 border border-pink-400 text-xs sm:text-sm font-black text-pink-200 shadow';
-                }
+                msgEls.forEach(el => {
+                    el.textContent = freeText;
+                    el.className = 'py-2.5 px-4 rounded-xl bg-pink-950/80 border border-pink-400 text-xs sm:text-sm font-black text-pink-200 shadow flex items-center justify-center';
+                });
                 localStorage.removeItem(STORAGE_KEY_CASINO_WHEEL);
                 updateDailyWheelTimer();
             }
@@ -4143,6 +4169,21 @@ function triggerLuckyWheelJackpot(prize) {
     if (typeof sfx !== 'undefined' && sfx.playJackpot) sfx.playJackpot();
     if (typeof addBobux === 'function') addBobux(prize.amount, `JACKPOT KOLO ŠTĚSTÍ (${prize.label})`);
     if (typeof updateCasinoBobuxDisplay === 'function') updateCasinoBobuxDisplay();
+    if (typeof updateBobuxUI === 'function') updateBobuxUI();
+
+    // Grant permanent VIP Status
+    if (typeof grantCurrentUserVip === 'function') {
+        grantCurrentUserVip();
+    }
+
+    const msgEls = [
+        document.getElementById('wheel-status-msg'),
+        document.getElementById('lucky-wheel-status-msg')
+    ].filter(Boolean);
+    msgEls.forEach(el => {
+        el.textContent = `👑 JACKPOT! Získal jsi VIP TAG a ${prize.amount.toLocaleString()} Bobuxů!`;
+        el.className = 'py-2.5 px-4 rounded-xl bg-amber-950/90 border-2 border-[#FFE066] text-xs sm:text-sm font-black text-[#FFE066] shadow animate-bounce flex items-center justify-center';
+    });
 
     // Broadcast server-wide celebration to all players in session
     if (typeof networkManager !== 'undefined') {
@@ -4162,13 +4203,16 @@ function triggerLuckyWheelJackpot(prize) {
                 amount: prize.amount
             });
         }
+        if (typeof broadcastGameAnnounce === 'function') {
+            broadcastGameAnnounce();
+        }
     }
 
     // Local celebration presentation
     showJackpotCelebrationScreen(winnerName, prize.label, prize.amount);
     spawnLuckyWheelConfettiBurst();
     if (typeof showHudToast === 'function') {
-        showHudToast(`🎰 JACKPOT! ${winnerName} právě vyhrál JACKPOT (${prize.label}) na Kole štěstí!`, 'amber');
+        showHudToast(`👑 VIP JACKPOT! ${winnerName} právě vyhrál VIP TAG a ${prize.amount.toLocaleString()} B$ na Kole štěstí!`, 'amber');
     }
 }
 
@@ -4196,9 +4240,9 @@ function showJackpotCelebrationScreen(winnerName, prizeName, amount = 3500) {
     const overlay = document.getElementById('jackpot-celebration-overlay');
     if (!overlay) return;
     const nameEl = document.getElementById('jackpot-winner-name') || document.getElementById('jackpot-winner-title');
-    if (nameEl) nameEl.textContent = `${(winnerName || 'HRÁČ').toUpperCase()} VYHRÁL JACKPOT!`;
+    if (nameEl) nameEl.textContent = `${(winnerName || 'HRÁČ').toUpperCase()} VYHRÁL VIP JACKPOT!`;
     const prizeEl = document.getElementById('jackpot-prize-text') || document.getElementById('jackpot-winner-prize');
-    if (prizeEl) prizeEl.textContent = `+${amount.toLocaleString()} B$ (${prizeName || 'SUPERKÁRA'})`;
+    if (prizeEl) prizeEl.textContent = `+${amount.toLocaleString()} B$ + 👑 VIP STATUS`;
 
     overlay.classList.remove('hidden');
     overlay.classList.add('flex');

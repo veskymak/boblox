@@ -167,6 +167,7 @@ function broadcastGameAnnounce() {
     const payload = {
         id: mpState.myId,
         nickname: effectiveNick,
+        isVip: typeof isCurrentUserVip === 'function' ? isCurrentUserVip() : false,
         torsoHex: typeof avatarTorsoHex !== 'undefined' ? avatarTorsoHex : '#0D69AC',
         outfit: typeof avatarOutfit !== 'undefined' ? avatarOutfit : {},
         weaponId: (typeof playerState !== 'undefined' && playerState.activeWeapon) ? playerState.activeWeapon.id : 'none',
@@ -205,6 +206,7 @@ function handleRemotePlayerAnnounce(payload) {
         rp = {
             id: payload.id,
             nickname: sanitizeTextClient(payload.nickname || 'Hráč', 16),
+            isVip: !!payload.isVip,
             torsoHex: payload.torsoHex || '#0D69AC',
             outfit: sanitizeOutfit(payload.outfit),
             weaponId: payload.weaponId || 'none',
@@ -832,14 +834,15 @@ function initLiveSocketAndPresence() {
         heartbeatTimer.unref();
     }
 
-    if (!isStaticHostingWithoutBackend() && (location.protocol === 'http:' || location.protocol === 'https:')) {
+    const loc = (typeof window !== 'undefined' && window.location) ? window.location : (typeof location !== 'undefined' ? location : null);
+    if (!isStaticHostingWithoutBackend() && loc && (loc.protocol === 'http:' || loc.protocol === 'https:')) {
         try {
             let wsUrl;
             if (CUSTOM_API_BASE) {
                 wsUrl = CUSTOM_API_BASE.replace(/^http/i, 'ws') + '/ws';
             } else {
-                const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-                wsUrl = `${wsProto}//${location.host}/ws`;
+                const wsProto = loc.protocol === 'https:' ? 'wss:' : 'ws:';
+                wsUrl = `${wsProto}//${loc.host}/ws`;
             }
             const ws = new WebSocket(wsUrl);
             mpState.ws = ws;
@@ -1055,23 +1058,38 @@ function updateMpCounters() {
     recomputeLivePlayerCounts();
 }
 
-function createNameplateSprite(nameText) {
+function createNameplateSprite(nameText, isVip = false) {
     const canvas = document.createElement('canvas');
     canvas.width = 256;
     canvas.height = 64;
     const ctx = canvas.getContext('2d');
 
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.78)';
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
     ctx.fillRect(18, 10, 220, 44);
-    ctx.strokeStyle = '#00A2FF';
+    ctx.strokeStyle = isVip ? '#FFE066' : '#00A2FF';
     ctx.lineWidth = 3;
     ctx.strokeRect(18, 10, 220, 44);
 
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 22px Inter, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(String(nameText || 'Hráč').slice(0, 15), 128, 32);
+    if (isVip) {
+        ctx.fillStyle = '#FFE066';
+        ctx.fillRect(24, 18, 44, 28);
+        ctx.fillStyle = '#000000';
+        ctx.font = '900 16px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('VIP', 46, 33);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 20px Inter, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(String(nameText || 'Hráč').slice(0, 11), 74, 32);
+    } else {
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 22px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(nameText || 'Hráč').slice(0, 15), 128, 32);
+    }
 
     const tex = new THREE.CanvasTexture(canvas);
     const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
@@ -1109,7 +1127,7 @@ function handleMultiplayerPacket(packet, sourceConn) {
         const cleanSender = sanitizeTextClient(packet.nickname || 'Hráč', 16);
         const cleanMsg = sanitizeTextClient(packet.text, 160);
         if (typeof appendRobloxChatMessage === 'function') {
-            appendRobloxChatMessage(cleanSender, cleanMsg);
+            appendRobloxChatMessage(cleanSender, cleanMsg, !!packet.isVip);
         }
         const rp = mpState.remotePlayers[packet.id];
         if (rp) {
@@ -1140,6 +1158,7 @@ function handleMultiplayerPacket(packet, sourceConn) {
             rp = {
                 id: packet.id,
                 nickname: sanitizeTextClient(packet.nickname || 'Hráč', 16),
+                isVip: !!packet.isVip,
                 torsoHex: packet.torsoHex || '#0D69AC',
                 weaponId: packet.weaponId || 'none',
                 disguiseId: packet.disguiseId || null,
@@ -1157,6 +1176,7 @@ function handleMultiplayerPacket(packet, sourceConn) {
             updateMpCounters();
         }
 
+        if (packet.isVip !== undefined) rp.isVip = !!packet.isVip;
         rp.nickname = sanitizeTextClient(packet.nickname || rp.nickname, 16);
         const nextOutfit = sanitizeOutfit(packet.outfit);
         const nextLookKey = JSON.stringify(nextOutfit) + '|' + (packet.torsoHex || rp.torsoHex);
@@ -1252,8 +1272,9 @@ function broadcastLocalPlayerState(dt) {
         type: 'playerState',
         id: mpState.myId,
         nickname: mpState.nickname,
-        torsoHex: avatarTorsoHex,
-        outfit: avatarOutfit,
+        isVip: typeof isCurrentUserVip === 'function' ? isCurrentUserVip() : false,
+        torsoHex: typeof avatarTorsoHex !== 'undefined' ? avatarTorsoHex : '#0D69AC',
+        outfit: typeof avatarOutfit !== 'undefined' ? avatarOutfit : {},
         weaponId: playerState.activeWeapon ? playerState.activeWeapon.id : 'none',
         gameMode: activeGameMode,
         x: Number(playerState.pos.x.toFixed(2)),
@@ -1290,8 +1311,10 @@ function updateRemotePlayersInScene(dt) {
                 weaponId: rp.weaponId || (activeGameMode === 'sfoth' ? 'sword' : 'none')
             });
             rp.meshData.isRemoteAvatar = true;
-            const badge = createNameplateSprite(rp.nickname);
+            const badge = createNameplateSprite(rp.nickname, rp.isVip);
+            rp.meshData.nameBadge = badge;
             rp.meshData.root.add(badge);
+            rp._renderedVip = rp.isVip;
             rp.meshData.root.position.copy(rp.targetPos);
             scene.add(rp.meshData.root);
 
@@ -1299,6 +1322,14 @@ function updateRemotePlayersInScene(dt) {
                 rp.pendingBubbles.forEach(txt => spawnChatBubbleOnAvatar(rp.meshData, txt, false));
                 rp.pendingBubbles = [];
             }
+        } else if (rp._renderedVip !== rp.isVip) {
+            if (rp.meshData.nameBadge) {
+                rp.meshData.root.remove(rp.meshData.nameBadge);
+            }
+            const newBadge = createNameplateSprite(rp.nickname, rp.isVip);
+            rp.meshData.nameBadge = newBadge;
+            rp.meshData.root.add(newBadge);
+            rp._renderedVip = rp.isVip;
         }
 
         if (typeof updateAvatarChatBubbles === 'function') {

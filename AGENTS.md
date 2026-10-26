@@ -13,7 +13,11 @@ Boblox je 3D webová herní platforma s multiplayerem a Roblox estetikou, postav
 3. **Kódovací standardy a UI:** Dodržujte standardy v [CODING_STANDARDS.md](file:///c:/Users/vacla/Desktop/Boblox/boblox/CODING_STANDARDS.md) a [UI Guidelines](file:///c:/Users/vacla/Desktop/Boblox/boblox/docs/development/ui-guidelines.md) (nemažte existující DOM ID, touch targety `min-h-[44px]`, Bobux barva výhradně `text-[#FFE066]`).
 4. **Transport & Bezpečnost:** Veškerá komunikace s API probíhá výhradně přes `apiRequest()`, privilegované WebSocket zprávy musí nést JWT token.
 5. **Cross-Device & Backend Perzistence:** Nové funkce nesmí spoléhat pouze na `localStorage` ani na transientní WebSocket broadcasty. Veškerá uživatelská data a interakce (zprávy, přátelé, nákupy, transakce) musí mít perzistentní model na backendu (`server.js` SQLite / Supabase) a synchronizační mechanismus pro přechod mezi zařízeními (mobil <-> PC).
-6. **AI Context Layer & Self-Maintaining Protocol:** Projekt udržuje strojově čitelnou architekturu v docs/ai_context/ (index v [docs/ai_context/INDEX.md](file:///c:/Users/vacla/Desktop/Boblox/boblox/docs/ai_context/INDEX.md)). Než začnete procházet tisíce řádků kódu v src/, přečtěte si příslušný .md soubor. Při jakékoliv úpravě v src/ nebo server.js je **povinným krokem** v téže odpovědi aktualizovat odpovídající dokument v docs/ai_context/.
+6. **AI Context Layer & Šetření tokenů (Self-Maintaining Protocol):** 
+   - **Povinný první krok:** Soubory v `src/` obsahují přes 18 000 řádků (např. `PortalUI.js` 6 100+, `GameWorlds.js` 3 000+). Za účelem šetření tokenů a prevence zahlcení kontextu **je přísně zakázáno číst velké bloky zdrojového kódu naslepo**.
+   - **Vždy začněte v `docs/ai_context/`:** Před zkoumáním kódu si agent **vždy** nejprve přečte příslušný dokument v [docs/ai_context/](file:///c:/Users/vacla/Desktop/Boblox/boblox/docs/ai_context/) (rozcestník v [docs/ai_context/INDEX.md](file:///c:/Users/vacla/Desktop/Boblox/boblox/docs/ai_context/INDEX.md)). Odtud získá SSOT, klíčové funkce, gotchas a přesná čísla řádků (seams).
+   - **Cílené čtení:** Do `src/` agent sahá až následně a čte výhradně úzce vymezené rozsahy řádků.
+   - **Udržování:** Při jakékoliv úpravě v `src/` nebo `server.js` je **povinným krokem v téže odpovědi** aktualizovat odpovídající dokument v `docs/ai_context/`.
 
 ## 📚 Dokumentace & Standardy
 - [AI Context Layer (llms.txt)](file:///c:/Users/vacla/Desktop/Boblox/boblox/docs/ai_context/INDEX.md)

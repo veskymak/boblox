@@ -2,7 +2,7 @@
  * 3. PROCEDURAL THUMBNAIL ARTWORK GENERATOR (FOR ALL 10 GAMES)
  * ============================================================================ */
 function drawGameThumbnail(canvas, gameId) {
-    if (!canvas) return;
+    if (!canvas || typeof canvas.getContext !== 'function') return;
     const ctx = canvas.getContext('2d');
     const w = canvas.width;
     const h = canvas.height;
@@ -424,9 +424,11 @@ function drawMiniNoob2D(ctx, x, y, scale = 1) {
     ctx.lineWidth = 2.2;
     ctx.strokeStyle = '#000';
     ctx.stroke();
-    const miniShirt = avatarOutfit.shirt ? SHOP_ITEM_MAP[avatarOutfit.shirt] : null;
-    const miniPants = avatarOutfit.pants ? SHOP_ITEM_MAP[avatarOutfit.pants] : null;
-    ctx.fillStyle = (miniShirt && miniShirt.color) || avatarTorsoHex || '#0D69AC';
+    const localOutfit = (typeof avatarOutfit !== 'undefined') ? avatarOutfit : {};
+    const miniShirt = localOutfit && localOutfit.shirt && typeof SHOP_ITEM_MAP !== 'undefined' ? SHOP_ITEM_MAP[localOutfit.shirt] : null;
+    const miniPants = localOutfit && localOutfit.pants && typeof SHOP_ITEM_MAP !== 'undefined' ? SHOP_ITEM_MAP[localOutfit.pants] : null;
+    const localTorso = (typeof avatarTorsoHex !== 'undefined') ? avatarTorsoHex : '#0D69AC';
+    ctx.fillStyle = (miniShirt && miniShirt.color) || localTorso;
     ctx.fillRect(-16, -2, 32, 28);
     ctx.fillStyle = '#F5CD30';
     ctx.fillRect(-26, -2, 10, 26);
@@ -869,7 +871,8 @@ function getLocalRobloxPlayerProfile() {
         following: 0,
         rap: (typeof bobuxBalance !== 'undefined') ? bobuxBalance : 250,
         status: 'online',
-        isLocal: true
+        isLocal: true,
+        isVip: typeof isCurrentUserVip === 'function' ? isCurrentUserVip() : false
     };
 }
 
@@ -885,7 +888,8 @@ function getServerPlayersList() {
                     handle: `@${(rp.nickname || 'player').replace(/\s+/g, '')}`,
                     torsoHex: rp.torsoHex || '#0D69AC',
                     outfit: rp.outfit || null,
-                    isLocal: false
+                    isLocal: false,
+                    isVip: !!rp.isVip
                 });
             }
         });
@@ -908,11 +912,25 @@ function renderRobloxTopRightPlayerList() {
     const players = getServerPlayersList();
     players.forEach(p => {
         const row = document.createElement('div');
-        row.className = 'flex items-center justify-between py-0.5 text-xs font-medium text-white truncate';
+        row.className = 'flex items-center justify-between py-0.5 text-xs font-medium text-white truncate gap-2';
+        
+        const nameContainer = document.createElement('div');
+        nameContainer.className = 'flex items-center gap-1.5 truncate';
+        
         const nameSpan = document.createElement('span');
         nameSpan.className = 'truncate';
         nameSpan.textContent = p.displayName;
-        row.appendChild(nameSpan);
+        nameContainer.appendChild(nameSpan);
+
+        if (p.isVip) {
+            const vipBadge = document.createElement('span');
+            vipBadge.className = 'shrink-0 px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider rounded bg-gradient-to-r from-[#FFE066] to-[#F59F00] text-black shadow-sm font-sans select-none';
+            vipBadge.textContent = 'VIP';
+            vipBadge.title = 'VIP Hráč';
+            nameContainer.appendChild(vipBadge);
+        }
+
+        row.appendChild(nameContainer);
         rowsEl.appendChild(row);
     });
 }
@@ -959,7 +977,15 @@ function renderRobloxPeopleList() {
             `;
             const nameDiv = card.querySelector('.font-bold');
             const handleDiv = card.querySelector('.text-gray-400');
-            if (nameDiv) nameDiv.textContent = p.displayName;
+            if (nameDiv) {
+                nameDiv.textContent = p.displayName;
+                if (p.isVip) {
+                    const tag = document.createElement('span');
+                    tag.className = 'ml-1 px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider rounded bg-gradient-to-r from-[#FFE066] to-[#F59F00] text-black shadow-sm font-sans align-middle inline-block';
+                    tag.textContent = 'VIP';
+                    nameDiv.appendChild(tag);
+                }
+            }
             if (handleDiv) handleDiv.textContent = p.handle;
             container.appendChild(card);
 
@@ -973,7 +999,7 @@ function renderRobloxPeopleList() {
                 <div class="flex items-center gap-3 min-w-0">
                     <canvas id="${canvasId}" width="48" height="48" class="w-11 h-11 rounded-lg bg-[#191b1f] shrink-0"></canvas>
                     <div class="min-w-0">
-                        <div class="font-bold text-xs sm:text-sm text-white truncate"></div>
+                        <div class="font-bold text-xs sm:text-sm text-white truncate flex items-center gap-1.5"></div>
                         <div class="text-[11px] text-gray-400 truncate"></div>
                     </div>
                 </div>
@@ -981,7 +1007,15 @@ function renderRobloxPeopleList() {
             `;
             const nameDiv = row.querySelector('.font-bold');
             const handleDiv = row.querySelector('.text-gray-400');
-            if (nameDiv) nameDiv.textContent = p.displayName;
+            if (nameDiv) {
+                nameDiv.textContent = p.displayName;
+                if (p.isVip) {
+                    const tag = document.createElement('span');
+                    tag.className = 'px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider rounded bg-gradient-to-r from-[#FFE066] to-[#F59F00] text-black shadow-sm font-sans align-middle inline-block';
+                    tag.textContent = 'VIP';
+                    nameDiv.appendChild(tag);
+                }
+            }
             if (handleDiv) handleDiv.textContent = p.handle;
             container.appendChild(row);
 
@@ -1140,14 +1174,21 @@ function toggleRobloxChat(focusInput = false, forceState = null) {
     }
 }
 
-function appendRobloxChatMessage(senderName, text) {
+function appendRobloxChatMessage(senderName, text, isVip = false) {
     const list = document.getElementById('roblox-chat-messages');
     if (!list) return;
     const row = document.createElement('div');
-    row.className = 'leading-snug break-words';
+    row.className = 'leading-snug break-words flex items-baseline flex-wrap';
+
+    if (isVip) {
+        const vipTag = document.createElement('span');
+        vipTag.className = 'mr-1.5 px-1 py-0.2 text-[9px] font-black uppercase tracking-wider rounded bg-gradient-to-r from-[#FFE066] to-[#F59F00] text-black shadow-sm font-sans shrink-0';
+        vipTag.textContent = 'VIP';
+        row.appendChild(vipTag);
+    }
 
     const nameSpan = document.createElement('span');
-    nameSpan.className = 'font-bold text-[#00A2FF] mr-1.5';
+    nameSpan.className = isVip ? 'font-bold text-[#FFE066] mr-1.5' : 'font-bold text-[#00A2FF] mr-1.5';
     nameSpan.textContent = `[${senderName}]:`;
 
     const msgSpan = document.createElement('span');
@@ -1169,7 +1210,7 @@ function sendRobloxChatMessage() {
     if (!clean) return;
 
     const myProfile = getLocalRobloxPlayerProfile();
-    appendRobloxChatMessage(myProfile.displayName, clean);
+    appendRobloxChatMessage(myProfile.displayName, clean, myProfile.isVip);
 
     // Spawn 3D Roblox Chat Bubble over local player's head
     if (typeof spawnChatBubbleOnAvatar === 'function' && typeof playerAvatar !== 'undefined' && playerAvatar) {
@@ -1182,6 +1223,7 @@ function sendRobloxChatMessage() {
             id: mpState.myId,
             nickname: myProfile.displayName,
             text: clean,
+            isVip: myProfile.isVip,
             gameMode: activeGameMode
         });
     }
@@ -2462,7 +2504,7 @@ function syncFriendRequestsWithCloudUsers(cloudUsers) {
 }
 
 // Periodic sync every 6 seconds for realtime cross-device friend requests & active presence
-setInterval(() => {
+const friendSyncInterval = setInterval(() => {
     if (typeof fetchCloudUsers === 'function' && typeof authState !== 'undefined' && authState.user) {
         fetchCloudUsers().catch(() => {});
     }
@@ -2472,6 +2514,9 @@ setInterval(() => {
         else if (activePortalSection === 'profile') renderPortalProfileView();
     }
 }, 6000);
+if (friendSyncInterval && typeof friendSyncInterval.unref === 'function') {
+    friendSyncInterval.unref();
+}
 
 function forceAddFriendDirectly(playerId) {
     sendFriendRequest(playerId);
@@ -3103,7 +3148,7 @@ if (typeof window !== 'undefined') {
 }
 
 function drawPlayerHeadshotCanvas(canvas, player) {
-    if (!canvas) return;
+    if (!canvas || typeof canvas.getContext !== 'function') return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     const w = canvas.width;
@@ -3186,7 +3231,7 @@ function drawPlayerHeadshotCanvas(canvas, player) {
 }
 
 function drawPlayerFullBodyCanvas(canvas, player) {
-    if (!canvas) return;
+    if (!canvas || typeof canvas.getContext !== 'function') return;
     const ctx = canvas.getContext('2d');
     const w = canvas.width;
     const h = canvas.height;
@@ -3585,7 +3630,7 @@ function drawCanvasRoundRect(ctx, x, y, width, height, radius) {
 }
 
 function drawWearingItemCardCanvas(canvas, itemDesc) {
-    if (!canvas) return;
+    if (!canvas || typeof canvas.getContext !== 'function') return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     const w = canvas.width;
@@ -4272,6 +4317,18 @@ function renderPortalProfileView() {
     if (handleEl) handleEl.textContent = `@${uName}`;
     if (bioEl) bioEl.textContent = profile.bio || 'No bio yet';
 
+    const vipBadge = document.getElementById('profile-vip-badge');
+    if (vipBadge && vipBadge.classList) {
+        const isVip = !!(profile.isVip || (profile.isLocal && typeof isCurrentUserVip === 'function' && isCurrentUserVip()));
+        if (typeof vipBadge.classList.toggle === 'function') {
+            vipBadge.classList.toggle('hidden', !isVip);
+        } else if (isVip && typeof vipBadge.classList.remove === 'function') {
+            vipBadge.classList.remove('hidden');
+        } else if (!isVip && typeof vipBadge.classList.add === 'function') {
+            vipBadge.classList.add('hidden');
+        }
+    }
+
     const pres = getPlayerPresence(profile);
     const isPlaying = pres.inGame && pres.gameId;
     const isOnline = pres.isOnline;
@@ -4511,8 +4568,8 @@ function rebuildProfile3DAvatar(profile) {
         profileShowcase3DState.scene.remove(profileShowcase3DState.avatar.root);
         if (typeof disposeObject3D === 'function') disposeObject3D(profileShowcase3DState.avatar.root);
     }
-    const outfitToUse = profile.isLocal ? avatarOutfit : (profile.outfit || null);
-    const torsoHexToUse = profile.isLocal ? avatarTorsoHex : (profile.torsoHex || '#181A1E');
+    const outfitToUse = profile.isLocal ? ((typeof avatarOutfit !== 'undefined') ? avatarOutfit : null) : (profile.outfit || null);
+    const torsoHexToUse = profile.isLocal ? ((typeof avatarTorsoHex !== 'undefined') ? avatarTorsoHex : '#181A1E') : (profile.torsoHex || '#181A1E');
     profileShowcase3DState.avatar = createBlockyCharacterMesh({
         outfit: outfitToUse,
         torsoColor: new THREE.Color(torsoHexToUse).getHex()
@@ -5577,7 +5634,7 @@ function renderLobbyChatFriendsList() {
                     ${dotHtml}
                 </div>
                 <div class="min-w-0">
-                    <div class="text-xs font-bold text-white truncate">${escapeHtml(friendName)}</div>
+                    <div class="text-xs font-bold text-white truncate flex items-center gap-1.5">${escapeHtml(friendName)} ${friend.isVip ? '<span class="px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider rounded bg-gradient-to-r from-[#FFE066] to-[#F59F00] text-black shadow-sm font-sans align-middle inline-block">VIP</span>' : ''}</div>
                     <div class="text-[10px] ${unread > 0 ? 'text-white font-bold' : (pres.inGame ? 'text-[#00B06F] font-semibold' : 'text-gray-400')} truncate max-w-[150px] sm:max-w-[170px]">${escapeHtml(lastMsgSnippet)}</div>
                 </div>
             </div>
@@ -5601,7 +5658,9 @@ function renderLobbyDirectChatMessages() {
     if (!listEl) return;
 
     const partnerName = partner.displayName || partner.username || 'Přítel';
-    if (titleEl) titleEl.textContent = partnerName;
+    if (titleEl) {
+        titleEl.innerHTML = `${escapeHtml(partnerName)} ${partner.isVip ? '<span class="ml-1 px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider rounded bg-gradient-to-r from-[#FFE066] to-[#F59F00] text-black shadow-sm font-sans align-middle inline-block">VIP</span>' : ''}`;
+    }
 
     if (statusEl) {
         const pres = getPlayerPresence(partner);
@@ -5821,12 +5880,13 @@ if (document.readyState === 'loading') {
         initPortalSidebarMobileEvents();
     });
 } else {
-    setTimeout(() => {
+    const initTimer = setTimeout(() => {
         sanitizeStoredFriends();
         refreshPortalAvatarVisuals();
         updateLobbyChatBadge();
         initPortalSidebarMobileEvents();
     }, 0);
+    if (initTimer && typeof initTimer.unref === 'function') initTimer.unref();
 }
 
 /* ============================================================================
@@ -5980,8 +6040,10 @@ async function checkForBobloxUpdates() {
 }
 
 // Initial check after 4 seconds, then periodically poll every 15 seconds
-setTimeout(checkForBobloxUpdates, 4000);
-setInterval(checkForBobloxUpdates, 15000);
+const updateTimer = setTimeout(checkForBobloxUpdates, 4000);
+if (updateTimer && typeof updateTimer.unref === 'function') updateTimer.unref();
+const updateInterval = setInterval(checkForBobloxUpdates, 15000);
+if (updateInterval && typeof updateInterval.unref === 'function') updateInterval.unref();
 
 /* ============================================================================
  * 28. DEDICATED ADMIN MENU & CONTROLS FOR VENDEEZ (EXTRACTED TO AdminUI.js)
@@ -6011,6 +6073,11 @@ if (typeof window !== 'undefined') {
     window.openEditProfileModal = openEditProfileModal;
     window.closeEditProfileModal = closeEditProfileModal;
     window.getLocalRobloxPlayerProfile = getLocalRobloxPlayerProfile;
+    window.getServerPlayersList = getServerPlayersList;
+    window.renderRobloxTopRightPlayerList = renderRobloxTopRightPlayerList;
+    window.renderRobloxPeopleList = renderRobloxPeopleList;
+    window.appendRobloxChatMessage = appendRobloxChatMessage;
+    window.sendRobloxChatMessage = sendRobloxChatMessage;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -6046,6 +6113,11 @@ if (typeof module !== 'undefined' && module.exports) {
         openEditProfileModal,
         closeEditProfileModal,
         getLocalRobloxPlayerProfile,
+        getServerPlayersList,
+        renderRobloxTopRightPlayerList,
+        renderRobloxPeopleList,
+        appendRobloxChatMessage,
+        sendRobloxChatMessage,
         ...(AdminUIModule || {})
     };
 }

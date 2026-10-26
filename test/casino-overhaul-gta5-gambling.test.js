@@ -34,7 +34,7 @@ describe('Overhaul Gambling Mechanics: GTA 5 Casino Lucky Wheel & 3D In-World Bl
             assert.ok(rtp >= 98.0 && rtp <= 100.0, `RTP is ${rtp.toFixed(2)}%, calibrated mathematically fair`);
         });
 
-        it('includes the GTA 5 vehicle jackpot with highest payout (3 500 B$)', () => {
+        it('includes the VIP Tag jackpot with highest payout (3 500 B$)', () => {
             const start = gameWorlds.indexOf('const WHEEL_PRIZES = [');
             const end = gameWorlds.indexOf('];', start);
             const context = {};
@@ -42,7 +42,8 @@ describe('Overhaul Gambling Mechanics: GTA 5 Casino Lucky Wheel & 3D In-World Bl
             const jackpotPrize = context.prizes.find(p => p.isJackpot);
             assert.ok(jackpotPrize, 'Must include a designated jackpot slice');
             assert.equal(jackpotPrize.amount, 3500);
-            assert.equal(jackpotPrize.icon, '🚗');
+            assert.equal(jackpotPrize.icon, '👑');
+            assert.equal(jackpotPrize.label, 'VIP TAG');
         });
     });
 

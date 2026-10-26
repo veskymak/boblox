@@ -28,7 +28,9 @@
 - `sendMultiplayerPacket(payload: Object): void`
   - Odešle herní data všem účastníkům. Využívá vícevrstvý transport: 1. WebRTC DataConnections, 2. Supabase Realtime broadcast, 3. WebSocket fallback.
 - `broadcastLocalPlayerState(dt: number): void`
-  - Volána v každém snímku z `gameLoop`. Pokud uběhlo 50 ms (20 Hz), zabalí pozici, rotaci, animaci chůze, zbraň a skin lokálního hráče a odešle je přes `sendMultiplayerPacket`.
+  - Volána v každém snímku z `gameLoop`. Pokud uběhlo 50 ms (20 Hz), zabalí pozici, rotaci, animaci chůze, zbraň, skin a VIP status (`isVip: isCurrentUserVip()`) lokálního hráče a odešle je přes `sendMultiplayerPacket`.
+- `createNameplateSprite(nameText: string, isVip?: boolean): THREE.Sprite`
+  - Vygeneruje texturální sprite se jménem hráče a u VIP hráčů vykreslí zlatý `VIP` badge s rámečkem `#FFE066`. Dynamicky se aktualizuje při změně VIP statusu.
 - `handleMultiplayerPacket(packet: Object, sourceConn?: Object): void`
   - Vstupní brána pro příchozí síťové zprávy. Pokud je klient hostitelem (Host), přeposílá paket ostatním peerům. Zpracovává typy `playerState`, `playerDamage`, `chatBubble`, `casino_event`, `admin_broadcast`.
 - `updateRemotePlayersInScene(dt: number): void`

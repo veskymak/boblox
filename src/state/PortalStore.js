@@ -48,10 +48,13 @@ let activeFilterTag = 'ALL';
 let selectedGameId = null;
 
 function getGuestNickname(forceNew = false) {
-    let savedNum = !forceNew ? sessionStorage.getItem(STORAGE_KEYS.GUEST_NUM) : null;
+    const hasSessionStorage = typeof sessionStorage !== 'undefined';
+    let savedNum = !forceNew && hasSessionStorage ? sessionStorage.getItem(STORAGE_KEYS.GUEST_NUM) : null;
     if (!savedNum || forceNew || savedNum === 'NaN' || !/^\d+$/.test(savedNum)) {
         savedNum = String(Math.floor(1000 + Math.random() * 9000));
-        try { sessionStorage.setItem(STORAGE_KEYS.GUEST_NUM, savedNum); } catch (e) {}
+        if (hasSessionStorage) {
+            try { sessionStorage.setItem(STORAGE_KEYS.GUEST_NUM, savedNum); } catch (e) {}
+        }
         try { localStorage.setItem(STORAGE_KEYS.GUEST_NUM, savedNum); } catch (e) {}
     }
     return `Guest ${savedNum}`;
@@ -530,8 +533,8 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
             coins: startCoins,
             inventory: {
                 owned: [...ownedShopItems],
-                outfit: Object.assign({}, avatarOutfit),
-                torsoHex: avatarTorsoHex,
+                outfit: (typeof avatarOutfit !== 'undefined') ? Object.assign({}, avatarOutfit) : {},
+                torsoHex: (typeof avatarTorsoHex !== 'undefined') ? avatarTorsoHex : '#0D69AC',
                 gamesPlayed: gamesPlayedCount
             },
             adoptme_pets: adoptData.pets,
@@ -685,6 +688,7 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
             : (typeof currentUser.inventory === 'string' ? (() => { try { return JSON.parse(currentUser.inventory); } catch (e) { return {}; } })() : {});
         updatePayload.inventory = {
             ...currentInv,
+            is_vip: typeof body.is_vip === 'boolean' ? body.is_vip : (typeof body.isVip === 'boolean' ? body.isVip : !!currentInv.is_vip),
             bio: updatePayload.bio !== undefined ? updatePayload.bio : (currentInv.bio || currentUser.bio || ''),
             owned: Array.isArray(body.owned) ? body.owned : (currentInv.owned || []),
             outfit: body.outfit || currentInv.outfit || {},
@@ -696,6 +700,7 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
             transactions: Array.isArray(body.transactions) ? body.transactions : (currentInv.transactions || [])
         };
         currentUser.inventory = updatePayload.inventory;
+        if (currentUser.inventory.is_vip) currentUser.is_vip = true;
 
         if (Array.isArray(body.transactions)) {
             try {
@@ -1383,8 +1388,10 @@ const CUSTOM_API_BASE = (window.BOBLOX_API_BASE || localStorage.getItem(STORAGE_
 
 function isStaticHostingWithoutBackend() {
     if (CUSTOM_API_BASE) return false;
-    if (location.protocol === 'file:') return true;
-    const h = (location.hostname || '').toLowerCase();
+    const loc = (typeof window !== 'undefined' && window.location) ? window.location : (typeof location !== 'undefined' ? location : null);
+    if (!loc) return true;
+    if (loc.protocol === 'file:') return true;
+    const h = (loc.hostname || '').toLowerCase();
     // Static hosts where POST /api/* returns 405 Method Not Allowed or 404 HTML
     return h.endsWith('.github.io') || h.endsWith('.pages.dev') || h.endsWith('.netlify.app') || h.endsWith('.surge.sh');
 }
@@ -1488,8 +1495,8 @@ async function handleOfflineApiFallback(path, options = {}) {
             password_hash,
             inventory: {
                 owned: [...ownedShopItems],
-                outfit: Object.assign({}, avatarOutfit),
-                torsoHex: avatarTorsoHex,
+                outfit: (typeof avatarOutfit !== 'undefined') ? Object.assign({}, avatarOutfit) : {},
+                torsoHex: (typeof avatarTorsoHex !== 'undefined') ? avatarTorsoHex : '#0D69AC',
                 gamesPlayed: gamesPlayedCount
             },
             coins: startCoins,
@@ -1538,6 +1545,7 @@ async function handleOfflineApiFallback(path, options = {}) {
         const currentInv = currentUser.inventory || {};
         currentUser.inventory = {
             ...currentInv,
+            is_vip: typeof body.is_vip === 'boolean' ? body.is_vip : (typeof body.isVip === 'boolean' ? body.isVip : !!currentInv.is_vip),
             bio: typeof body.bio === 'string' ? body.bio.slice(0, 160) : currentInv.bio,
             owned: Array.isArray(body.owned) ? body.owned : (currentInv.owned || []),
             outfit: body.outfit || currentInv.outfit,
@@ -1547,6 +1555,7 @@ async function handleOfflineApiFallback(path, options = {}) {
             sent_friend_requests: Array.isArray(body.sent_friend_requests) ? body.sent_friend_requests : (currentInv.sent_friend_requests || []),
             received_friend_requests: Array.isArray(body.received_friend_requests) ? body.received_friend_requests : (currentInv.received_friend_requests || [])
         };
+        if (currentUser.inventory.is_vip) currentUser.is_vip = true;
         saveLocalUsersDB(users);
         return { ok: true, status: 200, data: { user: currentUser, serverTime: now } };
     }
@@ -1914,9 +1923,92 @@ async function handleOfflineApiFallback(path, options = {}) {
     return { ok: false, status: 404, data: {} };
 }
 
+function isCurrentUserVip() {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('boblox_is_vip_v1') === 'true') {
+        return true;
+    }
+    const user = (typeof window !== 'undefined' && window.authState && window.authState.user)
+        ? window.authState.user
+        : ((typeof authState !== 'undefined' && authState.user) ? authState.user : null);
+    if (user) {
+        if (user.is_vip || user.isVip) return true;
+        if (user.inventory && (user.inventory.is_vip || user.inventory.isVip)) return true;
+    }
+    return false;
+}
+
+function grantCurrentUserVip() {
+    try {
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('boblox_is_vip_v1', 'true');
+        }
+    } catch (e) {}
+
+    const auth = (typeof window !== 'undefined' && window.authState)
+        ? window.authState
+        : (typeof authState !== 'undefined' ? authState : null);
+    if (auth && auth.user) {
+        auth.user.is_vip = true;
+        if (!auth.user.inventory || typeof auth.user.inventory !== 'object') {
+            auth.user.inventory = {};
+        }
+        auth.user.inventory.is_vip = true;
+    }
+    if (typeof authState !== 'undefined' && authState && authState.user && authState !== auth) {
+        authState.user.is_vip = true;
+        if (!authState.user.inventory || typeof authState.user.inventory !== 'object') {
+            authState.user.inventory = {};
+        }
+        authState.user.inventory.is_vip = true;
+    }
+
+    if (typeof syncAccountToServer === 'function') {
+        syncAccountToServer().catch(() => {});
+    }
+
+    if (typeof updateAuthUI === 'function') {
+        updateAuthUI();
+    }
+    if (typeof renderRobloxTopRightPlayerList === 'function') {
+        renderRobloxTopRightPlayerList();
+    }
+    if (typeof renderRobloxPeopleList === 'function') {
+        renderRobloxPeopleList();
+    }
+    if (typeof renderPortalProfileView === 'function' && typeof activePortalSection !== 'undefined' && activePortalSection === 'profile') {
+        renderPortalProfileView();
+    }
+
+    if (typeof broadcastGameAnnounce === 'function') {
+        broadcastGameAnnounce();
+    }
+    if (typeof broadcastSocialPresence === 'function') {
+        broadcastSocialPresence(typeof activeGameMode !== 'undefined' && !!activeGameMode);
+    }
+    if (typeof updateSocialPresenceTrack === 'function') {
+        updateSocialPresenceTrack().catch(() => {});
+    }
+
+    return true;
+}
+
 function applyAuthenticatedUser(user) {
     if (!user) return;
     authState.user = user;
+    if (user.is_vip || user.isVip || (user.inventory && (user.inventory.is_vip || user.inventory.isVip))) {
+        try { localStorage.setItem('boblox_is_vip_v1', 'true'); } catch (e) {}
+        if (authState.user) {
+            authState.user.is_vip = true;
+            if (!authState.user.inventory) authState.user.inventory = {};
+            authState.user.inventory.is_vip = true;
+        }
+    } else if (typeof localStorage !== 'undefined' && localStorage.getItem('boblox_is_vip_v1') === 'true') {
+        if (authState.user) {
+            authState.user.is_vip = true;
+            if (!authState.user.inventory) authState.user.inventory = {};
+            authState.user.inventory.is_vip = true;
+        }
+    }
     if (typeof user.bio === 'string' && user.bio && user.bio !== 'No bio yet') {
         authState.user.bio = user.bio;
         try { localStorage.setItem('boblox_custom_bio_v1', user.bio); } catch (e) {}
@@ -1947,7 +2039,9 @@ function applyAuthenticatedUser(user) {
             ownedShopItems = new Set([DEFAULT_FACE_ID, ...user.inventory.owned.filter(id => SHOP_ITEM_MAP[id])]);
         }
         if (user.inventory.outfit) {
-            avatarOutfit = typeof sanitizeOutfit === 'function' ? sanitizeOutfit(user.inventory.outfit) : user.inventory.outfit;
+            if (typeof avatarOutfit !== 'undefined') {
+                avatarOutfit = typeof sanitizeOutfit === 'function' ? sanitizeOutfit(user.inventory.outfit) : user.inventory.outfit;
+            }
         }
         if (user.inventory.torsoHex) {
             avatarTorsoHex = user.inventory.torsoHex;
@@ -2050,9 +2144,11 @@ async function syncAccountToServer({ bypassQueue = false } = {}) {
     const syncBody = {
         coins: bobuxBalance,
         bio: currentBio,
+        is_vip: typeof isCurrentUserVip === 'function' ? isCurrentUserVip() : false,
+        isVip: typeof isCurrentUserVip === 'function' ? isCurrentUserVip() : false,
         owned: [...ownedShopItems],
-        outfit: avatarOutfit,
-        torsoHex: avatarTorsoHex,
+        outfit: typeof avatarOutfit !== 'undefined' ? avatarOutfit : {},
+        torsoHex: typeof avatarTorsoHex !== 'undefined' ? avatarTorsoHex : '#0D69AC',
         gamesPlayed: gamesPlayedCount,
         adoptme_pets: adopt ? adopt.pets : undefined,
         adoptme_bucks: adopt ? adopt.bucks : undefined,
@@ -2204,7 +2300,7 @@ function updateAuthUI() {
             pId.textContent = '#' + (uid.length > 8 ? uid.slice(0, 8) : uid);
         }
         if (pCoins) pCoins.textContent = `${bobuxBalance.toLocaleString('cs-CZ')} B$`;
-        if (pItems) pItems.textContent = String(ownedShopItems.size);
+        if (pItems && typeof ownedShopItems !== 'undefined') pItems.textContent = String(ownedShopItems.size);
         if (pLastLogin) pLastLogin.textContent = formatDateTimeUserFriendly(authState.user.last_login_at);
         if (pLastActive) pLastActive.textContent = formatDateTimeUserFriendly(authState.user.last_active_at || Date.now(), true);
         if (typeof refreshPortalAvatarVisuals === 'function') refreshPortalAvatarVisuals();
@@ -2223,6 +2319,19 @@ function updateAuthUI() {
     if (typeof updateAdminUI === 'function') {
         updateAdminUI();
     }
+    const isVip = typeof isCurrentUserVip === 'function' && isCurrentUserVip();
+    ['sidebar-vip-badge', 'nav-vip-badge', 'banner-vip-badge', 'profile-vip-badge'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.classList) {
+            if (typeof el.classList.toggle === 'function') {
+                el.classList.toggle('hidden', !isVip);
+            } else if (isVip && typeof el.classList.remove === 'function') {
+                el.classList.remove('hidden');
+            } else if (!isVip && typeof el.classList.add === 'function') {
+                el.classList.add('hidden');
+            }
+        }
+    });
 }
 
 function openAuthModal() {
@@ -2479,10 +2588,14 @@ function updateBobuxUI() {
     const elBanner = document.getElementById('banner-bobux-count');
     const elHud = document.getElementById('hud-bobux-count');
     const elPlayed = document.getElementById('banner-games-played');
+    const elWheel = document.getElementById('wheel-modal-bobux-display');
+    const elCasino = document.getElementById('casino-bobux-display');
     if (elLobby) elLobby.textContent = bobuxBalance.toLocaleString('cs-CZ');
     if (elBanner) elBanner.textContent = `${bobuxBalance.toLocaleString('cs-CZ')} B$`;
     if (elHud) elHud.textContent = bobuxBalance.toLocaleString('cs-CZ');
     if (elPlayed) elPlayed.textContent = gamesPlayedCount;
+    if (elWheel) elWheel.textContent = `${bobuxBalance.toLocaleString('cs-CZ')} B$`;
+    if (elCasino) elCasino.textContent = `${bobuxBalance.toLocaleString('cs-CZ')} B$`;
 }
 
 /* ============================================================================
@@ -2573,7 +2686,7 @@ async function giveDailyBonus() {
 }
 
 // Automatically track user activity on interaction, tab visibility and heartbeat
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
     let lastPulseEventTs = 0;
     const pulseActive = () => {
         const now = Date.now();
@@ -2584,11 +2697,13 @@ if (typeof window !== 'undefined') {
     };
     window.addEventListener('pointerdown', pulseActive, { passive: true });
     window.addEventListener('keydown', pulseActive, { passive: true });
-    document.addEventListener('visibilitychange', () => {
-        if (!document.hidden && typeof touchUserActivity === 'function') touchUserActivity(false);
-    });
+    if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && typeof touchUserActivity === 'function') touchUserActivity(false);
+        });
+    }
     setInterval(() => {
-        if (!document.hidden || (typeof activeGameMode !== 'undefined' && activeGameMode)) {
+        if (typeof document !== 'undefined' && !document.hidden || (typeof activeGameMode !== 'undefined' && activeGameMode)) {
             if (typeof touchUserActivity === 'function') touchUserActivity(false);
         }
     }, 60000);
@@ -2600,6 +2715,8 @@ if (typeof window !== 'undefined') {
     window.saveLocalUsersDB = saveLocalUsersDB;
     window.syncAccountToServer = syncAccountToServer;
     window.sanitizeTextClient = sanitizeTextClient;
+    window.isCurrentUserVip = isCurrentUserVip;
+    window.grantCurrentUserVip = grantCurrentUserVip;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -2615,6 +2732,8 @@ if (typeof module !== 'undefined' && module.exports) {
         handleSupabaseApiRequest,
         getLocalUsersDB,
         saveLocalUsersDB,
+        isCurrentUserVip,
+        grantCurrentUserVip,
         STORAGE_KEYS
     };
 }

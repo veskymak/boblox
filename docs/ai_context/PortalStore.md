@@ -27,7 +27,11 @@
 - `syncAccountToServer(opts?: { bypassQueue: boolean }): Promise<void>`
   - Asynchronní debounce synchronizátor. Shromáždí zůstatek Bobuxů, inventář, seznam přátel, bio, Adopt Me data a transakce a odešle je na server / do Supabase tabulky `profiles`.
 - `applyAuthenticatedUser(user: Object): void`
-  - Aplikuje přihlášený profil, obnoví data mezi zařízeními (mince, vlastněné skiny, příchozí žádosti o přátelství, transakce) a aktualizuje UI.
+  - Aplikuje přihlášený profil, obnoví data mezi zařízeními (mince, VIP status `is_vip`, vlastněné skiny, příchozí žádosti o přátelství, transakce) a aktualizuje UI.
+- `isCurrentUserVip(): boolean`
+  - Ověří, zda má aktuální hráč aktivní VIP status (kontroluje LocalStorage klíč `boblox_is_vip_v1`, `user.is_vip` i `user.inventory.is_vip`).
+- `grantCurrentUserVip(): void`
+  - Udělí univerzální VIP status, zapíše do LocalStorage, nastaví `is_vip: true` v `authState.user`, spustí cloudový sync `syncAccountToServer()`, aktualizuje UI lobby odznaků a rozešle přítomnost do multiplayeru.
 - `addBobux(amount: number, reasonText?: string): void`
   - Přičte Bobuxy, vytvoří transakční záznam, aktualizuje UI a naplánuje `syncAccountToServer()`.
 - `spendBobux(amount: number, reasonText?: string): boolean`

@@ -30,7 +30,11 @@
 - `toggleMobileSidebar(forceState?: boolean): void`
   - Otevírá nebo zavírá mobilní vysouvací panel `#portal-sidebar` a podkladový ztmavovací backdrop `#portal-sidebar-backdrop`.
 - `openRobloxEscMenu(initialTab?: string): void`
-  - Otevře zážitkové menu Robloxu (klávesa ESC), uvolní Pointer Lock myši a zobrazí záložky (Lidé, Nastavení, Nápověda).
+  - Otevře zážitkové menu Robloxu (klávesa ESC), uvolní Pointer Lock myši a zobrazí záložky (Lidé s VIP štítky a portréty avatarů, Nastavení, Nápověda).
+- `renderRobloxTopRightPlayerList(): void`
+  - Vykreslí leaderboard vpravo nahoře; VIP hráčům vedle jména přidá zlatý odznak `VIP`.
+- `appendRobloxChatMessage(senderName: string, text: string, isVip?: boolean): void`
+  - Přidá zprávu do in-game chatu; u VIP hráčů zobrazí zlatý tag `[VIP]`.
 - `closeRobloxEscMenu(): void`
   - Zavře ESC menu a vrátí hráče do plynulého ovládání 3D kamery.
 - `sendFriendRequest(targetUsername: string): Promise<boolean>`

@@ -137,17 +137,21 @@ function safeParseJSON(str, fallback) {
 
 function serializeUserForClient(row) {
     if (!row) return null;
+    const inv = safeParseJSON(row.inventory, {
+        owned: ['face_classic'],
+        outfit: { shirt: null, pants: null, face: 'face_classic', hat: null },
+        torsoHex: '#0D69AC',
+        gamesPlayed: 0
+    });
+    const isVip = !!(row.is_vip || inv.is_vip || inv.isVip);
     return {
         id: row.id,
         username: row.username,
         bio: typeof row.bio === 'string' ? row.bio : '',
         coins: Number(row.coins) || 0,
-        inventory: safeParseJSON(row.inventory, {
-            owned: ['face_classic'],
-            outfit: { shirt: null, pants: null, face: 'face_classic', hat: null },
-            torsoHex: '#0D69AC',
-            gamesPlayed: 0
-        }),
+        is_vip: isVip,
+        isVip: isVip,
+        inventory: inv,
         daily_claim_date: Number(row.daily_claim_date) || 0,
         last_login_at: Number(row.last_login_at) || 0,
         last_active_at: Number(row.last_active_at) || 0,
@@ -364,6 +368,7 @@ app.post('/api/user/sync', requireAuth, (req, res) => {
 
         const updatedInv = {
             ...currentInv,
+            is_vip: (typeof body.is_vip === 'boolean' ? body.is_vip : (typeof body.isVip === 'boolean' ? body.isVip : !!currentInv.is_vip)),
             owned: Array.isArray(body.owned) ? body.owned.filter(x => typeof x === 'string').slice(0, 100) : (currentInv.owned || ['face_classic']),
             outfit: (body.outfit && typeof body.outfit === 'object') ? {
                 shirt: typeof body.outfit.shirt === 'string' ? body.outfit.shirt : null,
