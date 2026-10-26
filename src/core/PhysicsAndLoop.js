@@ -946,16 +946,56 @@ function gameLoop(now) {
 }
 
 function updateGame1Obby(dt) {
-    if (!gameSpecificData.confettiParticles) return;
+    if (!gameSpecificData || !gameSpecificData.confettiParticles) return;
     for (let i = gameSpecificData.confettiParticles.length - 1; i >= 0; i--) {
         const p = gameSpecificData.confettiParticles[i];
-        p.life -= dt;
-        p.vel.y -= 12 * dt;
-        p.mesh.position.addScaledVector(p.vel, dt);
-        p.mesh.rotation.x += 5 * dt;
-        p.mesh.rotation.y += 4 * dt;
-        if (p.life <= 0) {
-            scene.remove(p.mesh);
+        if (!p) {
+            gameSpecificData.confettiParticles.splice(i, 1);
+            continue;
+        }
+
+        // Support both direct wrapper { mesh, vel, life, rotSpeed } and Three.Mesh with userData
+        const mesh = p.mesh || (p.isObject3D || p.position ? p : null);
+        const vel = p.vel || (mesh && mesh.userData && mesh.userData.vel) || null;
+        let life = typeof p.life === 'number'
+            ? p.life
+            : (mesh && mesh.userData && typeof mesh.userData.life === 'number' ? mesh.userData.life : null);
+
+        if (!mesh || !vel || life === null) {
+            if (mesh && typeof scene !== 'undefined' && scene.remove) scene.remove(mesh);
+            gameSpecificData.confettiParticles.splice(i, 1);
+            continue;
+        }
+
+        life -= dt;
+        if (typeof p.life === 'number') p.life = life;
+        if (mesh.userData && typeof mesh.userData.life === 'number') mesh.userData.life = life;
+
+        vel.y -= 12 * dt;
+        if (mesh.position && typeof mesh.position.addScaledVector === 'function') {
+            mesh.position.addScaledVector(vel, dt);
+        }
+
+        const rot = p.rotSpeed || (mesh.userData && mesh.userData.rotSpeed);
+        if (rot && mesh.rotation) {
+            mesh.rotation.x += (rot.x || 5) * dt;
+            mesh.rotation.y += (rot.y || 4) * dt;
+            mesh.rotation.z += (rot.z || 3) * dt;
+        } else if (mesh.rotation) {
+            mesh.rotation.x += 5 * dt;
+            mesh.rotation.y += 4 * dt;
+        }
+
+        if (life <= 0) {
+            if (typeof scene !== 'undefined' && scene.remove) {
+                scene.remove(mesh);
+            }
+            if (mesh.geometry && typeof mesh.geometry.dispose === 'function') {
+                mesh.geometry.dispose();
+            }
+            if (mesh.material && typeof mesh.material.dispose === 'function') {
+                mesh.material.dispose();
+            }
             gameSpecificData.confettiParticles.splice(i, 1);
         }
     }

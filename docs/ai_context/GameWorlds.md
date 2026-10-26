@@ -44,6 +44,8 @@
   - `triggerCasinoProximityAction(): void`: Spustí aktivitu stanice, u které hráč právě stojí (`activeProximityStation`) po stisku klávesy [E], mobilního akčního tlačítka nebo kliku na úkolový banner (Blackjack -> `sitAt3DBlackjackTable`, Kolo štěstí -> `openLuckyWheelModal`, Automaty/Dostihy/Pokladna -> `openCasinoModal`).
   - `openCasinoModal(tabName?: string): void`: Otevře UI pro blackjack, automaty, kolo nebo dostihy.
   - `openLuckyWheelModal(): void`: Otevře samostatný modal Kola štěstí, aktualizuje zůstatek Bobuxů (`#wheel-modal-bobux-display`), stav AutoSpinu a překreslí plátno `#lucky-wheel-canvas`.
+  - `closeLuckyWheelModal(): void`: Zavře modal Kola štěstí, vypne AutoSpin a vrátí fokus plátnu `#three-canvas` pro plynulé pokračování v hraní.
+  - `spawnLuckyWheelConfettiBurst(originPos?: THREE.Vector3): void`: Vytvoří 120 3D konfetových částic při výhře na Kole štěstí podle kontraktu `{ mesh, vel, rotSpeed, life }`.
   - `getOrCreateWheelDiscCache(radius, numSlices, sliceAngle)`: Vytvoří a nacachuje offscreen buffer s 20 výsečemi, texty a diamantovým středem, čímž eliminuje per-frame slice re-rendering lag během animace.
   - `renderCasinoWheel(rotation)`: Vykreslí kolo štěstí s rotací s využitím offscreen disku; automaticky přeskakuje skrytá plátna (`offsetParent === null`).
   - `spinDailyWheel()` / `spinCasinoPaidWheel()`: Spustí roztočení kola štěstí s fyzikálním úhlem a výhrou (Jackpot uděluje `👑 VIP TAG` + 3 500 B$). Synchronizuje 3D `wheelMesh`/`wheelRotor`.

@@ -36,6 +36,8 @@
   - Udělí poškození PvE NPC (zombies, Bedwars stráže, SFOTH boti), odečte HP, aplikuje knockback a při 0 HP vyvolá eliminaci.
 - `spawnJuiceParticles(x: number, y: number, z: number, colorHex: number, count?: number, speed?: number, scale?: number): void`
   - Vygeneruje částicový efekt v daných 3D souřadnicích.
+- `updateGame1Obby(dt: number): void`
+  - Společný aktualizační cyklus pro částice konfet (`gameSpecificData.confettiParticles`) sdílený mezi Obby cílem a Kasínem. Podporuje jednotný kontrakt `{ mesh, vel, life, rotSpeed }` i přímé mesh objekty s `userData`, automaticky uvolňuje Three.js geometrie a materiály.
 - `triggerScreenShake(intensity?: number, duration?: number): void`
   - Nastaví parametry třesu kamery pro dramatický efekt při poškození či explozi.
 

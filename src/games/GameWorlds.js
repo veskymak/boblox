@@ -4096,6 +4096,11 @@ function closeLuckyWheelModal() {
         wheelAutoSpin = false;
         updateWheelAutoSpinUI();
     }
+    // Refocus canvas for smooth gameplay
+    const canvas = document.getElementById('three-canvas');
+    if (canvas && typeof activeGameMode !== 'undefined' && activeGameMode === 'casino') {
+        try { canvas.focus(); } catch (e) {}
+    }
 }
 
 function toggleWheelAutoSpinBtn() {
@@ -4378,19 +4383,26 @@ function spawnLuckyWheelConfettiBurst(originPos = new THREE.Vector3(0, 5, -18)) 
             originPos.z + (Math.random() - 0.5) * 2
         );
 
-        mesh.userData.vel = new THREE.Vector3(
+        const vel = new THREE.Vector3(
             Math.cos(angle) * speed,
             6.0 + Math.random() * 9.0,
             Math.sin(angle) * speed
         );
-        mesh.userData.rotSpeed = new THREE.Vector3(
+        const rotSpeed = new THREE.Vector3(
             (Math.random() - 0.5) * 12,
             (Math.random() - 0.5) * 12,
             (Math.random() - 0.5) * 12
         );
+        mesh.userData.vel = vel;
+        mesh.userData.rotSpeed = rotSpeed;
         mesh.userData.life = 5.5;
         scene.add(mesh);
-        gameSpecificData.confettiParticles.push(mesh);
+        gameSpecificData.confettiParticles.push({
+            mesh,
+            vel,
+            rotSpeed,
+            life: 5.5
+        });
     }
 }
 
