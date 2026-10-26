@@ -1,7 +1,7 @@
 {
-  "version": "7.3",
-  "buildTime": 1792489000000,
-  "updatedAt": "2026-10-26T18:29:00Z",
-  "title": "Boblox Aktualizace v7.3",
-  "message": "Oprava klávesové zkratky pro otevření in-game chatu na českých a mezinárodních klávesnicích (e.key / a NumpadDivide)."
+  "version": "7.4",
+  "buildTime": 1793039827747,
+  "updatedAt": "2026-10-26T18:37:07.747Z",
+  "title": "Boblox Aktualizace v7.4",
+  "message": "Automatizace bump-version a oprava CRLF odolnosti v testech."
 }

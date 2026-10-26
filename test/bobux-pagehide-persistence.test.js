@@ -7,9 +7,9 @@ const vm = require('node:vm');
 function createWalletSyncHarness() {
     const source = fs.readFileSync(path.join(__dirname, '..', 'src', 'state', 'PortalStore.js'), 'utf8');
     const syncStart = source.indexOf('let accountSyncQueue = null;');
-    const syncEnd = source.indexOf('\nfunction formatDateTimeUserFriendly', syncStart);
+    const syncEnd = source.indexOf('function formatDateTimeUserFriendly', syncStart);
     const walletStart = source.indexOf('function recordBobuxTransaction');
-    const walletEnd = source.indexOf('\nfunction updateBobuxUI', walletStart);
+    const walletEnd = source.indexOf('function updateBobuxUI', walletStart);
     assert.notEqual(syncStart, -1);
     assert.notEqual(syncEnd, -1);
     assert.notEqual(walletStart, -1);

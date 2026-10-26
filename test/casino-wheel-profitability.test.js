@@ -7,7 +7,7 @@ const vm = require('node:vm');
 function getWheelPrizeTable() {
     const source = fs.readFileSync(path.join(__dirname, '..', 'src', 'games', 'GameWorlds.js'), 'utf8');
     const start = source.indexOf('const WHEEL_PRIZES = [');
-    const end = source.indexOf('\n];', start);
+    const end = source.indexOf('];', start);
     assert.notEqual(start, -1, 'Wheel prize table must exist in GameWorlds.js');
     assert.notEqual(end, -1, 'Wheel prize table must have a closing bracket');
 
