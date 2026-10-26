@@ -433,7 +433,14 @@ async function fetchCloudUsers(searchQuery = '') {
 
 async function handleSupabaseApiRequest(sb, path, options = {}) {
     const method = (options.method || 'GET').toUpperCase();
-    const body = options.body || {};
+    let body = options.body || {};
+    if (typeof body === 'string') {
+        try {
+            body = JSON.parse(body);
+        } catch (e) {
+            body = {};
+        }
+    }
     const now = Date.now();
 
     async function getCurrentSupabaseProfile() {
@@ -666,16 +673,41 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
     }
 
     if (path === '/api/user/sync' && method === 'POST') {
-        if (!authState.token || !authState.token.startsWith('sb_jwt_')) {
-            return null;
+        let currentUser = await getCurrentSupabaseProfile();
+        if (!currentUser && authState.user) {
+            currentUser = Object.assign({}, authState.user);
         }
-        const currentUser = await getCurrentSupabaseProfile();
-        if (!currentUser) return { ok: false, status: 401, data: { error: 'Nepřihlášen' } };
+        if (!currentUser) {
+            if (!authState.token || !authState.token.startsWith('sb_jwt_')) {
+                return null;
+            }
+            return { ok: false, status: 401, data: { error: 'Nepřihlášen' } };
+        }
 
         const updatePayload = {};
         if (typeof body.coins === 'number') {
-            updatePayload.coins = Math.floor(body.coins);
+            updatePayload.coins = Math.max(0, Math.floor(body.coins));
             currentUser.coins = updatePayload.coins;
+            const targetUsername = currentUser.username || authState.user?.username;
+            if (targetUsername && sb && typeof sb.rpc === 'function') {
+                try {
+                    const { data: rpcRes, error: rpcErr } = await sb.rpc('admin_give_coins', {
+                        target_username: targetUsername,
+                        amount: updatePayload.coins,
+                        action: 'set'
+                    });
+                    if (rpcErr) {
+                        console.warn('Supabase coins RPC sync attempt failed:', rpcErr);
+                    } else if (rpcRes && typeof rpcRes.coins === 'number') {
+                        currentUser.coins = rpcRes.coins;
+                        if (authState.user && authState.user.username && authState.user.username.toLowerCase() === targetUsername.toLowerCase()) {
+                            authState.user.coins = rpcRes.coins;
+                        }
+                    }
+                } catch (rpcErr) {
+                    console.warn('Supabase coins RPC sync exception:', rpcErr);
+                }
+            }
         }
 
         if (typeof body.bio === 'string') {
@@ -737,18 +769,28 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
         updatePayload.last_active_at = nowIso;
         currentUser.last_active_at = nowIso;
 
-        let { error: updErr } = await sb.from('profiles').update(updatePayload).eq('id', currentUser.id);
-        if (updErr && (updErr.message?.toLowerCase().includes('column') || updErr.code === 'PGRST204')) {
-            const fallbackPayload = { ...updatePayload };
-            delete fallbackPayload.last_active_at;
-            if (updErr.message?.toLowerCase().includes('bio')) {
-                delete fallbackPayload.bio;
+        if (currentUser.id) {
+            let { error: updErr } = await sb.from('profiles').update(updatePayload).eq('id', currentUser.id);
+            if (updErr && (updErr.message?.toLowerCase().includes('column') || updErr.code === 'PGRST204')) {
+                const fallbackPayload = { ...updatePayload };
+                delete fallbackPayload.last_active_at;
+                if (updErr.message?.toLowerCase().includes('bio')) {
+                    delete fallbackPayload.bio;
+                }
+                const retryRes = await sb.from('profiles').update(fallbackPayload).eq('id', currentUser.id);
+                updErr = retryRes.error;
             }
-            const retryRes = await sb.from('profiles').update(fallbackPayload).eq('id', currentUser.id);
-            updErr = retryRes.error;
+            if (updErr) {
+                console.warn('Supabase sync upozornění:', updErr);
+            }
         }
-        if (updErr) {
-            console.warn('Supabase sync upozornění:', updErr);
+
+        if (authState.user && authState.user.username && currentUser.username &&
+            authState.user.username.toLowerCase() === currentUser.username.toLowerCase()) {
+            authState.user.coins = currentUser.coins;
+            try {
+                localStorage.setItem(STORAGE_KEYS.USER_CACHE, JSON.stringify(authState.user));
+            } catch (e) {}
         }
         return { ok: true, status: 200, data: { user: currentUser, serverTime: now } };
     }
@@ -2146,10 +2188,10 @@ async function syncAccountToServer({ bypassQueue = false } = {}) {
         bio: currentBio,
         is_vip: typeof isCurrentUserVip === 'function' ? isCurrentUserVip() : false,
         isVip: typeof isCurrentUserVip === 'function' ? isCurrentUserVip() : false,
-        owned: [...ownedShopItems],
+        owned: (typeof ownedShopItems !== 'undefined') ? [...ownedShopItems] : [],
         outfit: typeof avatarOutfit !== 'undefined' ? avatarOutfit : {},
         torsoHex: typeof avatarTorsoHex !== 'undefined' ? avatarTorsoHex : '#0D69AC',
-        gamesPlayed: gamesPlayedCount,
+        gamesPlayed: (typeof gamesPlayedCount !== 'undefined') ? gamesPlayedCount : 0,
         adoptme_pets: adopt ? adopt.pets : undefined,
         adoptme_bucks: adopt ? adopt.bucks : undefined,
         daily_claim_date: lastClaimTimestamp,

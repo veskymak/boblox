@@ -25,7 +25,7 @@
 - `apiRequest(path: string, options?: Object): Promise<any>`
   - **POVINNÉ rozhraní** pro veškerou síťovou komunikaci. Nejprve se pokusí o dotaz do Supabase Cloud DB; pokud není dostupná, volá Node.js REST API; při výpadku sítě sáhne do lokální offline DB.
 - `syncAccountToServer(opts?: { bypassQueue: boolean }): Promise<void>`
-  - Asynchronní debounce synchronizátor. Shromáždí zůstatek Bobuxů, inventář, seznam přátel, bio, Adopt Me data a transakce a odešle je na server / do Supabase tabulky `profiles`.
+  - Asynchronní debounce synchronizátor. Shromáždí zůstatek Bobuxů, inventář, seznam přátel, bio, Adopt Me data a transakce a odešle je na server / do Supabase tabulky `profiles`. V Supabase módu využívá RPC funkci `admin_give_coins(target_username, amount, 'set')`, která běží se `SECURITY DEFINER` právy a spolehlivě perzistuje zůstatek Bobuxů i přes RLS restrikce.
 - `applyAuthenticatedUser(user: Object): void`
   - Aplikuje přihlášený profil, obnoví data mezi zařízeními (mince, VIP status `is_vip`, vlastněné skiny, příchozí žádosti o přátelství, transakce) a aktualizuje UI.
 - `isCurrentUserVip(): boolean`

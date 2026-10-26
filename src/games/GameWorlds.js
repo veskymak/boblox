@@ -3748,6 +3748,10 @@ function finishBlackjackRound(result, msg = '', payout = 0, shouldAwardBobux = t
         const betDisplay = document.getElementById('bj-current-bet');
         if (betDisplay) betDisplay.textContent = `${bjState.bet} B$`;
     }
+
+    if (typeof syncAccountToServer === 'function') {
+        syncAccountToServer({ bypassQueue: true });
+    }
 }
 
 function handleIncomingCasinoEvent(packet) {
