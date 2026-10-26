@@ -9,50 +9,12 @@ function triggerPrimaryAction() {
     playerState.weaponCooldownTimer = w.cooldown || 0.28;
     playerState.attackTimer = 0.28;
 
-    // 0B. Casino Game UI Hotbar Triggers (Slots 1-5) or Proximity Prompt [E]
+    // 0B. Casino Game Proximity Prompt [E] (Only triggers near active station)
     if (activeGameMode === 'casino') {
-        if (w.type === 'casino_ui' || (w.id && w.id.startsWith('casino_'))) {
-            if (w.id === 'casino_blackjack') {
-                if (typeof sitAt3DBlackjackTable === 'function') {
-                    sitAt3DBlackjackTable();
-                    return;
-                }
-            } else if (w.id === 'casino_wheel') {
-                if (typeof openLuckyWheelModal === 'function') {
-                    openLuckyWheelModal();
-                    return;
-                }
-            }
-            if (typeof openCasinoModal === 'function') {
-                const tabMap = {
-                    casino_blackjack: 'blackjack',
-                    casino_slots: 'slots',
-                    casino_wheel: 'wheel',
-                    casino_derby: 'derby',
-                    casino_cashier: 'cashier'
-                };
-                openCasinoModal(tabMap[w.id] || 'blackjack');
-            }
-            return;
+        if (typeof triggerCasinoProximityAction === 'function') {
+            triggerCasinoProximityAction();
         }
-        if (gameSpecificData && gameSpecificData.activeProximityStation) {
-            const stId = gameSpecificData.activeProximityStation.id;
-            if (stId === 'blackjack') {
-                if (typeof sitAt3DBlackjackTable === 'function') {
-                    sitAt3DBlackjackTable();
-                    return;
-                }
-            } else if (stId === 'wheel') {
-                if (typeof openLuckyWheelModal === 'function') {
-                    openLuckyWheelModal();
-                    return;
-                }
-            }
-            if (typeof openCasinoModal === 'function') {
-                openCasinoModal(stId);
-            }
-            return;
-        }
+        return;
     }
 
     // 0. Adopt Me! Pet Care & Fly/Ride Actions (Slots 1-4)
@@ -1880,14 +1842,20 @@ function updateGame12Casino(dt, elapsedSec) {
                 textEl.textContent = 'Stiskni [E] pro usednutí ke stolu!';
             } else if (nearStation.id === 'wheel') {
                 textEl.textContent = 'Stiskni [E] pro roztočení Kola štěstí!';
+            } else if (nearStation.id === 'slots') {
+                textEl.textContent = 'Stiskni [E] pro otevření automatů!';
+            } else if (nearStation.id === 'derby') {
+                textEl.textContent = 'Stiskni [E] pro sázky na dostihy!';
+            } else if (nearStation.id === 'cashier') {
+                textEl.textContent = 'Stiskni [E] pro pokladnu a info!';
             } else {
-                textEl.textContent = 'Stiskni [E] nebo klepni sem pro hraní!';
+                textEl.textContent = 'Stiskni [E] pro spuštění hry!';
             }
         }
     } else {
         if (titleEl && titleEl.textContent !== '🎰 BLOX VEGAS CASINO') {
             titleEl.textContent = '🎰 BLOX VEGAS CASINO';
-            if (textEl) textEl.textContent = 'Vstup do světa her! Přistup ke stolům nebo vyber hru z lišty (1-5) a vyhraj Bobuxy!';
+            if (textEl) textEl.textContent = 'Vstup do světa her! Přistup ke stolu či atrakci a stiskni [E] pro spuštění!';
         }
     }
 }

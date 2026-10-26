@@ -29,7 +29,7 @@
 - `resolvePlayerCollisions(dt: number): void`
   - Testuje průnik `_playerBox` s `worldBlocks`. Řeší pevné stěny, kill-bricky (`damagePlayer(999)`), žebříky (`playerState.onLadder = true`), boost-pady a pohybující se plošiny.
 - `triggerPrimaryAction(): void`
-  - Vyvolána kliknutím myši nebo tlačítkem akce. Podle `playerState.activeWeapon` spustí útok mečem, výstřel z pistole/brokovnice, položení bloku, použití medkitu nebo otevření kasínového stolu / Adopt Me péče.
+  - Vyvolána kliknutím myši nebo tlačítkem akce. Podle `playerState.activeWeapon` spustí útok mečem, výstřel z pistole/brokovnice, položení bloku, použití medkitu nebo Adopt Me péči. V režimu Kasína deleguje na `triggerCasinoProximityAction()` pro spuštění stanice u hráče bez inventářních položek.
 - `checkVoidFall(): void`
   - Kontroluje pád pod úroveň `playerState.pos.y < -22`. Pokud je aktivní Godmode, hráče bezpečně teleportuje na spawn; v běžném režimu udělí smrtící poškození.
 - `applyBotDamage(bot: Object, dmg: number, knockbackPower: number): void`

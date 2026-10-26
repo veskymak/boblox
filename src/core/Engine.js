@@ -53,11 +53,6 @@ const WEAPON_DEFINITIONS = {
     pet_water: { id: 'pet_water', name: 'Nápoj (Žízeň)', icon: '🍼', type: 'pet_care', hint: 'Klikni pro napojení mazlíčka (splní potřebu Žízeň)', cooldown: 0.35 },
     pet_ride: { id: 'pet_ride', name: 'Fly & Ride', icon: '🦄', type: 'pet_care', hint: 'Klikni pro nasednutí / létání na mazlíčkovi (Mezerník = Létání)', cooldown: 0.35 },
     pet_switch: { id: 'pet_switch', name: 'Sbírka Mazlíčků', icon: '🥚', type: 'pet_care', hint: 'Klikni pro přepnutí aktivního mazlíčka ze své sbírky', cooldown: 0.30 },
-    casino_blackjack: { id: 'casino_blackjack', name: 'Blackjack (21)', icon: '🃏', type: 'casino_ui', hint: 'Klepni pro otevření Blackjack stolu (21)', cooldown: 0.2 },
-    casino_slots: { id: 'casino_slots', name: 'Automaty (Slots)', icon: '🎰', type: 'casino_ui', hint: 'Klepni pro otevření výherních automatů Lucky 7', cooldown: 0.2 },
-    casino_wheel: { id: 'casino_wheel', name: 'Kolo štěstí', icon: '🎡', type: 'casino_ui', hint: 'Klepni pro otevření Denního kola štěstí', cooldown: 0.2 },
-    casino_derby: { id: 'casino_derby', name: 'Dostihy (Derby)', icon: '🏇', type: 'casino_ui', hint: 'Klepni pro sázky na koňské dostihy', cooldown: 0.2 },
-    casino_cashier: { id: 'casino_cashier', name: 'Pokladna & Info', icon: '🪙', type: 'casino_ui', hint: 'Klepni pro informace o kasinu a zůstatek Bobuxů', cooldown: 0.2 },
     none: { id: 'none', name: 'Volné ruce', icon: '🖐️', type: 'hand', damage: 10, range: 4.0, cooldown: 0.3 }
 };
 
@@ -73,7 +68,7 @@ const GAME_LOADOUTS = {
     speedrun: ['coil_speed', 'coil_gravity', 'none'],
     hideandseek: ['scanner', 'prop_crate', 'prop_barrel', 'prop_bush'],
     bedwars: ['sword', 'pickaxe', 'block', 'pistol'],
-    casino: ['casino_blackjack', 'casino_slots', 'casino_wheel', 'casino_derby', 'casino_cashier']
+    casino: []
 };
 
 function setupGameWeaponLoadout(gameId) {
@@ -84,7 +79,16 @@ function setupGameWeaponLoadout(gameId) {
     });
     playerState.weaponCooldownTimer = 0;
     playerState.weaponReloadTimer = 0;
-    equipWeaponSlot(0, true);
+    if (playerState.weaponLoadout.length > 0) {
+        equipWeaponSlot(0, true);
+    } else {
+        playerState.activeWeaponSlot = -1;
+        playerState.activeWeapon = null;
+        if (playerAvatar) {
+            setCharacterWeaponMesh(playerAvatar, 'none');
+        }
+        renderHotbarUI();
+    }
 }
 
 function equipWeaponSlot(slotIdx, silent = false) {
@@ -140,9 +144,17 @@ function reloadCurrentWeapon() {
 
 function renderHotbarUI() {
     const container = document.getElementById('hud-hotbar-slots');
+    const backpack = document.getElementById('hud-backpack-container');
     const nameEl = document.getElementById('hud-active-weapon-name');
     const statsEl = document.getElementById('hud-active-weapon-stats');
     if (!container) return;
+
+    if (!playerState.weaponLoadout || playerState.weaponLoadout.length === 0) {
+        container.innerHTML = '';
+        if (backpack) backpack.classList.add('hidden');
+        return;
+    }
+    if (backpack) backpack.classList.remove('hidden');
 
     container.innerHTML = '';
     playerState.weaponLoadout.forEach((w, idx) => {
@@ -472,7 +484,9 @@ function cleanupCurrentGame() {
     movingBlocks = [];
     if (typeof _juiceParticlePool !== 'undefined') _juiceParticlePool = [];
     if (typeof _camTargetInitialized !== 'undefined') _camTargetInitialized = false;
+    if (typeof leave3DBlackjackTable === 'function') leave3DBlackjackTable(true);
     if (typeof closeCasinoModal === 'function') closeCasinoModal();
+    if (typeof closeLuckyWheelModal === 'function') closeLuckyWheelModal();
     if (typeof sfx !== 'undefined' && typeof sfx.stopMusic === 'function') {
         sfx.stopMusic();
     }

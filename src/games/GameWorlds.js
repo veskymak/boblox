@@ -2096,7 +2096,7 @@ function setupGame12Casino() {
     scene.fog = new THREE.FogExp2(0x0a0c10, 0.007);
 
     document.getElementById('hud-objective-title').textContent = '🎰 BLOX VEGAS CASINO';
-    document.getElementById('hud-objective-text').textContent = 'Vstup do světa her! Přistup ke stolům nebo vyber hru z lišty (1-5) a vyhraj Bobuxy!';
+    document.getElementById('hud-objective-text').textContent = 'Vstup do světa her! Přistup ke stolu či atrakci a stiskni [E] pro spuštění!';
     document.getElementById('hud-extra-label').textContent = 'Zůstatek: ';
     document.getElementById('hud-extra-value').textContent = `${bobuxBalance.toLocaleString('cs-CZ')} B$`;
 
@@ -2265,6 +2265,26 @@ function updateCasinoBobuxDisplay() {
     if (elExtra && activeGameMode === 'casino') elExtra.textContent = `${bobuxBalance.toLocaleString('cs-CZ')} B$`;
     const elWheel = document.getElementById('wheel-modal-bobux-display');
     if (elWheel) elWheel.textContent = `${bobuxBalance.toLocaleString('cs-CZ')} B$`;
+}
+
+function triggerCasinoProximityAction() {
+    if (typeof activeGameMode === 'undefined' || activeGameMode !== 'casino') return;
+    if (typeof gameSpecificData === 'undefined' || !gameSpecificData) return;
+    if (gameSpecificData.isPlayerSeatedAtBj) return;
+    const station = gameSpecificData.activeProximityStation;
+    if (!station) return;
+
+    if (station.id === 'blackjack') {
+        if (typeof sitAt3DBlackjackTable === 'function') {
+            sitAt3DBlackjackTable();
+        }
+    } else if (station.id === 'wheel') {
+        if (typeof openLuckyWheelModal === 'function') {
+            openLuckyWheelModal();
+        }
+    } else if (typeof openCasinoModal === 'function') {
+        openCasinoModal(station.id);
+    }
 }
 
 function openCasinoModal(tabName = 'blackjack') {

@@ -41,6 +41,7 @@
   - `createAdoptMePetMesh(petId: string, isNeon?: boolean): THREE.Group`: Vygeneruje 3D model zvířátka.
   - `completeAdoptMeNeed(needId: string): boolean`: Splní potřebu mazlíčka a vyplatí Adopt Me Bucks.
 - **Casino subsystém:**
+  - `triggerCasinoProximityAction(): void`: Spustí aktivitu stanice, u které hráč právě stojí (`activeProximityStation`) po stisku klávesy [E], mobilního akčního tlačítka nebo kliku na úkolový banner (Blackjack -> `sitAt3DBlackjackTable`, Kolo štěstí -> `openLuckyWheelModal`, Automaty/Dostihy/Pokladna -> `openCasinoModal`).
   - `openCasinoModal(tabName?: string): void`: Otevře UI pro blackjack, automaty, kolo nebo dostihy.
   - `openLuckyWheelModal(): void`: Otevře samostatný modal Kola štěstí, aktualizuje zůstatek Bobuxů (`#wheel-modal-bobux-display`), stav AutoSpinu a překreslí plátno `#lucky-wheel-canvas`.
   - `getOrCreateWheelDiscCache(radius, numSlices, sliceAngle)`: Vytvoří a nacachuje offscreen buffer s 20 výsečemi, texty a diamantovým středem, čímž eliminuje per-frame slice re-rendering lag během animace.
@@ -61,7 +62,7 @@
 ## 5. Anti-Duplication Rules & Gotchas
 - **Všechny pevné bloky tvoř přes `createBlock()`**: Přímé přidávání meshů do scény bez registrace ve `worldBlocks` znefunkční kolize a zabíjení kill-bricky.
 - **Odměny v Bobuxech VŽDY zapisuj přes `addBobux(amount, reason)`**: Nikdy neupravuj `bobuxBalance` přímo – přišel bys o záznam v transakční historii a cloud synchronizaci.
-- **Proximity Prompts [E]**: Interakce se stanicemi v kasínu a Adopt Me se vážou na `triggerPrimaryAction()` v `PhysicsAndLoop.js`.
+- **Proximity Prompts [E] v Kasínu**: Kasíno nemá žádné předměty v inventáři/hotbaru (`GAME_LOADOUTS.casino = []`), aby se předešlo nechtěnému klikání a otevírání oken. Interakce se stanicemi probíhá výhradně přiblížením k dané hře a stisknutím [E] (nebo kliknutím na proximity banner / mobilní akční tlačítko), což volá `triggerCasinoProximityAction()`.
 
 ---
 

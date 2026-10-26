@@ -35,7 +35,7 @@
 ## 4. Lifecycle & Execution Hooks
 - **Start aplikace:** `window.addEventListener('DOMContentLoaded', bootBobloxPortal)` a `window.addEventListener('load', bootBobloxPortal)`.
 - **Události klávesnice:**
-  - `keydown`: Zaznamená klávesu do `keysPressed`, klávesy `1`–`5` volají `equipWeaponSlot()`, `Space` vyvolá skok, `R` přebití zbraně, `/` otevře herní chat, `Escape` přepne ESC menu.
+  - `keydown`: Zaznamená klávesu do `keysPressed`, klávesy `1`–`5` volají `equipWeaponSlot()`, `Space` vyvolá skok, `F` přebití zbraně, `E` spustí interakci / aktivitu stanice (`triggerCasinoProximityAction` v kasínu), `/` otevře herní chat, `Escape` přepne ESC menu.
   - `keyup`: Odstraní klávesu z `keysPressed`.
 - **Události myši & PointerLock:**
   - Kliknutí do plátna `#three-canvas`: Požadavek na `requestPointerLock()`.

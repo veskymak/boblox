@@ -210,6 +210,12 @@ function initMobileTouchControls() {
             e.preventDefault();
             e.stopPropagation();
             actionBtn.classList.add('touch-active');
+            if (activeGameMode === 'casino') {
+                if (typeof triggerCasinoProximityAction === 'function') {
+                    triggerCasinoProximityAction();
+                }
+                return;
+            }
             triggerPrimaryAction();
         }, { passive: false });
 
@@ -328,6 +334,12 @@ window.addEventListener('keydown', (e) => {
     } else if (e.code === 'KeyR') {
         respawnPlayerManual();
     } else if (e.code === 'KeyE') {
+        if (activeGameMode === 'casino') {
+            if (typeof triggerCasinoProximityAction === 'function') {
+                triggerCasinoProximityAction();
+            }
+            return;
+        }
         triggerPrimaryAction();
     }
 });
@@ -368,6 +380,9 @@ canvasEl.addEventListener('pointerdown', (e) => {
 
     if (e.button === 0) {
         // Left Mouse Button: Use equipped tool / attack ONLY (never drags camera)
+        if (activeGameMode === 'casino') {
+            return;
+        }
         triggerPrimaryAction();
     } else if (e.button === 2) {
         // Right Mouse Button: Lock mouse cursor in place & rotate camera (authentic Roblox behavior)
