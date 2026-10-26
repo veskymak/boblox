@@ -1119,10 +1119,16 @@ function respawnFromRobloxMenu() {
     respawnPlayerManual();
 }
 
-function toggleRobloxChat(focusInput = false) {
+function toggleRobloxChat(focusInput = false, forceState = null) {
     const box = document.getElementById('roblox-chat-box');
     if (!box) return;
-    robloxUiState.isChatOpen = !robloxUiState.isChatOpen;
+    if (typeof robloxUiState === 'undefined') return;
+
+    if (typeof forceState === 'boolean') {
+        robloxUiState.isChatOpen = forceState;
+    } else {
+        robloxUiState.isChatOpen = !robloxUiState.isChatOpen;
+    }
     box.classList.toggle('hidden', !robloxUiState.isChatOpen);
     box.classList.toggle('flex', robloxUiState.isChatOpen);
 

@@ -240,12 +240,17 @@ window.addEventListener('keydown', (e) => {
         toggleRobloxPlayerList();
         return;
     }
-    if (e.code === 'Slash' || e.code === 'Minus') {
+    if (e.key === '/' || e.code === 'Slash' || e.code === 'NumpadDivide' || e.code === 'Minus') {
         e.preventDefault();
-        if (!robloxUiState.isChatOpen) {
-            toggleRobloxChat(true);
+        const chatBox = document.getElementById('roblox-chat-box');
+        const isHidden = !chatBox || chatBox.classList.contains('hidden');
+        if (typeof robloxUiState === 'undefined' || !robloxUiState.isChatOpen || isHidden) {
+            if (typeof toggleRobloxChat === 'function') {
+                toggleRobloxChat(true, true);
+            }
         } else {
-            document.getElementById('roblox-chat-input')?.focus();
+            const inp = document.getElementById('roblox-chat-input');
+            if (inp) inp.focus();
         }
         return;
     }

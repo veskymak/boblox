@@ -7,7 +7,7 @@ const vm = require('node:vm');
 function createBlackjackGame() {
     const source = fs.readFileSync(path.join(__dirname, '..', 'src', 'games', 'GameWorlds.js'), 'utf8');
     const start = source.indexOf('const bjState = {');
-    const end = source.indexOf('/* ============================================================================\n * B. ', start);
+    const end = source.search(/\/\* ={76}\r?\n \* B\. /);
     assert.notEqual(start, -1, 'Blackjack state must exist in GameWorlds.js');
     assert.notEqual(end, -1, 'Blackjack section must have an end marker');
 
