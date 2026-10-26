@@ -28,3 +28,6 @@ Tato složka obsahuje kompletní referenční dokumentaci a návody pro provoz a
 - [`cache-busting.md`](file:///c:/Users/vacla/Desktop/Boblox/boblox/docs/development/cache-busting.md) – Povinný postup verzování frontendových skriptů před commitem.
 - [`ui-guidelines.md`](file:///c:/Users/vacla/Desktop/Boblox/boblox/docs/development/ui-guidelines.md) – Kritická DOM ID, barevná paleta Roblox tématu a podpora mobilního ovládání.
 
+
+### 5. AI Context Layer (/docs/ai_context/)
+- [INDEX.md](ai_context/INDEX.md) – Strojově čitelná dokumentace architektury pro AI agenty (Self-Maintaining Protocol).
