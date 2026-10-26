@@ -2386,18 +2386,18 @@
             <!-- 1. Betting Phase Bar (Visible during betting phase) -->
             <div id="bj-betting-controls" class="bg-[#191B1D]/95 border border-[#393B3D] p-3 sm:p-4 rounded-2xl shadow-2xl backdrop-blur-md space-y-3">
                 <div class="flex items-center justify-between text-xs font-bold text-gray-300">
-                    <div>TVOJE SÁZKA: <span id="bj-inworld-current-bet" class="text-[#FFE066] font-black text-base ml-1">50 B$</span></div>
-                    <div class="text-gray-400">Kliknutím na žetony upravíš svou sázku</div>
+                    <div>TVOJE SÁZKA: <span id="bj-inworld-current-bet" class="text-[#FFE066] font-black text-base ml-1">0 B$</span></div>
+                    <div class="text-gray-400">Kliknutím na žetony přidáš sázku (+)</div>
                 </div>
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <div class="flex flex-wrap items-center gap-1.5">
-                        <button type="button" onclick="setInWorldBjBet(10)" class="casino-chip-btn px-3 py-2 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] text-white text-xs sm:text-sm font-black shadow min-h-[44px]">10</button>
-                        <button type="button" onclick="setInWorldBjBet(25)" class="casino-chip-btn px-3 py-2 rounded-xl bg-[#10b981] hover:bg-[#059669] text-white text-xs sm:text-sm font-black shadow min-h-[44px]">25</button>
-                        <button type="button" onclick="setInWorldBjBet(50)" class="casino-chip-btn px-3 py-2 rounded-xl bg-[#f59e0b] hover:bg-[#d97706] text-white text-xs sm:text-sm font-black shadow min-h-[44px] casino-chip-active">50</button>
-                        <button type="button" onclick="setInWorldBjBet(100)" class="casino-chip-btn px-3 py-2 rounded-xl bg-[#ef4444] hover:bg-[#dc2626] text-white text-xs sm:text-sm font-black shadow min-h-[44px]">100</button>
-                        <button type="button" onclick="setInWorldBjBet(250)" class="casino-chip-btn px-3 py-2 rounded-xl bg-[#8b5cf6] hover:bg-[#7c3aed] text-white text-xs sm:text-sm font-black shadow min-h-[44px]">250</button>
-                        <button type="button" onclick="setInWorldBjBet(500)" class="casino-chip-btn px-3 py-2 rounded-xl bg-[#ec4899] hover:bg-[#db2777] text-white text-xs sm:text-sm font-black shadow min-h-[44px]">500</button>
-                        <button type="button" onclick="clearInWorldBjBet()" class="px-3 py-2 rounded-xl bg-[#232527] hover:bg-[#393B3D] text-gray-300 font-black text-xs border border-white/10 min-h-[44px]">✕</button>
+                        <button type="button" onclick="addInWorldBjBet(10)" class="casino-chip-btn px-3 py-2 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] text-white text-xs sm:text-sm font-black shadow min-h-[44px]">+10</button>
+                        <button type="button" onclick="addInWorldBjBet(25)" class="casino-chip-btn px-3 py-2 rounded-xl bg-[#10b981] hover:bg-[#059669] text-white text-xs sm:text-sm font-black shadow min-h-[44px]">+25</button>
+                        <button type="button" onclick="addInWorldBjBet(50)" class="casino-chip-btn px-3 py-2 rounded-xl bg-[#f59e0b] hover:bg-[#d97706] text-white text-xs sm:text-sm font-black shadow min-h-[44px]">+50</button>
+                        <button type="button" onclick="addInWorldBjBet(100)" class="casino-chip-btn px-3 py-2 rounded-xl bg-[#ef4444] hover:bg-[#dc2626] text-white text-xs sm:text-sm font-black shadow min-h-[44px]">+100</button>
+                        <button type="button" onclick="addInWorldBjBet(250)" class="casino-chip-btn px-3 py-2 rounded-xl bg-[#8b5cf6] hover:bg-[#7c3aed] text-white text-xs sm:text-sm font-black shadow min-h-[44px]">+250</button>
+                        <button type="button" onclick="addInWorldBjBet(500)" class="casino-chip-btn px-3 py-2 rounded-xl bg-[#ec4899] hover:bg-[#db2777] text-white text-xs sm:text-sm font-black shadow min-h-[44px]">+500</button>
+                        <button type="button" onclick="clearInWorldBjBet()" title="Resetovat sázku na 0" class="px-3 py-2 rounded-xl bg-[#232527] hover:bg-[#393B3D] text-gray-300 font-black text-xs border border-white/10 min-h-[44px]">✕</button>
                     </div>
                     <button type="button" id="bj-btn-place-bet" onclick="confirmInWorldBjBet()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#00C87E] to-[#00B06F] hover:brightness-110 text-white font-black text-xs sm:text-sm shadow-lg transition active:scale-95 min-h-[44px]">
                         ✓ POTVRDIT SÁZKU
@@ -2685,15 +2685,15 @@
     </div>
 
     <!-- BOBLOX Modular Architecture (Core Engine, State, Network, Games & UI with Cache-Busting) -->
-    <script src="src/core/SoundEngine.js?v=8.2" defer></script>
-    <script src="src/state/PortalStore.js?v=8.2" defer></script>
-    <script src="src/network/NetworkManager.js?v=8.2" defer></script>
-    <script src="src/ui/PortalUI.js?v=8.2" defer></script>
-    <script src="src/ui/AdminUI.js?v=8.2" defer></script>
-    <script src="src/core/AvatarAndShop.js?v=8.2" defer></script>
-    <script src="src/core/Engine.js?v=8.2" defer></script>
-    <script src="src/games/GameWorlds.js?v=8.2" defer></script>
-    <script src="src/core/PhysicsAndLoop.js?v=8.2" defer></script>
-    <script src="src/core/InputManager.js?v=8.2" defer></script>
+    <script src="src/core/SoundEngine.js?v=8.3" defer></script>
+    <script src="src/state/PortalStore.js?v=8.3" defer></script>
+    <script src="src/network/NetworkManager.js?v=8.3" defer></script>
+    <script src="src/ui/PortalUI.js?v=8.3" defer></script>
+    <script src="src/ui/AdminUI.js?v=8.3" defer></script>
+    <script src="src/core/AvatarAndShop.js?v=8.3" defer></script>
+    <script src="src/core/Engine.js?v=8.3" defer></script>
+    <script src="src/games/GameWorlds.js?v=8.3" defer></script>
+    <script src="src/core/PhysicsAndLoop.js?v=8.3" defer></script>
+    <script src="src/core/InputManager.js?v=8.3" defer></script>
 </body>
 </html>

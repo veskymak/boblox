@@ -1629,10 +1629,10 @@ const CASINO_STATIONS = [
 
 // 4 Seats around the Semicircular Blackjack Table (X = -18, Z = -8)
 const BJ_TABLE_SEATS = [
-    { id: 0, label: 'Místo 1', pos: new THREE.Vector3(-23.0, 1.8, -5.4), chairPos: new THREE.Vector3(-23.0, 0.9, -5.4), worldPos: new THREE.Vector3(-23.0, 1.8, -5.4), cardPos: new THREE.Vector3(-20.7, 2.32, -6.6), betPos: new THREE.Vector3(-21.6, 2.32, -6.2), rotY: 2.05, cameraYaw: 2.05 },
-    { id: 1, label: 'Místo 2', pos: new THREE.Vector3(-20.1, 1.8, -2.7), chairPos: new THREE.Vector3(-20.1, 0.9, -2.7), worldPos: new THREE.Vector3(-20.1, 1.8, -2.7), cardPos: new THREE.Vector3(-19.1, 2.32, -5.2), betPos: new THREE.Vector3(-19.5, 2.32, -4.3), rotY: 2.76, cameraYaw: 2.76 },
-    { id: 2, label: 'Místo 3', pos: new THREE.Vector3(-15.9, 1.8, -2.7), chairPos: new THREE.Vector3(-15.9, 0.9, -2.7), worldPos: new THREE.Vector3(-15.9, 1.8, -2.7), cardPos: new THREE.Vector3(-16.9, 2.32, -5.2), betPos: new THREE.Vector3(-16.5, 2.32, -4.3), rotY: -2.76, cameraYaw: -2.76 },
-    { id: 3, label: 'Místo 4', pos: new THREE.Vector3(-12.9, 1.8, -5.4), chairPos: new THREE.Vector3(-12.9, 0.9, -5.4), worldPos: new THREE.Vector3(-12.9, 1.8, -5.4), cardPos: new THREE.Vector3(-15.3, 2.32, -6.6), betPos: new THREE.Vector3(-14.4, 2.32, -6.2), rotY: -2.05, cameraYaw: -2.05 }
+    { id: 0, label: 'Místo 1', pos: new THREE.Vector3(-23.0, 1.8, -5.4), chairPos: new THREE.Vector3(-23.0, 0.9, -5.4), worldPos: new THREE.Vector3(-23.0, 1.8, -5.4), cardPos: new THREE.Vector3(-20.7, 2.41, -6.6), betPos: new THREE.Vector3(-21.6, 2.41, -6.2), rotY: 2.05, cameraYaw: 2.05 },
+    { id: 1, label: 'Místo 2', pos: new THREE.Vector3(-20.1, 1.8, -2.7), chairPos: new THREE.Vector3(-20.1, 0.9, -2.7), worldPos: new THREE.Vector3(-20.1, 1.8, -2.7), cardPos: new THREE.Vector3(-19.1, 2.41, -5.2), betPos: new THREE.Vector3(-19.5, 2.41, -4.3), rotY: 2.76, cameraYaw: 2.76 },
+    { id: 2, label: 'Místo 3', pos: new THREE.Vector3(-15.9, 1.8, -2.7), chairPos: new THREE.Vector3(-15.9, 0.9, -2.7), worldPos: new THREE.Vector3(-15.9, 1.8, -2.7), cardPos: new THREE.Vector3(-16.9, 2.41, -5.2), betPos: new THREE.Vector3(-16.5, 2.41, -4.3), rotY: -2.76, cameraYaw: -2.76 },
+    { id: 3, label: 'Místo 4', pos: new THREE.Vector3(-12.9, 1.8, -5.4), chairPos: new THREE.Vector3(-12.9, 0.9, -5.4), worldPos: new THREE.Vector3(-12.9, 1.8, -5.4), cardPos: new THREE.Vector3(-15.3, 2.41, -6.6), betPos: new THREE.Vector3(-14.4, 2.41, -6.2), rotY: -2.05, cameraYaw: -2.05 }
 ];
 
 let bjTableState = {
@@ -2571,19 +2571,19 @@ function flip3DCardMesh(cardMesh) {
     function anim(now) {
         const t = Math.min(1, (now - startTime) / duration);
         cardMesh.rotation.x = startRotX + (0 - startRotX) * (1 - Math.pow(1 - t, 2));
-        cardMesh.position.y = 2.32 + Math.sin(t * Math.PI) * 0.25;
+        cardMesh.position.y = 2.41 + Math.sin(t * Math.PI) * 0.25;
         if (t < 1) {
             requestAnimationFrame(anim);
         } else {
             cardMesh.rotation.x = 0;
-            cardMesh.position.y = 2.32;
+            cardMesh.position.y = 2.41;
         }
     }
     requestAnimationFrame(anim);
 }
 
 function create3DChipStack(amount, posVec) {
-    if (typeof THREE === 'undefined') return null;
+    if (typeof THREE === 'undefined' || !amount || amount <= 0) return null;
     const group = new THREE.Group();
     const denominations = [
         { val: 500, col: 0xec4899 },
@@ -2596,7 +2596,7 @@ function create3DChipStack(amount, posVec) {
 
     let rem = amount;
     let chipCount = 0;
-    const maxChips = 10;
+    const maxChips = 16;
 
     denominations.forEach(d => {
         while (rem >= d.val && chipCount < maxChips) {
@@ -2604,22 +2604,27 @@ function create3DChipStack(amount, posVec) {
                 new THREE.CylinderGeometry(0.18, 0.18, 0.038, 16),
                 new THREE.MeshStandardMaterial({ color: d.col, roughness: 0.3, metalness: 0.25 })
             );
-            chip.position.set((Math.random() - 0.5) * 0.02, chipCount * 0.038, (Math.random() - 0.5) * 0.02);
+            chip.position.set((Math.random() - 0.5) * 0.015, 0.019 + chipCount * 0.038, (Math.random() - 0.5) * 0.015);
+            chip.castShadow = true;
             group.add(chip);
             rem -= d.val;
             chipCount++;
         }
     });
 
-    if (chipCount === 0) {
+    if (chipCount === 0 && amount > 0) {
         const chip = new THREE.Mesh(
             new THREE.CylinderGeometry(0.18, 0.18, 0.038, 16),
             new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.3, metalness: 0.25 })
         );
+        chip.position.set(0, 0.019, 0);
         group.add(chip);
     }
 
-    if (posVec && posVec.copy) group.position.copy(posVec);
+    if (posVec && posVec.copy) {
+        group.position.copy(posVec);
+        group.position.y = 2.40;
+    }
     return group;
 }
 
@@ -2644,9 +2649,9 @@ function createInWorldScoreSprite(text, bgColor = 'rgba(15, 23, 42, 0.85)') {
     ctx.fillText(text, 64, 32);
 
     const texture = new THREE.CanvasTexture(canvas);
-    const spriteMat = new THREE.SpriteMaterial({ map: texture, depthTest: false });
+    const spriteMat = new THREE.SpriteMaterial({ map: texture, depthTest: true });
     const sprite = new THREE.Sprite(spriteMat);
-    sprite.scale.set(0.9, 0.45, 1);
+    sprite.scale.set(0.65, 0.32, 1);
     return sprite;
 }
 
@@ -2699,7 +2704,9 @@ function sitAt3DBlackjackTable(seatIdx = null) {
     seat.occupied = true;
     seat.peerId = (typeof mpState !== 'undefined') ? mpState.myId : 'local';
     seat.username = myNick;
-    seat.bet = bjState.bet || 50;
+    seat.bet = 0;
+    seat.confirmedBet = false;
+    if (typeof bjState !== 'undefined') bjState.bet = 0;
 
     if (typeof gameSpecificData !== 'undefined') {
         gameSpecificData.isPlayerSeatedAtBj = true;
@@ -2726,7 +2733,11 @@ function sitAt3DBlackjackTable(seatIdx = null) {
 
     showGtaNotification('Blackjack (21)', `Přisedl jsi k ${seat.label}. Zvol výši své sázky!`, '🪑');
 
-    setInWorldBjBet(seat.bet);
+    const elInworld = document.getElementById('bj-inworld-current-bet');
+    if (elInworld) elInworld.textContent = '0 B$';
+    const elModal = document.getElementById('bj-current-bet');
+    if (elModal) elModal.textContent = '0 B$';
+    if (typeof updateSeat3DChipStack === 'function') updateSeat3DChipStack(seat);
     updateInWorldBjUI();
 
     if (typeof sendMultiplayerPacket === 'function') {
@@ -2784,23 +2795,97 @@ function standUpFromBjTable() {
     if (canvas) canvas.focus();
 }
 
+function updateSeat3DChipStack(seat) {
+    if (!seat || typeof scene === 'undefined') return;
+    if (seat.chipMeshes && seat.chipMeshes.length > 0) {
+        seat.chipMeshes.forEach(m => scene.remove(m));
+        seat.chipMeshes = [];
+    }
+    if (seat.bet && seat.bet > 0 && typeof create3DChipStack === 'function') {
+        const chipsGroup = create3DChipStack(seat.bet, seat.betPos);
+        if (chipsGroup) {
+            scene.add(chipsGroup);
+            seat.chipMeshes.push(chipsGroup);
+        }
+    }
+}
+
 function setInWorldBjBet(amount) {
-    setBjBet(amount);
     if (typeof bjTableState !== 'undefined' && bjTableState.localSeat >= 0) {
-        bjTableState.seats[bjTableState.localSeat].bet = amount;
+        const seat = bjTableState.seats[bjTableState.localSeat];
+        seat.bet = amount;
+        seat.confirmedBet = false;
+        if (typeof updateSeat3DChipStack === 'function') updateSeat3DChipStack(seat);
+    }
+    if (typeof setBjBet === 'function') setBjBet(amount);
+    const elInworld = document.getElementById('bj-inworld-current-bet');
+    if (elInworld) elInworld.textContent = `${amount} B$`;
+}
+
+function addInWorldBjBet(amount) {
+    if (typeof bjTableState === 'undefined' || bjTableState.localSeat < 0) return;
+    const seat = bjTableState.seats[bjTableState.localSeat];
+    if (!seat) return;
+    if (seat.confirmedBet) {
+        seat.confirmedBet = false;
+    }
+    const currentBet = seat.bet || 0;
+    const balance = typeof bobuxBalance !== 'undefined' ? bobuxBalance : 50000;
+    if (currentBet + amount > balance) {
+        if (typeof showHudToast === 'function') showHudToast(`Nemáš dostatek Bobuxů! (Máš ${balance} B$)`, 'red');
+        return;
+    }
+    seat.bet = currentBet + amount;
+    if (typeof bjState !== 'undefined') bjState.bet = seat.bet;
+    const elInworld = document.getElementById('bj-inworld-current-bet');
+    if (elInworld) elInworld.textContent = `${seat.bet} B$`;
+    const elModal = document.getElementById('bj-current-bet');
+    if (elModal) elModal.textContent = `${seat.bet} B$`;
+    if (typeof sfx !== 'undefined' && sfx.playCoin) sfx.playCoin();
+    if (typeof updateSeat3DChipStack === 'function') {
+        updateSeat3DChipStack(seat);
+    } else if (typeof create3DChipStack === 'function' && typeof scene !== 'undefined') {
+        if (seat.chipMeshes) {
+            seat.chipMeshes.forEach(m => scene.remove(m));
+            seat.chipMeshes = [];
+        }
+        const chipsGroup = create3DChipStack(seat.bet, seat.betPos);
+        if (chipsGroup) {
+            scene.add(chipsGroup);
+            seat.chipMeshes.push(chipsGroup);
+        }
     }
 }
 
 function clearInWorldBjBet() {
-    clearBjBet();
-    if (typeof bjTableState !== 'undefined' && bjTableState.localSeat >= 0) {
-        bjTableState.seats[bjTableState.localSeat].bet = 10;
+    if (typeof bjTableState === 'undefined' || bjTableState.localSeat < 0) return;
+    const seat = bjTableState.seats[bjTableState.localSeat];
+    if (!seat) return;
+    seat.bet = 0;
+    seat.confirmedBet = false;
+    if (typeof bjState !== 'undefined') bjState.bet = 0;
+    if (typeof clearBjBet === 'function') clearBjBet();
+    if (seat.chipMeshes) {
+        if (typeof scene !== 'undefined') {
+            seat.chipMeshes.forEach(m => scene.remove(m));
+        }
+        seat.chipMeshes = [];
     }
+    const elInworld = document.getElementById('bj-inworld-current-bet');
+    if (elInworld) elInworld.textContent = '0 B$';
+    const elModal = document.getElementById('bj-current-bet');
+    if (elModal) elModal.textContent = '0 B$';
+    if (typeof sfx !== 'undefined' && sfx.playJump) sfx.playJump();
+    if (typeof updateSeat3DChipStack === 'function') updateSeat3DChipStack(seat);
 }
 
 function confirmInWorldBjBet() {
     if (typeof bjTableState === 'undefined' || bjTableState.localSeat < 0) return;
     const seat = bjTableState.seats[bjTableState.localSeat];
+    if (!seat.bet || seat.bet <= 0) {
+        if (typeof showHudToast === 'function') showHudToast('Nejprve vyber výši sázky pomocí žetonů!', 'yellow');
+        return;
+    }
     if (typeof bobuxBalance !== 'undefined' && bobuxBalance < seat.bet) {
         if (typeof showHudToast === 'function') showHudToast(`Nemáš dostatek Bobuxů! (Máš ${bobuxBalance} B$, sázka je ${seat.bet} B$)`, 'red');
         return;
@@ -2809,7 +2894,9 @@ function confirmInWorldBjBet() {
     showGtaNotification('Sázka potvrzena', `Sázka ${seat.bet} B$ uzamčena pro další hru.`, '🪙');
     if (typeof sfx !== 'undefined' && sfx.playCoin) sfx.playCoin();
 
-    if (typeof scene !== 'undefined') {
+    if (typeof updateSeat3DChipStack === 'function') {
+        updateSeat3DChipStack(seat);
+    } else if (typeof scene !== 'undefined') {
         seat.chipMeshes.forEach(m => scene.remove(m));
         seat.chipMeshes = [];
         const chipsGroup = create3DChipStack(seat.bet, seat.betPos);
@@ -2992,7 +3079,7 @@ function startInWorldBlackjackDealing() {
 
             if (cardMesh && typeof scene !== 'undefined') {
                 const cardOffset = (currentHand.cards.length - 1) * 0.32;
-                cardMesh.position.set(step.seat.cardPos.x + cardOffset, 2.32 + cardOffset * 0.01, step.seat.cardPos.z);
+                cardMesh.position.set(step.seat.cardPos.x + cardOffset, 2.41 + cardOffset * 0.005, step.seat.cardPos.z);
                 cardMesh.rotation.y = step.seat.rotY;
                 scene.add(cardMesh);
                 step.seat.cardMeshes.push(cardMesh);
@@ -3013,7 +3100,7 @@ function startInWorldBlackjackDealing() {
             const cardMesh = create3DCardMesh(card, step.faceDown);
             if (cardMesh && typeof scene !== 'undefined') {
                 const dOffset = (bjTableState.dealerHand.length - 1) * 0.45;
-                cardMesh.position.set(-18.0 + dOffset - 0.22, 2.32, -7.4);
+                cardMesh.position.set(-18.0 + dOffset - 0.22, 2.41, -7.0);
                 scene.add(cardMesh);
                 bjTableState.dealerCardMeshes.push(cardMesh);
             }
@@ -3046,7 +3133,7 @@ function updateSeatScoreBadge(seat, scoreObj) {
 
     const sprite = createInWorldScoreSprite(label, bg);
     if (sprite) {
-        sprite.position.set(seat.cardPos.x + 0.15, 2.9, seat.cardPos.z);
+        sprite.position.set(seat.cardPos.x + 0.35, 2.62, seat.cardPos.z - 0.2);
         scene.add(sprite);
         seat.scoreSprite = sprite;
     }
@@ -3062,7 +3149,7 @@ function updateDealerScoreBadge(scoreObj, hideHole = false) {
     const bg = scoreObj.isBust ? 'rgba(239, 68, 68, 0.9)' : 'rgba(15, 23, 42, 0.85)';
     const sprite = createInWorldScoreSprite(label, bg);
     if (sprite) {
-        sprite.position.set(-18.0, 2.9, -7.4);
+        sprite.position.set(-18.0, 2.65, -7.6);
         scene.add(sprite);
         bjTableState.dealerScoreSprite = sprite;
     }
@@ -3136,7 +3223,7 @@ function executeBjAction(action) {
         if (cardMesh && typeof scene !== 'undefined') {
             const offset = (currentHand.cards.length - 1) * 0.32;
             const handXShift = (seat.activeHandIdx === 1) ? 0.45 : (seat.hands.length > 1 ? -0.45 : 0);
-            cardMesh.position.set(seat.cardPos.x + offset + handXShift, 2.32 + offset * 0.01, seat.cardPos.z);
+            cardMesh.position.set(seat.cardPos.x + offset + handXShift, 2.41 + offset * 0.005, seat.cardPos.z);
             cardMesh.rotation.y = seat.rotY;
             scene.add(cardMesh);
             seat.cardMeshes.push(cardMesh);
@@ -3190,7 +3277,7 @@ function executeBjAction(action) {
         const cardMesh = create3DCardMesh(card, false);
         if (cardMesh && typeof scene !== 'undefined') {
             const offset = (currentHand.cards.length - 1) * 0.32;
-            cardMesh.position.set(seat.cardPos.x + offset, 2.32 + offset * 0.01, seat.cardPos.z);
+            cardMesh.position.set(seat.cardPos.x + offset, 2.41 + offset * 0.005, seat.cardPos.z);
             cardMesh.rotation.y = seat.rotY;
             scene.add(cardMesh);
             seat.cardMeshes.push(cardMesh);
@@ -3226,7 +3313,7 @@ function executeBjAction(action) {
         currentHand.cards.push(c1);
         const meshC1 = create3DCardMesh(c1, false);
         if (meshC1 && typeof scene !== 'undefined') {
-            meshC1.position.set(seat.cardPos.x - 0.45 + 0.3, 2.33, seat.cardPos.z);
+            meshC1.position.set(seat.cardPos.x - 0.45 + 0.3, 2.41, seat.cardPos.z);
             meshC1.rotation.y = seat.rotY;
             scene.add(meshC1);
             seat.cardMeshes.push(meshC1);
@@ -3236,7 +3323,7 @@ function executeBjAction(action) {
         hand2.cards.push(c2);
         const meshC2 = create3DCardMesh(c2, false);
         if (meshC2 && typeof scene !== 'undefined') {
-            meshC2.position.set(seat.cardPos.x + 0.45 + 0.3, 2.33, seat.cardPos.z);
+            meshC2.position.set(seat.cardPos.x + 0.45 + 0.3, 2.41, seat.cardPos.z);
             meshC2.rotation.y = seat.rotY;
             scene.add(meshC2);
             seat.cardMeshes.push(meshC2);
@@ -3291,7 +3378,7 @@ function startInWorldBlackjackDealerTurn() {
             const cardMesh = create3DCardMesh(card, false);
             if (cardMesh && typeof scene !== 'undefined') {
                 const dOffset = (bjTableState.dealerHand.length - 1) * 0.45;
-                cardMesh.position.set(-18.0 + dOffset - 0.22, 2.32, -7.4);
+                cardMesh.position.set(-18.0 + dOffset - 0.22, 2.41, -7.0);
                 scene.add(cardMesh);
                 bjTableState.dealerCardMeshes.push(cardMesh);
             }
@@ -3403,12 +3490,18 @@ function resetBlackjackTableForNewRound() {
             seat.hands = [];
             seat.activeHandIdx = 0;
             seat.confirmedBet = false;
+            seat.bet = 0;
         });
     }
 
     bjTableState.dealerHand = [];
     bjTableState.phase = 'betting';
     bjTableState.phaseTimer = 10;
+    if (typeof bjState !== 'undefined') bjState.bet = 0;
+    const elInworld = document.getElementById('bj-inworld-current-bet');
+    if (elInworld) elInworld.textContent = '0 B$';
+    const elModal = document.getElementById('bj-current-bet');
+    if (elModal) elModal.textContent = '0 B$';
     updateInWorldBjUI();
 
     if (bjTableState.localSeat >= 0) {

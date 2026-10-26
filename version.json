@@ -1,7 +1,7 @@
 {
-  "version": "8.2",
-  "buildTime": 1793055014183,
-  "updatedAt": "2026-10-26T22:50:14.183Z",
-  "title": "Boblox Aktualizace v8.2",
-  "message": "Oprava Blackjacku: odstraněno clipování židlí ve stole, rozšířen pohled kamery na stůl a karty, opravena dvojitá výplata Bobuxů a podpora sedícího pozorovatele bez potvrzené sázky."
+  "version": "8.3",
+  "buildTime": 1793055907801,
+  "updatedAt": "2026-10-26T23:05:07.801Z",
+  "title": "Boblox Aktualizace v8.3",
+  "message": "Blackjack 3D physical chips, visible card heights on felt, additive betting controls"
 }
