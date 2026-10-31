@@ -3845,6 +3845,59 @@ function pickRandomSlotSymbol() {
     return 0;
 }
 
+function slotsReducedMotion() {
+    return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+// Animate a real strip: the final cell is always the authoritative drawn symbol.
+function animateSlotReel(reel, finalIndex, duration) {
+    if (!reel.animate || slotsReducedMotion()) return null;
+    const height = reel.clientHeight;
+    if (!height) return null;
+    const strip = document.createElement('div');
+    strip.className = 'slots-reel-strip';
+    const steps = 14 + Math.round(duration / 150);
+    for (let i = 0; i <= steps; i++) {
+        const cell = document.createElement('div');
+        cell.style.height = `${height}px`;
+        cell.className = 'slots-reel-cell';
+        cell.textContent = i === steps ? SLOTS_SYMBOLS[finalIndex].icon
+            : i === 0 ? reel.textContent.trim() : SLOTS_SYMBOLS[i % SLOTS_SYMBOLS.length].icon;
+        strip.appendChild(cell);
+    }
+    reel.replaceChildren(strip);
+    return strip.animate([
+        { transform: 'translateY(0)' },
+        { transform: `translateY(-${steps * height}px)` }
+    ], { duration, easing: 'cubic-bezier(.12,.65,.18,1)', fill: 'forwards' });
+}
+
+function celebrateSlots(win, multiplier, winningReels) {
+    const cabinet = document.getElementById('slots-cabinet');
+    const celebration = document.getElementById('slots-celebration');
+    const amount = document.getElementById('slots-win-amount');
+    if (!cabinet || !cabinet.dataset || !celebration || !amount) return;
+    const bigWin = multiplier >= 8;
+    cabinet.dataset.result = bigWin ? 'big-win' : 'win';
+    document.getElementById('slots-win-title').textContent = multiplier >= 35 ? 'JACKPOT!' : bigWin ? 'VELKÁ VÝHRA!' : 'VÝHRA!';
+    amount.textContent = `+${win.toLocaleString('cs-CZ')} B$`;
+    celebration.hidden = false;
+    winningReels.forEach(reel => { reel.dataset.winner = 'true'; });
+    if (slotsReducedMotion()) return;
+    const particles = document.getElementById('slots-particles');
+    for (let i = 0; i < (bigWin ? 28 : 12); i++) {
+        const particle = document.createElement('span');
+        particle.className = 'slots-particle';
+        particle.textContent = i % 3 === 0 ? '✦' : '●';
+        particle.style.setProperty('--x', `${(Math.random() - 0.5) * 420}px`);
+        particle.style.setProperty('--y', `${-70 - Math.random() * 210}px`);
+        particle.style.setProperty('--r', `${Math.random() * 540}deg`);
+        particle.style.animationDelay = `${Math.random() * 180}ms`;
+        particles.appendChild(particle);
+        setTimeout(() => particle.remove(), 2000);
+    }
+}
+
 function spinSlots() {
     if (slotsState.spinning) return;
     if (bobuxBalance < slotsState.bet) {
@@ -3867,24 +3920,37 @@ function spinSlots() {
     const r1 = document.getElementById('slot-reel-1');
     const r2 = document.getElementById('slot-reel-2');
     const r3 = document.getElementById('slot-reel-3');
+    const cabinet = document.getElementById('slots-cabinet');
+    const celebration = document.getElementById('slots-celebration');
+    if (cabinet && cabinet.dataset) cabinet.dataset.result = 'spinning';
+    if (celebration) celebration.hidden = true;
+    [r1, r2, r3].forEach(reel => { if (reel.dataset) delete reel.dataset.winner; });
+    const particles = document.getElementById('slots-particles');
+    if (particles && particles.replaceChildren) particles.replaceChildren();
+
+    const final1 = pickRandomSlotSymbol();
+    const final2 = pickRandomSlotSymbol();
+    const final3 = pickRandomSlotSymbol();
+    const animations = [
+        animateSlotReel(r1, final1, 600),
+        animateSlotReel(r2, final2, 1100),
+        animateSlotReel(r3, final3, 1600)
+    ];
 
     // Only animate reels that have not reached their final symbol yet.
     let reel1Stopped = false;
     let reel2Stopped = false;
     const cycleInterval = setInterval(() => {
-        if (!reel1Stopped) r1.textContent = SLOTS_SYMBOLS[Math.floor(Math.random() * SLOTS_SYMBOLS.length)].icon;
-        if (!reel2Stopped) r2.textContent = SLOTS_SYMBOLS[Math.floor(Math.random() * SLOTS_SYMBOLS.length)].icon;
-        r3.textContent = SLOTS_SYMBOLS[Math.floor(Math.random() * SLOTS_SYMBOLS.length)].icon;
+        if (!animations[0] && !reel1Stopped && !slotsReducedMotion()) r1.textContent = SLOTS_SYMBOLS[Math.floor(Math.random() * SLOTS_SYMBOLS.length)].icon;
+        if (!animations[1] && !reel2Stopped && !slotsReducedMotion()) r2.textContent = SLOTS_SYMBOLS[Math.floor(Math.random() * SLOTS_SYMBOLS.length)].icon;
+        if (!animations[2] && !slotsReducedMotion()) r3.textContent = SLOTS_SYMBOLS[Math.floor(Math.random() * SLOTS_SYMBOLS.length)].icon;
         sfx.playSlotSpin();
     }, 60);
-
-    const final1 = pickRandomSlotSymbol();
-    const final2 = pickRandomSlotSymbol();
-    const final3 = pickRandomSlotSymbol();
 
     // Stop Reel 1
     setTimeout(() => {
         reel1Stopped = true;
+        if (animations[0]) animations[0].cancel();
         r1.textContent = SLOTS_SYMBOLS[final1].icon;
         sfx.playWheelTick();
     }, 600);
@@ -3892,6 +3958,7 @@ function spinSlots() {
     // Stop Reel 2
     setTimeout(() => {
         reel2Stopped = true;
+        if (animations[1]) animations[1].cancel();
         r2.textContent = SLOTS_SYMBOLS[final2].icon;
         sfx.playWheelTick();
     }, 1100);
@@ -3899,6 +3966,7 @@ function spinSlots() {
     // Stop Reel 3 and Resolve
     setTimeout(() => {
         clearInterval(cycleInterval);
+        if (animations[2]) animations[2].cancel();
         r3.textContent = SLOTS_SYMBOLS[final3].icon;
         sfx.playWheelTick();
 
@@ -3909,6 +3977,7 @@ function spinSlots() {
         const s1 = SLOTS_SYMBOLS[final1];
         const s2 = SLOTS_SYMBOLS[final2];
         const s3 = SLOTS_SYMBOLS[final3];
+        if (cabinet && cabinet.dataset) cabinet.dataset.result = 'idle';
 
         if (final1 === final2 && final2 === final3) {
             // 3-of-a-kind JACKPOT
@@ -3918,15 +3987,17 @@ function spinSlots() {
             addBobux(win, `Výhra na automatech: 3x ${s1.icon}`);
             updateCasinoBobuxDisplay();
             msgEl.textContent = `🎉 3x ${s1.icon} ${s1.name.toUpperCase()}! VÝHRA ${win} B$ (${s1.mult}x)!`;
-            msgEl.className = 'py-2.5 px-4 rounded-xl bg-amber-950/80 border border-amber-400 text-xs sm:text-sm font-black text-amber-200 shadow animate-bounce';
-            spawnObbyConfetti(new THREE.Vector3(18, 3, -8));
+            msgEl.className = 'py-2.5 px-4 rounded-xl bg-amber-950/80 border border-amber-400 text-xs sm:text-sm font-black text-[#FFE066] shadow';
+            celebrateSlots(win, s1.mult, [r1, r2, r3]);
+            if (!slotsReducedMotion()) spawnObbyConfetti(new THREE.Vector3(18, 3, -8));
         } else if (s1.icon === '🍒' && s2.icon === '🍒') {
             const win = Math.round(slotsState.bet * 1.5);
             sfx.playCoin();
             addBobux(win, 'Výhra na automatech: 2x 🍒');
             updateCasinoBobuxDisplay();
             msgEl.textContent = `🍒 2x Třešně! Výhra ${win} B$ (1.5x)`;
-            msgEl.className = 'py-2.5 px-4 rounded-xl bg-emerald-950/80 border border-emerald-400 text-xs sm:text-sm font-bold text-emerald-200 shadow';
+            msgEl.className = 'py-2.5 px-4 rounded-xl bg-emerald-950/80 border border-emerald-400 text-xs sm:text-sm font-bold text-[#FFE066] shadow';
+            celebrateSlots(win, 1.5, [r1, r2]);
         } else {
             msgEl.textContent = 'Žádná výhra. Zkus to znovu!';
             msgEl.className = 'py-2.5 px-4 rounded-xl bg-[#121316]/90 border border-white/10 text-xs sm:text-sm font-bold text-gray-400 shadow';
