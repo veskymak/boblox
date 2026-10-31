@@ -55,3 +55,9 @@ Adopt Me: `/api/user/sync` persists `adoptme_bucks` and `adoptme_pets` in users.
 - AdminUI ratings tab loads on entry/game selection and refreshes after writes; DOM textContent protects user content. Logout invalidates pending reads. Destructive actions require browser confirmation.
 - Supabase uses authenticated SECURITY DEFINER RPC `admin_game_social`, checking auth.uid() against profiles username. Deploy `docs/supabase/schema_update_v9.2.sql` first; unavailable RPC fails closed, with no offline success or Node fallback.
 - Comments have no separate voting model. Moderation supports viewing authors and deleting comments, while game reset preserves comments.
+
+## Casino social and removable votes (v9.3)
+- `casino` (Blox Vegas) must be allowed by Node VALID_GAME_IDS and Supabase admin_game_social. Previously omitted from both lists, causing 404/Unknown game.
+- Clicking an active like/dislike sends explicit `vote: null`; other clicks set the requested vote. Node removes the table row and users.game_ratings mirror atomically. Cloud deletes only matching game_id + authenticated profile username and verifies absence; failures never report success.
+- Re-run updated `docs/supabase/schema_update_v9.2.sql`: adds casino to moderation RPC and authenticated own-vote DELETE RLS policy. Missing RPC errors tell the admin which migration to run. Production deployment remains separate from local verification.
+- Regression tests cover casino admin API, persisted removal, fresh reads, UI payload, scoped cloud deletion, silent RLS rejection and missing RPC.

@@ -964,11 +964,13 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
         const gid = rateMatch[1];
         const vote = body.vote;
         if (!GAMES_CATALOG.some(g => g.id === gid)) return { ok: false, status: 404, data: { error: 'Hra nenalezena.' } };
-        if (vote !== 'like' && vote !== 'dislike') return { ok: false, status: 400, data: { error: 'Neplatné hodnocení.' } };
+        if (vote !== null && vote !== 'like' && vote !== 'dislike') return { ok: false, status: 400, data: { error: 'Neplatné hodnocení.' } };
 
         let upsertErr = null;
         try {
-            const res = await sb.from('game_ratings').upsert({
+            const res = vote === null
+                ? await sb.from('game_ratings').delete().eq('game_id', gid).eq('username', currentUser.username)
+                : await sb.from('game_ratings').upsert({
                 game_id: gid,
                 username: currentUser.username,
                 vote: vote,
@@ -980,9 +982,10 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
         }
 
         if (upsertErr) return gameSocialUnavailable();
-        const stats = await sb.from('game_ratings').select('vote').eq('game_id', gid);
+        const stats = await sb.from('game_ratings').select('username, vote').eq('game_id', gid);
         if (stats.error) return gameSocialUnavailable();
         const votes = stats.data || [];
+        if (vote === null && votes.some(v => v.username === currentUser.username)) return gameSocialUnavailable();
         const likes = votes.filter(v => v.vote === 'like').length;
         const dislikes = votes.filter(v => v.vote === 'dislike').length;
         const total = likes + dislikes;
@@ -1251,7 +1254,12 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
         if (!GAMES_CATALOG.some(g => g.id === gid)) return { ok: false, status: 404, data: { error: 'Hra nenalezena.' } };
         if ((action === 'social' ? 'GET' : 'POST') !== method) return { ok: false, status: 405, data: { error: 'Neplatná metoda.' } };
         const result = await sb.rpc('admin_game_social', { target_game: gid, moderation_action: action, target_comment: String(body.commentId || '') });
-        if (result.error || !result.data) return gameSocialUnavailable();
+        if (result.error || !result.data) {
+            const missing = result.error?.code === 'PGRST202' || result.error?.code === '42883';
+            return { ok: false, status: 503, data: { error: missing
+                ? 'Supabase: spus\u0165 aktualizovanou migraci schema_update_v9.2.sql v SQL Editoru.'
+                : 'Spr\u00e1va hodnocen\u00ed selhala v datab\u00e1zi. Ov\u011b\u0159 nasazen\u00ed aktu\u00e1ln\u00ed migrace a opr\u00e1vn\u011bn\u00ed Vendeez.' } };
+        }
         return { ok: true, status: 200, data: result.data };
     }
 

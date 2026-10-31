@@ -195,3 +195,43 @@ describe('Seam 3: Game Comments & Like/Dislike Resilience', () => {
         assert.ok(res.data.error);
     });
 });
+
+describe('cloud rating removal and casino moderation', () => {
+    function client(options = {}) {
+        const filters = [];
+        return {
+            filters,
+            auth: { getUser: async () => ({ data: { user: { id: 'player-id' } } }) },
+            from(table) {
+                if (table === 'profiles') return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { id: 'player-id', username: options.username || 'Vendeez' } }) }) }) };
+                assert.equal(table, 'game_ratings');
+                return {
+                    delete() { return { eq(key, value) { filters.push([key, value]); return this; }, then(resolve) { resolve({ error: options.deleteError || null }); } }; },
+                    select() { return { eq: async () => ({ data: options.remaining || [], error: null }) }; }
+                };
+            },
+            rpc: async (name, args) => {
+                assert.equal(name, 'admin_game_social');
+                assert.equal(args.target_game, 'casino');
+                return options.rpcError ? { error: options.rpcError } : { data: { ratings: [], comments: [] } };
+            }
+        };
+    }
+    it('deletes only the authenticated player vote and confirms persisted removal', async () => {
+        const sb = client();
+        const res = await PortalStore.handleSupabaseApiRequest(sb, '/api/games/casino/rate', { method: 'POST', body: { vote: null } });
+        assert.equal(res.ok, true);
+        assert.equal(res.data.myVote, null);
+        assert.deepEqual(sb.filters, [['game_id', 'casino'], ['username', 'Vendeez']]);
+        for (const bad of [{ deleteError: { code: '42501' } }, { remaining: [{ username: 'Vendeez', vote: 'like' }] }]) {
+            assert.equal((await PortalStore.handleSupabaseApiRequest(client(bad), '/api/games/casino/rate', { method: 'POST', body: { vote: null } })).ok, false);
+        }
+    });
+    it('loads casino moderation and explains missing database migrations', async () => {
+        assert.equal((await PortalStore.handleSupabaseApiRequest(client(), '/api/admin/games/casino/social')).ok, true);
+        const missing = await PortalStore.handleSupabaseApiRequest(client({ rpcError: { code: 'PGRST202' } }), '/api/admin/games/casino/social');
+        assert.equal(missing.ok, false);
+        assert.match(missing.data.error, /schema_update_v9.2.sql/);
+        assert.equal((await PortalStore.handleSupabaseApiRequest(client({ username: 'OtherPlayer' }), '/api/admin/games/casino/social')).status, 403);
+    });
+});

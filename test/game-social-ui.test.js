@@ -51,3 +51,17 @@ test('delayed comment and vote responses stay attached to the original game', as
         assert.equal(harness.renders(), 0);
     }
 });
+
+test('clicking an active rating sends an explicit removal and clears its state', async () => {
+    const harness = setup();
+    const ctx = harness.context;
+    ctx.liveSocialState.ratingsByGame.obby = { myVote: 'like', likes: 1 };
+    let body;
+    ctx.apiRequest = async (path, options) => {
+        body = options.body;
+        return { ok: true, data: { likes: 0, dislikes: 0, ratingPct: null, myVote: null } };
+    };
+    await vm.runInContext("rateSelectedGame('like')", ctx);
+    assert.equal(body.vote, null);
+    assert.equal(ctx.liveSocialState.ratingsByGame.obby.myVote, null);
+});

@@ -38,6 +38,13 @@ test('admin moderation persists resets and comment removal across devices', asyn
         assert.equal(posted.status, 201);
         const admin = (await request('/api/auth/register', null, { username: 'Vendeez', password })).data.token;
         const route = '/api/admin/games/obby/';
+        assert.equal((await request('/api/admin/games/casino/social', admin)).status, 200);
+        assert.equal((await request('/api/games/casino/rate', alice, { vote: 'like' })).status, 200);
+        assert.equal((await request('/api/games/casino/rate', alice, { vote: null })).status, 200);
+        const casino = (await request('/api/games/casino/social', alice)).data;
+        assert.equal(casino.myVote, null);
+        assert.equal(casino.likes, 0);
+        assert.equal(JSON.parse(db.prepare('SELECT game_ratings FROM users WHERE username = ?').get('SocialAlice').game_ratings).casino, undefined);
         assert.equal((await request(route + 'social')).status, 401);
         assert.equal((await request(route + 'social', alice)).status, 403);
         assert.equal((await request(route + 'reset-ratings', bob, {})).status, 403);

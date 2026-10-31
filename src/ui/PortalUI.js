@@ -640,12 +640,16 @@ function updateModalRatingUI(gameId) {
     if (dislikesEl) dislikesEl.textContent = String(info.dislikes || 0);
 
     if (btnLike) {
+        btnLike.setAttribute('aria-pressed', String(info.myVote === 'like'));
+        btnLike.title = info.myVote === 'like' ? 'Odebrat Like' : 'Like';
         btnLike.className = 'min-h-[44px] min-w-[44px] px-2.5 py-1 rounded-lg border text-xs font-bold flex items-center gap-1 transition ' +
             (info.myVote === 'like'
                 ? 'bg-[#00B06F] border-green-300 text-white'
                 : 'bg-[#232527] hover:bg-[#00B06F]/25 border-[#393B3D] text-gray-200');
     }
     if (btnDislike) {
+        btnDislike.setAttribute('aria-pressed', String(info.myVote === 'dislike'));
+        btnDislike.title = info.myVote === 'dislike' ? 'Odebrat Dislike' : 'Dislike';
         btnDislike.className = 'min-h-[44px] min-w-[44px] px-2.5 py-1 rounded-lg border text-xs font-bold flex items-center gap-1 transition ' +
             (info.myVote === 'dislike'
                 ? 'bg-red-600 border-red-300 text-white'
@@ -661,9 +665,10 @@ async function rateSelectedGame(vote) {
         return;
     }
     const gameId = selectedGameId;
+    const requestedVote = liveSocialState.ratingsByGame[gameId]?.myVote === vote ? null : vote;
     const res = await apiRequest(`/api/games/${gameId}/rate`, {
         method: 'POST',
-        body: { vote }
+        body: { vote: requestedVote }
     });
     if (!res.ok) {
         showCommentStatus(res.data?.error || 'Hodnocení se nezdařilo.', true);
@@ -679,7 +684,7 @@ async function rateSelectedGame(vote) {
     sfx.playCoin();
     updateModalRatingUI(gameId);
     renderGameCatalog();
-    showCommentStatus(`Tvé hodnocení (${vote === 'like' ? '👍 Like' : '👎 Dislike'}) bylo uloženo k účtu!`, false);
+    showCommentStatus(res.data.myVote === null ? 'Tvoje hodnocen\u00ed bylo odebr\u00e1no.' : `Tvé hodnocení (${vote === 'like' ? '👍 Like' : '👎 Dislike'}) bylo uloženo k účtu!`, false);
 }
 
 function updateCommentCharCounter() {

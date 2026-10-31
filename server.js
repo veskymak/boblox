@@ -22,7 +22,7 @@ const MAX_COMMENT_LENGTH = 250;
 
 const VALID_GAME_IDS = new Set([
     'adoptme', 'obby', 'lava', 'sfoth', 'tycoon', 'disasters',
-    'toh', 'zombies', 'speedrun', 'hideandseek', 'bedwars'
+    'toh', 'zombies', 'speedrun', 'hideandseek', 'bedwars', 'casino'
 ]);
 
 /* ============================================================================
@@ -728,7 +728,7 @@ app.post('/api/games/:gameId/rate', requireAuth, (req, res) => {
     }
 
     const vote = req.body && req.body.vote;
-    if (vote !== 'like' && vote !== 'dislike') {
+    if (vote !== null && vote !== 'like' && vote !== 'dislike') {
         return res.status(400).json({ error: 'Neplatné hodnocení.' });
     }
 
@@ -744,17 +744,25 @@ app.post('/api/games/:gameId/rate', requireAuth, (req, res) => {
         });
     }
 
-    db.prepare(`
-        INSERT INTO game_ratings (user_id, game_id, vote, updated_at)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(user_id, game_id) DO UPDATE SET vote = excluded.vote, updated_at = excluded.updated_at
-    `).run(req.userRow.id, gameId, vote, now);
-
-    // Sync user's game_ratings JSON column
-    const userRatings = safeParseJSON(req.userRow.game_ratings, {});
-    userRatings[gameId] = vote;
-    db.prepare('UPDATE users SET game_ratings = ? WHERE id = ?')
-        .run(JSON.stringify(userRatings), req.userRow.id);
+    db.exec('BEGIN IMMEDIATE');
+    let userRatings;
+    try {
+        if (vote === null) {
+            db.prepare('DELETE FROM game_ratings WHERE user_id = ? AND game_id = ?').run(req.userRow.id, gameId);
+        } else {
+            db.prepare(`INSERT INTO game_ratings (user_id, game_id, vote, updated_at) VALUES (?, ?, ?, ?)
+                ON CONFLICT(user_id, game_id) DO UPDATE SET vote = excluded.vote, updated_at = excluded.updated_at`)
+                .run(req.userRow.id, gameId, vote, now);
+        }
+        userRatings = safeParseJSON(req.userRow.game_ratings, {});
+        if (vote === null) delete userRatings[gameId];
+        else userRatings[gameId] = vote;
+        db.prepare('UPDATE users SET game_ratings = ? WHERE id = ?').run(JSON.stringify(userRatings), req.userRow.id);
+        db.exec('COMMIT');
+    } catch (err) {
+        db.exec('ROLLBACK');
+        return res.status(500).json({ error: 'Rating could not be saved.' });
+    }
 
     const stats = getGameRatingStats(gameId);
     return res.json({

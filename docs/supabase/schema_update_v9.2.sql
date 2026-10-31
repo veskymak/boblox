@@ -12,7 +12,7 @@ BEGIN
     ) THEN
         RAISE EXCEPTION 'Access denied' USING ERRCODE = '42501';
     END IF;
-    IF target_game NOT IN ('adoptme','obby','lava','sfoth','tycoon','disasters','toh','zombies','speedrun','hideandseek','bedwars') THEN
+    IF target_game NOT IN ('adoptme','obby','lava','sfoth','tycoon','disasters','toh','zombies','speedrun','hideandseek','bedwars','casino') THEN
         RAISE EXCEPTION 'Unknown game';
     END IF;
     IF moderation_action = 'social' THEN
@@ -42,3 +42,13 @@ END;
 $$;
 REVOKE ALL ON FUNCTION public.admin_game_social(text,text,text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_game_social(text,text,text) TO authenticated;
+
+-- Players may remove only their own votes. Existing read/write policies remain.
+ALTER TABLE public.game_ratings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS game_ratings_delete_own ON public.game_ratings;
+CREATE POLICY game_ratings_delete_own ON public.game_ratings
+FOR DELETE TO authenticated USING (
+    EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid()
+        AND p.username = game_ratings.username)
+);
+GRANT DELETE ON public.game_ratings TO authenticated;
