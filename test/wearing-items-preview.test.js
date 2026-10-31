@@ -14,6 +14,7 @@ global.document = {
 global.setInterval = () => ({ unref: () => {} });
 global.setTimeout = () => ({ unref: () => {} });
 
+global.getPlayerTag = require('../src/state/PortalStore.js').getPlayerTag;
 const PortalUI = require('../src/ui/PortalUI.js');
 const { drawWearingItemCardCanvas } = PortalUI;
 

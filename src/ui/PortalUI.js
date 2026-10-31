@@ -922,11 +922,11 @@ function renderRobloxTopRightPlayerList() {
         nameSpan.textContent = p.displayName;
         nameContainer.appendChild(nameSpan);
 
-        if (p.isVip) {
+        if (getPlayerTag(p.username, p.isVip)) {
             const vipBadge = document.createElement('span');
             vipBadge.className = 'shrink-0 px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider rounded bg-gradient-to-r from-[#FFE066] to-[#F59F00] text-black shadow-sm font-sans select-none';
-            vipBadge.textContent = 'VIP';
-            vipBadge.title = 'VIP Hráč';
+            vipBadge.textContent = getPlayerTag(p.username, p.isVip);
+            vipBadge.title = vipBadge.textContent;
             nameContainer.appendChild(vipBadge);
         }
 
@@ -979,10 +979,10 @@ function renderRobloxPeopleList() {
             const handleDiv = card.querySelector('.text-gray-400');
             if (nameDiv) {
                 nameDiv.textContent = p.displayName;
-                if (p.isVip) {
+                if (getPlayerTag(p.username, p.isVip)) {
                     const tag = document.createElement('span');
                     tag.className = 'ml-1 px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider rounded bg-gradient-to-r from-[#FFE066] to-[#F59F00] text-black shadow-sm font-sans align-middle inline-block';
-                    tag.textContent = 'VIP';
+                    tag.textContent = getPlayerTag(p.username, p.isVip);
                     nameDiv.appendChild(tag);
                 }
             }
@@ -1009,10 +1009,10 @@ function renderRobloxPeopleList() {
             const handleDiv = row.querySelector('.text-gray-400');
             if (nameDiv) {
                 nameDiv.textContent = p.displayName;
-                if (p.isVip) {
+                if (getPlayerTag(p.username, p.isVip)) {
                     const tag = document.createElement('span');
                     tag.className = 'px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider rounded bg-gradient-to-r from-[#FFE066] to-[#F59F00] text-black shadow-sm font-sans align-middle inline-block';
-                    tag.textContent = 'VIP';
+                    tag.textContent = getPlayerTag(p.username, p.isVip);
                     nameDiv.appendChild(tag);
                 }
             }
@@ -1180,10 +1180,10 @@ function appendRobloxChatMessage(senderName, text, isVip = false) {
     const row = document.createElement('div');
     row.className = 'leading-snug break-words flex items-baseline flex-wrap';
 
-    if (isVip) {
+    if (getPlayerTag(senderName, isVip)) {
         const vipTag = document.createElement('span');
         vipTag.className = 'mr-1.5 px-1 py-0.2 text-[9px] font-black uppercase tracking-wider rounded bg-gradient-to-r from-[#FFE066] to-[#F59F00] text-black shadow-sm font-sans shrink-0';
-        vipTag.textContent = 'VIP';
+        vipTag.textContent = getPlayerTag(senderName, isVip);
         row.appendChild(vipTag);
     }
 
@@ -4319,7 +4319,9 @@ function renderPortalProfileView() {
 
     const vipBadge = document.getElementById('profile-vip-badge');
     if (vipBadge && vipBadge.classList) {
-        const isVip = !!(profile.isVip || (profile.isLocal && typeof isCurrentUserVip === 'function' && isCurrentUserVip()));
+        const tag = getPlayerTag(profile.username, profile.isVip || (profile.isLocal && typeof isCurrentUserVip === 'function' && isCurrentUserVip()));
+        vipBadge.textContent = tag;
+        const isVip = !!tag;
         if (typeof vipBadge.classList.toggle === 'function') {
             vipBadge.classList.toggle('hidden', !isVip);
         } else if (isVip && typeof vipBadge.classList.remove === 'function') {
@@ -5634,7 +5636,7 @@ function renderLobbyChatFriendsList() {
                     ${dotHtml}
                 </div>
                 <div class="min-w-0">
-                    <div class="text-xs font-bold text-white truncate flex items-center gap-1.5">${escapeHtml(friendName)} ${friend.isVip ? '<span class="px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider rounded bg-gradient-to-r from-[#FFE066] to-[#F59F00] text-black shadow-sm font-sans align-middle inline-block">VIP</span>' : ''}</div>
+                    <div class="text-xs font-bold text-white truncate flex items-center gap-1.5">${escapeHtml(friendName)} ${getPlayerTag(friendName, friend.isVip) ? '<span class="px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider rounded bg-gradient-to-r from-[#FFE066] to-[#F59F00] text-black shadow-sm font-sans align-middle inline-block">' + getPlayerTag(friendName, friend.isVip) + '</span>' : ''}</div>
                     <div class="text-[10px] ${unread > 0 ? 'text-white font-bold' : (pres.inGame ? 'text-[#00B06F] font-semibold' : 'text-gray-400')} truncate max-w-[150px] sm:max-w-[170px]">${escapeHtml(lastMsgSnippet)}</div>
                 </div>
             </div>
@@ -5659,7 +5661,7 @@ function renderLobbyDirectChatMessages() {
 
     const partnerName = partner.displayName || partner.username || 'Přítel';
     if (titleEl) {
-        titleEl.innerHTML = `${escapeHtml(partnerName)} ${partner.isVip ? '<span class="ml-1 px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider rounded bg-gradient-to-r from-[#FFE066] to-[#F59F00] text-black shadow-sm font-sans align-middle inline-block">VIP</span>' : ''}`;
+        titleEl.innerHTML = `${escapeHtml(partnerName)} ${getPlayerTag(partnerName, partner.isVip) ? '<span class="ml-1 px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider rounded bg-gradient-to-r from-[#FFE066] to-[#F59F00] text-black shadow-sm font-sans align-middle inline-block">' + getPlayerTag(partnerName, partner.isVip) + '</span>' : ''}`;
     }
 
     if (statusEl) {

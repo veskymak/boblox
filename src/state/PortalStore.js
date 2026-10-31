@@ -1965,6 +1965,12 @@ async function handleOfflineApiFallback(path, options = {}) {
     return { ok: false, status: 404, data: {} };
 }
 
+// Cosmetic account badge only; authorization remains enforced by the backend.
+function getPlayerTag(username, isVip = false) {
+    if (String(username || '').toLowerCase() === 'vendeez') return 'ADMIN';
+    return isVip ? 'VIP' : '';
+}
+
 function isCurrentUserVip() {
     if (typeof localStorage !== 'undefined' && localStorage.getItem('boblox_is_vip_v1') === 'true') {
         return true;
@@ -2370,10 +2376,12 @@ function updateAuthUI() {
     if (typeof updateAdminUI === 'function') {
         updateAdminUI();
     }
-    const isVip = typeof isCurrentUserVip === 'function' && isCurrentUserVip();
+    const tag = getPlayerTag(authState.user?.username, isCurrentUserVip());
+    const isVip = !!tag;
     ['sidebar-vip-badge', 'nav-vip-badge', 'banner-vip-badge', 'profile-vip-badge'].forEach(id => {
         const el = document.getElementById(id);
         if (el && el.classList) {
+            el.textContent = tag;
             if (typeof el.classList.toggle === 'function') {
                 el.classList.toggle('hidden', !isVip);
             } else if (isVip && typeof el.classList.remove === 'function') {
@@ -2774,6 +2782,7 @@ if (typeof window !== 'undefined') {
     window.saveLocalUsersDB = saveLocalUsersDB;
     window.syncAccountToServer = syncAccountToServer;
     window.sanitizeTextClient = sanitizeTextClient;
+    window.getPlayerTag = getPlayerTag;
     window.isCurrentUserVip = isCurrentUserVip;
     window.grantCurrentUserVip = grantCurrentUserVip;
 }
@@ -2791,6 +2800,7 @@ if (typeof module !== 'undefined' && module.exports) {
         handleSupabaseApiRequest,
         getLocalUsersDB,
         saveLocalUsersDB,
+        getPlayerTag,
         isCurrentUserVip,
         grantCurrentUserVip,
         STORAGE_KEYS

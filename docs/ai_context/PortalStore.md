@@ -94,3 +94,6 @@ async function syncAccountToServer({ bypassQueue = false } = {}) {
     await apiRequest('/api/user/sync', { method: 'POST', body: JSON.stringify(syncBody) });
 }
 ```
+
+## Player tag priority
+getPlayerTag(username, isVip) is the cosmetic badge SSOT: only Vendeez (case-insensitive exact username) receives ADMIN, ahead of VIP. Uses the existing persisted account username across devices; grants no permissions. Existing *-vip-badge DOM IDs display the primary tag.

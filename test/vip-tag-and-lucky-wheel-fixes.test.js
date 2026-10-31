@@ -175,8 +175,8 @@ describe('Lucky Wheel Overhaul & Universal VIP Tag Mechanics', () => {
 
         it('renders golden VIP tag in 3D overhead nameplate sprite when isVip is true', () => {
             assert.match(networkManagerSource, /function createNameplateSprite\(nameText,\s*isVip\s*=\s*false\)/);
-            assert.match(networkManagerSource, /ctx\.fillText\('VIP',/);
-            assert.match(networkManagerSource, /isVip \? '#FFE066' : '#00A2FF'/);
+            assert.match(networkManagerSource, /ctx\.fillText\(tag,/);
+            assert.match(networkManagerSource, /tag \? '#FFE066' : '#00A2FF'/);
         });
 
         it('propagates isVip in in-game chat messages across network', () => {

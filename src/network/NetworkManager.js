@@ -1059,6 +1059,7 @@ function updateMpCounters() {
 }
 
 function createNameplateSprite(nameText, isVip = false) {
+    const tag = getPlayerTag(nameText, isVip);
     const canvas = document.createElement('canvas');
     canvas.width = 256;
     canvas.height = 64;
@@ -1066,23 +1067,23 @@ function createNameplateSprite(nameText, isVip = false) {
 
     ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
     ctx.fillRect(18, 10, 220, 44);
-    ctx.strokeStyle = isVip ? '#FFE066' : '#00A2FF';
+    ctx.strokeStyle = tag ? '#FFE066' : '#00A2FF';
     ctx.lineWidth = 3;
     ctx.strokeRect(18, 10, 220, 44);
 
-    if (isVip) {
+    if (tag) {
         ctx.fillStyle = '#FFE066';
-        ctx.fillRect(24, 18, 44, 28);
+        ctx.fillRect(24, 18, 64, 28);
         ctx.fillStyle = '#000000';
         ctx.font = '900 16px Inter, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('VIP', 46, 33);
+        ctx.fillText(tag, 56, 33);
 
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold 20px Inter, sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillText(String(nameText || 'Hráč').slice(0, 11), 74, 32);
+        ctx.fillText(String(nameText || 'Hráč').slice(0, 10), 94, 32);
     } else {
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold 22px Inter, sans-serif';

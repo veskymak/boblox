@@ -98,3 +98,6 @@ async function acceptFriendRequest(senderUsername) {
     syncAccountToServer();
 }
 ```
+
+## Player tag priority
+Profile, ESC people cards, leaderboard, game chat and direct messages use getPlayerTag(username, isVip). ADMIN replaces VIP for Vendeez, preserving priority in narrow layouts.

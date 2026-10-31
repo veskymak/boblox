@@ -96,3 +96,6 @@ function broadcastLocalPlayerState(dt) {
     if (mpState.syncTimer < 0.05) return;
     mpState.syncTimer = 0;
 ```
+
+## Player tag priority
+createNameplateSprite(nameText, isVip) uses getPlayerTag: Vendeez receives ADMIN even without VIP. The badge is 64px wide. This cosmetic label does not change network authorization.
