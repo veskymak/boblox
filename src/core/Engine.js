@@ -449,6 +449,7 @@ function createBlock(x, y, z, w, h, d, colorHex, opts = {}) {
 }
 
 function cleanupCurrentGame() {
+    if (typeof unmountAdoptMeUI === 'function') unmountAdoptMeUI();
     if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
         animationFrameId = null;

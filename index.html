@@ -354,6 +354,35 @@
         @keyframes slots-glow { 20% { box-shadow:0 0 48px #ffe06665,inset 0 0 60px #a78bfa25; } }
         @keyframes slots-burst { 8% { opacity:1; } 70% { opacity:1; } 100% { opacity:0; transform:translate(var(--x),var(--y)) rotate(var(--r)); } }
         @media (prefers-reduced-motion:reduce) { #casino-view-slots *,#slots-cabinet { animation:none !important; transition:none !important; } }
+        #adoptme-ui { position:absolute; left:16px; top:140px; z-index:35; width:min(390px, calc(100% - 32px)); color:#f3f4f6; pointer-events:none; font-size:13px; }
+        #adoptme-ui button { min-height:44px; min-width:44px; border:1px solid #4b5057; border-radius:12px; padding:8px 10px; background:#2C2F33; color:#f3f4f6; cursor:pointer; pointer-events:auto; }
+        #adoptme-ui button:hover, #adoptme-ui button[aria-expanded="true"], #adoptme-ui button[aria-pressed="true"] { background:#24465b; border-color:#00A2FF; }
+        #adoptme-ui button:focus-visible { outline:3px solid #00A2FF; outline-offset:2px; }
+        .adopt-toolbar { display:flex; gap:4px; pointer-events:auto; }
+        #adoptme-panel { margin-top:8px; max-height:min(520px, calc(100dvh - 265px)); overflow-y:auto; overscroll-behavior:contain; padding:16px; background:rgba(25,27,29,.97); border:1px solid #4b5057; border-radius:18px; box-shadow:0 12px 35px #0006; pointer-events:auto; }
+        #adoptme-panel header { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+        #adoptme-panel h2 { font-size:19px; font-weight:800; }
+        #adoptme-panel h3 { font-weight:700; margin:8px 0; }
+        #adoptme-panel p { color:#c4c9d1; margin:8px 0; line-height:1.6; }
+        #adoptme-ui small { display:block; font-size:11px; color:#c4c9d1; margin-top:5px; }
+        .adopt-balance { color:#86efac; font-weight:700; margin:10px 0; }
+        .adopt-hero { display:flex; align-items:center; gap:14px; }
+        .adopt-hero > span { font-size:48px; }
+        .adopt-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:10px 0; }
+        .adopt-card { padding:12px; border-radius:12px; background:#232527; margin:8px 0; }
+        #adoptme-panel progress { width:100%; height:12px; accent-color:#00B06F; margin:8px 0; }
+        #adoptme-route { margin-top:8px; padding:8px 12px; border-radius:12px; background:#191b1df2; pointer-events:auto; }
+        #adoptme-route > span { font-size:24px; margin-right:8px; color:#7dd3fc; }
+        @media (max-width:640px) {
+            #adoptme-ui { top:110px; left:8px; width:calc(100% - 16px); }
+            .adopt-toolbar { justify-content:center; }
+            #adoptme-ui .adopt-toolbar button { padding:6px 8px; font-size:12px; }
+            #adoptme-panel { max-height:calc(100dvh - 310px); padding:12px; }
+        }
+        @media (max-height:500px) {
+            #adoptme-ui { top:65px; width:min(360px, calc(100% - 32px)); }
+            #adoptme-panel { max-height:calc(100dvh - 180px); }
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -2762,15 +2791,16 @@
     </div>
 
     <!-- BOBLOX Modular Architecture (Core Engine, State, Network, Games & UI with Cache-Busting) -->
-    <script src="src/core/SoundEngine.js?v=8.9" defer></script>
-    <script src="src/state/PortalStore.js?v=8.9" defer></script>
-    <script src="src/network/NetworkManager.js?v=8.9" defer></script>
-    <script src="src/ui/PortalUI.js?v=8.9" defer></script>
-    <script src="src/ui/AdminUI.js?v=8.9" defer></script>
-    <script src="src/core/AvatarAndShop.js?v=8.9" defer></script>
-    <script src="src/core/Engine.js?v=8.9" defer></script>
-    <script src="src/games/GameWorlds.js?v=8.9" defer></script>
-    <script src="src/core/PhysicsAndLoop.js?v=8.9" defer></script>
-    <script src="src/core/InputManager.js?v=8.9" defer></script>
+    <script src="src/core/SoundEngine.js?v=9.0" defer></script>
+    <script src="src/state/PortalStore.js?v=9.0" defer></script>
+    <script src="src/network/NetworkManager.js?v=9.0" defer></script>
+    <script src="src/ui/PortalUI.js?v=9.0" defer></script>
+    <script src="src/ui/AdminUI.js?v=9.0" defer></script>
+    <script src="src/core/AvatarAndShop.js?v=9.0" defer></script>
+    <script src="src/core/Engine.js?v=9.0" defer></script>
+    <script src="src/ui/AdoptMeUI.js?v=9.0" defer></script>
+    <script src="src/games/GameWorlds.js?v=9.0" defer></script>
+    <script src="src/core/PhysicsAndLoop.js?v=9.0" defer></script>
+    <script src="src/core/InputManager.js?v=9.0" defer></script>
 </body>
 </html>

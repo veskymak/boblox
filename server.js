@@ -152,6 +152,8 @@ function serializeUserForClient(row) {
         is_vip: isVip,
         isVip: isVip,
         inventory: inv,
+        adoptme_bucks: Number.isFinite(inv.adoptme_bucks) ? inv.adoptme_bucks : 120,
+        adoptme_pets: Array.isArray(inv.adoptme_pets) && inv.adoptme_pets.length ? inv.adoptme_pets : [{ id: 'dog', tasksDone: 0, ageIdx: 0 }],
         daily_claim_date: Number(row.daily_claim_date) || 0,
         last_login_at: Number(row.last_login_at) || 0,
         last_active_at: Number(row.last_active_at) || 0,
@@ -361,6 +363,20 @@ app.post('/api/user/sync', requireAuth, (req, res) => {
         const body = req.body || {};
         const currentInv = safeParseJSON(req.userRow.inventory, {});
         let nextCoins = req.userRow.coins;
+
+        // Adopt Me progress shares the account inventory on SQLite; Supabase uses its existing columns.
+        const petIds = new Set(['dog', 'cat', 'penguin', 'bunny', 'redpanda', 'kitsune', 'unicorn', 'dragon']);
+        if (body.adoptme_bucks !== undefined || body.adoptme_pets !== undefined) {
+            if (!Number.isSafeInteger(body.adoptme_bucks) || body.adoptme_bucks < 0 || body.adoptme_bucks > 10000000 ||
+                !Array.isArray(body.adoptme_pets) || !body.adoptme_pets.length || body.adoptme_pets.length > 200 ||
+                body.adoptme_pets.some(p => !p || !petIds.has(p.id) || !Number.isSafeInteger(p.tasksDone) || p.tasksDone < 0 || p.tasksDone > 1000000)) {
+                return res.status(400).json({ error: 'Neplatný postup Adopt Me.' });
+            }
+            currentInv.adoptme_bucks = body.adoptme_bucks;
+            currentInv.adoptme_pets = body.adoptme_pets.map(p => ({
+                id: p.id, tasksDone: p.tasksDone, ageIdx: Math.min(5, Math.floor(p.tasksDone / 2))
+            }));
+        }
 
         if (typeof body.coins === 'number' && Number.isFinite(body.coins) && body.coins >= 0 && body.coins <= 10000000) {
             nextCoins = Math.floor(body.coins);

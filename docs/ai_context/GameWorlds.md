@@ -1,6 +1,8 @@
 # GameWorlds.js - AI Context
 
 ## 1. Quick Summary (TL;DR)
+
+Adopt Me update: `ADOPT_ME_NEEDS` now includes `school` and `camping` (5 seconds in their zones, tick owned by PhysicsAndLoop). School at (-16,-28), camp at (16,-28); solid props use createBlock. Starter need is selected by id `hungry`, not array position. Hatching checks the 200-pet account limit before charging. `refreshAdoptMeHUD` also renders the dedicated [AdoptMeUI](AdoptMeUI.md), mounted at setup. Existing Bucks/pet persistence is now handled by Node account inventory as well as existing Supabase columns.
 `src/games/GameWorlds.js` obsahuje procedurální generování 3D prostředí, herní pravidla, interaktivní stanice a UI všech 12 miniher (Obby, Lava Tower, SFOTH, Tycoon, Natural Disasters, Tower of Hell, Zombie Outpost, Speed Run, Hide & Seek, Bedwars, Adopt Me! a Casino & Resort).
 
 ---

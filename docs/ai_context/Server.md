@@ -1,6 +1,8 @@
 # Server.js - AI Context
 
 ## 1. Quick Summary (TL;DR)
+
+Adopt Me: `/api/user/sync` persists `adoptme_bucks` and `adoptme_pets` in users.inventory JSON; `serializeUserForClient` returns them as top-level properties for existing PortalStore hydration. Both fields must be supplied together; validates finite bounded integer currency, 1–200 known pets, nonnegative bounded task counts; age is derived from tasks. Omitted fields preserve progress. `/api/auth/me` restores it on another device. Test `test/adoptme-progress.test.js` uses a temporary SQLite DB and real authenticated HTTP requests, never the player's database.
 `server.js` je backendový Node.js Express server s SQLite databází (`boblox.db`) a WebSocket real-time serverem (`/ws`). Zajišťuje perzistenci uživatelských účtů, ověřování JWT tokenů, synchronizaci ekonomiky a inventářů (včetně VIP statusu `is_vip`), multiplayerový relay a administrátorské API.
 
 ---

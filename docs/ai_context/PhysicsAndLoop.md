@@ -1,6 +1,8 @@
 # PhysicsAndLoop.js - AI Context
 
 ## 1. Quick Summary (TL;DR)
+
+Adopt Me update: `updateGame11AdoptMe` calls `updateAdoptMeNavigation(dt)` and runs school/camp timers (5s inside radius 4, y<6); leaving resets `activityTime`. Pet switching delegates to `selectAdoptMePet` to dismount safely. Food/water hotbar actions only reward an actual matching need; repeated use while satisfied grants no money.
 `src/core/PhysicsAndLoop.js` řídí centrální herní smyčku (`gameLoop` poháněný `requestAnimationFrame`), veškerou fyziku hráče (pohyb, gravitace, skoky, žebříky, pohybující se plošiny), diskrétní AABB kolizní detekci a primární akce hráče (útoky zbraněmi, pokládání bloků, interakce). Slouží jako centrální integrační bod spojující vstup uživatele, stav světa, vykreslení Three.js scény a distribuci stavu do multiplayeru.
 
 ---

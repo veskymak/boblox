@@ -1013,6 +1013,16 @@ const ADOPT_ME_PET_CATALOG = {
 
 const ADOPT_ME_NEEDS = [
     {
+        id: 'school', name: '🎓 Škola pro mazlíčky',
+        hint: 'Navštiv tréninkový dvorek za Nursery (X = -16, Z = -28). Zůstaň na místě 5 sekund!',
+        color: 0x3b82f6, bucks: 50, bobux: 35
+    },
+    {
+        id: 'camping', name: '🏕️ Výlet do kempu',
+        hint: 'Vyraz k táboráku za Nursery (X = +16, Z = -28). Odpočívej 5 sekund!',
+        color: 0xfb923c, bucks: 50, bobux: 35
+    },
+    {
         id: 'hungry',
         name: '🍎 Hlad (Hungry)',
         hint: 'Nakrm mazlíčka [Slot 1: 🍎 Krmení] nebo u misky v Nursery!',
@@ -1280,6 +1290,7 @@ function refreshAdoptMeHUD() {
     const activePetEntry = gd.pets[gd.activePetIdx] || gd.pets[0];
     const petDef = ADOPT_ME_PET_CATALOG[activePetEntry.id] || ADOPT_ME_PET_CATALOG.dog;
     const stageName = ADOPT_ME_AGE_STAGES[Math.min(ADOPT_ME_AGE_STAGES.length - 1, activePetEntry.ageIdx || 0)];
+    if (typeof renderAdoptMePanel === 'function') renderAdoptMePanel();
 
     document.getElementById('hud-extra-label').textContent = 'Adopt Me: ';
     document.getElementById('hud-extra-value').textContent =
@@ -1356,6 +1367,11 @@ function completeAdoptMeNeed(needId) {
 function hatchAdoptMeEgg(eggStand) {
     const gd = gameSpecificData;
     if (!gd || gd.hatchCooldown > 0) return;
+    if (gd.pets.length >= 200) {
+        gd.hatchCooldown = 2;
+        showHudToast('Sbírka je plná (200 mazlíčků). Vyber si parťáka v batohu!', 'blue');
+        return;
+    }
 
     if (gd.bucks < eggStand.cost) {
         gd.hatchCooldown = 1.8;
@@ -1555,6 +1571,18 @@ function setupGame11AdoptMe() {
     createBlock(-5.5, 1.5, -8, 2.2, 0.6, 2.2, 0xef4444); // Food Bowl
     createBlock(5.5, 1.5, -8, 2.2, 0.6, 2.2, 0x38bdf8);  // Water Bowl
 
+    // New north-side activities: open training yard and a campsite, with collision-aware props.
+    createBlock(-16, 1.25, -28, 10, 0.3, 7, 0x60a5fa);
+    createBlock(-16, 3.5, -31, 10, 0.5, 0.5, 0x2563eb);
+    [-20, -12].forEach(x => createBlock(x, 2.5, -31, 0.4, 3, 0.4, 0xffffff));
+    [-19, -16, -13].forEach(x => createBlock(x, 1.8, -29, 1.8, 0.8, 1.5, 0xfbbf24));
+    createBlock(16, 1.25, -28, 10, 0.3, 7, 0x86efac);
+    createBlock(19, 2.3, -30, 3, 2.5, 2.5, 0xfb923c);
+    createBlock(15.5, 1.6, -28, 2, 0.6, 2, 0x78350f);
+    createBlock(15.5, 2.2, -28, 0.9, 0.9, 0.9, 0xf97316, { emissive: 0xea580c, emissiveIntensity: 0.8 });
+    createBlock(12.5, 1.7, -28, 0.7, 1, 3, 0x92400e);
+    createBlock(15.5, 1.7, -25.5, 3, 1, 0.7, 0x92400e);
+
     // 11. Friendly Adopt Me! NPC Collectors with their own 3D Pets
     const npcs = [
         { name: 'Trader_Mia', pos: new THREE.Vector3(-3.2, 1.2, -3.5), torso: 0xec4899, petId: 'unicorn', neon: true },
@@ -1590,7 +1618,7 @@ function setupGame11AdoptMe() {
         activePetMesh: null,
         petPos: new THREE.Vector3(2.2, 1.2, 30),
         isRidingPet: false,
-        currentNeed: ADOPT_ME_NEEDS[0], // Start with Hungry so player immediately experiences feeding!
+        currentNeed: ADOPT_ME_NEEDS.find(n => n.id === 'hungry'),
         needTimer: 6.0,
         hatchCooldown: 0,
         tradeCooldown: 0,
@@ -1602,11 +1630,12 @@ function setupGame11AdoptMe() {
         confettiParticles: []
     };
 
+    if (typeof mountAdoptMeUI === 'function') mountAdoptMeUI();
     spawnAdoptMeActivePetMesh();
     if (gameSpecificData.activePetMesh && gameSpecificData.activePetMesh.needOrb) {
         gameSpecificData.activePetMesh.needOrb.visible = true;
-        gameSpecificData.activePetMesh.needOrb.material.color.setHex(ADOPT_ME_NEEDS[0].color);
-        gameSpecificData.activePetMesh.needOrb.material.emissive.setHex(ADOPT_ME_NEEDS[0].color);
+        gameSpecificData.activePetMesh.needOrb.material.color.setHex(gameSpecificData.currentNeed.color);
+        gameSpecificData.activePetMesh.needOrb.material.emissive.setHex(gameSpecificData.currentNeed.color);
     }
     refreshAdoptMeHUD();
 }

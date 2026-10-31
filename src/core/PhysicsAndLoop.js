@@ -27,10 +27,7 @@ function triggerPrimaryAction() {
         if (w.id === 'pet_food') {
             sfx.playCoin();
             if (!completeAdoptMeNeed('hungry')) {
-                gd.bucks += 10;
-                saveAdoptMeData(gd.bucks, gd.pets);
-                refreshAdoptMeHUD();
-                showHudToast(`🍎 Nakrmil jsi ${petDef.icon} ${petDef.name} pamlskem! (+$10 Bucks)`, 'green');
+                showHudToast('🍎 Mazlíček už má plné bříško. Odměnu získáš za aktuální potřebu.', 'green');
             }
             return;
         }
@@ -38,10 +35,7 @@ function triggerPrimaryAction() {
         if (w.id === 'pet_water') {
             sfx.playCoin();
             if (!completeAdoptMeNeed('thirsty')) {
-                gd.bucks += 10;
-                saveAdoptMeData(gd.bucks, gd.pets);
-                refreshAdoptMeHUD();
-                showHudToast(`🍼 Dal jsi napít ${petDef.icon} ${petDef.name}! (+$10 Bucks)`, 'blue');
+                showHudToast('💧 Mazlíček nemá žízeň. Odměnu získáš za aktuální potřebu.', 'blue');
             }
             return;
         }
@@ -70,6 +64,10 @@ function triggerPrimaryAction() {
         }
 
         if (w.id === 'pet_switch') {
+            if (typeof selectAdoptMePet === 'function') {
+                selectAdoptMePet((gd.activePetIdx + 1) % gd.pets.length);
+                return;
+            }
             gd.activePetIdx = (gd.activePetIdx + 1) % gd.pets.length;
             const nextEntry = gd.pets[gd.activePetIdx];
             const nextDef = ADOPT_ME_PET_CATALOG[nextEntry.id] || ADOPT_ME_PET_CATALOG.dog;
@@ -1666,6 +1664,17 @@ function updateGame10Bedwars(dt, elapsedSec) {
 function updateGame11AdoptMe(dt, elapsedSec) {
     const gd = gameSpecificData;
     if (!gd) return;
+    if (typeof updateAdoptMeNavigation === 'function') updateAdoptMeNavigation(dt);
+    // Timed activities require staying in the zone; leaving or switching pets resets progress.
+    const activity = gd.currentNeed && (gd.currentNeed.id === 'school' || gd.currentNeed.id === 'camping') ? gd.currentNeed.id : null;
+    const activityX = activity === 'school' ? -16 : 16;
+    if (activity && Math.hypot(playerState.pos.x - activityX, playerState.pos.z + 28) < 4 && playerState.pos.y < 6) {
+        gd.activityTime = (gd.activityTime || 0) + dt;
+        if (gd.activityTime >= 5) {
+            completeAdoptMeNeed(activity);
+            gd.activityTime = 0;
+        }
+    } else gd.activityTime = 0;
 
     // 1. Update confetti particles
     updateGame1Obby(dt);

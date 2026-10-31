@@ -4,6 +4,8 @@ Tento rozcestník slouží pro AI agenty k okamžité orientaci v architektuře 
 
 ## 🧭 Rychlá navigace podle domény
 
+Adopt Me GUI, sbírka, atlas a navigace: [AdoptMeUI.md](AdoptMeUI.md) (`src/ui/AdoptMeUI.js`).
+
 | Doména / Co řešíš? | Soubor kódu | AI Context dokument |
 |---|---|---|
 | **Fyzika, kolize, herní smyčka, animace ticku** | `src/core/PhysicsAndLoop.js` | [PhysicsAndLoop.md](PhysicsAndLoop.md) |
