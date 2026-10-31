@@ -1,5 +1,8 @@
 # PortalStore.js - AI Context
 
+## Shared game social data (v9.1)
+`handleSupabaseApiRequest` reads/writes shared `game_ratings` and `comments`. Failed writes or reads return 503 via `gameSocialUnavailable`; never acknowledge a local-only comment/vote. `apiRequest` also stops fallback on thrown Supabase errors for these routes, and `handleOfflineApiFallback` rejects all game social routes. This prevents false success and device-specific discussions. Invalid Supabase votes are rejected before upsert. Tests: `game-comments-and-ratings-resilience.test.js` (cloud failures/offline), `game-social-cross-device.test.js` (real SQLite API, independent accounts and fresh login). Production Supabase schema/RLS remains a deployment prerequisite; local tests do not certify its policies.
+
 ## 1. Quick Summary (TL;DR)
 `src/state/PortalStore.js` představuje centrální stavový a transportní pilíř Bobloxu. Spravuje autentizaci uživatele (`authState`), zmrazené klíče úložiště (`STORAGE_KEYS`), ekonomiku virtuální měny Bobux a její auditní transakční deník, definici katalogu miniher (`GAMES_CATALOG`) a vícevrstvý transportní router `apiRequest()`, který transparentně přepíná mezi Node.js backendem, Supabase cloudovou databází (pro GitHub Pages) a offline mezipamětí.
 

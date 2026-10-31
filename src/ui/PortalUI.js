@@ -585,6 +585,8 @@ async function openGameModal(gameId) {
     modal.classList.add('flex');
 
     drawGameThumbnail(document.getElementById('modal-preview-canvas'), game.id);
+    updateModalRatingUI(game.id);
+    renderSafeCommentsList(game.id);
     await loadGameSocialDetails(game.id);
 }
 
@@ -599,10 +601,27 @@ async function loadGameSocialDetails(gameId) {
             commentCount: (res.data.comments || []).length
         };
         liveSocialState.commentsByGame[gameId] = res.data.comments || [];
-        updateModalRatingUI(gameId);
-        renderSafeCommentsList(gameId);
+        if (selectedGameId === gameId) {
+            updateModalRatingUI(gameId);
+            renderSafeCommentsList(gameId);
+        }
+    } else if (selectedGameId === gameId) {
+        showCommentStatus(res.data?.error || 'Komentáře se nepodařilo načíst.', true);
     }
 }
+
+// Refresh from persistent storage while the detail is visible, including after mobile resume.
+let gameSocialRefreshPending = false;
+async function refreshVisibleGameSocial() {
+    const modal = document.getElementById('game-detail-modal');
+    if (gameSocialRefreshPending || document.hidden || !selectedGameId || !modal || modal.classList.contains('hidden')) return;
+    gameSocialRefreshPending = true;
+    try { await loadGameSocialDetails(selectedGameId); }
+    finally { gameSocialRefreshPending = false; }
+}
+const gameSocialRefreshInterval = setInterval(refreshVisibleGameSocial, 15000);
+if (gameSocialRefreshInterval && gameSocialRefreshInterval.unref) gameSocialRefreshInterval.unref();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshVisibleGameSocial(); });
 
 function updateModalRatingUI(gameId) {
     const info = liveSocialState.ratingsByGame[gameId] || { likes: 0, dislikes: 0, ratingPct: null, myVote: null };
@@ -621,13 +640,13 @@ function updateModalRatingUI(gameId) {
     if (dislikesEl) dislikesEl.textContent = String(info.dislikes || 0);
 
     if (btnLike) {
-        btnLike.className = 'px-2.5 py-1 rounded-lg border text-xs font-bold flex items-center gap-1 transition ' +
+        btnLike.className = 'min-h-[44px] min-w-[44px] px-2.5 py-1 rounded-lg border text-xs font-bold flex items-center gap-1 transition ' +
             (info.myVote === 'like'
                 ? 'bg-[#00B06F] border-green-300 text-white'
                 : 'bg-[#232527] hover:bg-[#00B06F]/25 border-[#393B3D] text-gray-200');
     }
     if (btnDislike) {
-        btnDislike.className = 'px-2.5 py-1 rounded-lg border text-xs font-bold flex items-center gap-1 transition ' +
+        btnDislike.className = 'min-h-[44px] min-w-[44px] px-2.5 py-1 rounded-lg border text-xs font-bold flex items-center gap-1 transition ' +
             (info.myVote === 'dislike'
                 ? 'bg-red-600 border-red-300 text-white'
                 : 'bg-[#232527] hover:bg-red-500/25 border-[#393B3D] text-gray-200');
@@ -641,7 +660,8 @@ async function rateSelectedGame(vote) {
         openAuthModal();
         return;
     }
-    const res = await apiRequest(`/api/games/${selectedGameId}/rate`, {
+    const gameId = selectedGameId;
+    const res = await apiRequest(`/api/games/${gameId}/rate`, {
         method: 'POST',
         body: { vote }
     });
@@ -649,14 +669,15 @@ async function rateSelectedGame(vote) {
         showCommentStatus(res.data?.error || 'Hodnocení se nezdařilo.', true);
         return;
     }
-    liveSocialState.ratingsByGame[selectedGameId] = {
+    liveSocialState.ratingsByGame[gameId] = {
         likes: res.data.likes || 0,
         dislikes: res.data.dislikes || 0,
         ratingPct: res.data.ratingPct,
         myVote: res.data.myVote
     };
+    if (selectedGameId !== gameId) return;
     sfx.playCoin();
-    updateModalRatingUI(selectedGameId);
+    updateModalRatingUI(gameId);
     renderGameCatalog();
     showCommentStatus(`Tvé hodnocení (${vote === 'like' ? '👍 Like' : '👎 Dislike'}) bylo uloženo k účtu!`, false);
 }
@@ -749,7 +770,8 @@ async function submitGameComment() {
         return;
     }
 
-    const res = await apiRequest(`/api/games/${selectedGameId}/comments`, {
+    const gameId = selectedGameId;
+    const res = await apiRequest(`/api/games/${gameId}/comments`, {
         method: 'POST',
         body: { content: cleanText }
     });
@@ -760,14 +782,13 @@ async function submitGameComment() {
     }
 
     authState.lastCommentTime = Date.now();
+    if (!liveSocialState.commentsByGame[gameId]) liveSocialState.commentsByGame[gameId] = [];
+    liveSocialState.commentsByGame[gameId].unshift(res.data.comment);
+    if (selectedGameId !== gameId) return;
     if (input) input.value = '';
     updateCommentCharCounter();
     sfx.playCoin();
 
-    if (!liveSocialState.commentsByGame[selectedGameId]) {
-        liveSocialState.commentsByGame[selectedGameId] = [];
-    }
-    liveSocialState.commentsByGame[selectedGameId].unshift(res.data.comment);
     renderSafeCommentsList(selectedGameId);
     showCommentStatus('Komentář byl bezpečně uložen!', false);
 

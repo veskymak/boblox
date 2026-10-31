@@ -925,9 +925,7 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
             sb.from('comments').select('id, game_id')
         ]);
 
-        if (ratingsRes.error && (ratingsRes.error.code === '42501' || ratingsRes.error.message?.includes('row-level'))) {
-            return null;
-        }
+        if (ratingsRes.error || commentsRes.error) return gameSocialUnavailable();
 
         const ratings = ratingsRes.data || [];
         const comments = commentsRes.data || [];
@@ -965,6 +963,8 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
         if (!currentUser) return { ok: false, status: 401, data: { error: 'Pro hodnocení hry se nejprve přihlas ke svému účtu!' } };
         const gid = rateMatch[1];
         const vote = body.vote;
+        if (!GAMES_CATALOG.some(g => g.id === gid)) return { ok: false, status: 404, data: { error: 'Hra nenalezena.' } };
+        if (vote !== 'like' && vote !== 'dislike') return { ok: false, status: 400, data: { error: 'Neplatné hodnocení.' } };
 
         let upsertErr = null;
         try {
@@ -979,28 +979,13 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
             upsertErr = e;
         }
 
-        let likes = 0;
-        let dislikes = 0;
-        let total = 0;
-        if (!upsertErr) {
-            try {
-                const { data: gVotes } = await sb.from('game_ratings').select('vote').eq('game_id', gid);
-                const votesArr = gVotes || [];
-                likes = votesArr.filter(v => v.vote === 'like').length;
-                dislikes = votesArr.filter(v => v.vote === 'dislike').length;
-                total = likes + dislikes;
-            } catch (e) {}
-        } else {
-            console.warn('Supabase rate warning (falling back to local):', upsertErr);
-            const socialDB = (typeof getLocalSocialDB === 'function') ? getLocalSocialDB() : {};
-            if (!socialDB[gid]) socialDB[gid] = { votes: {}, comments: [] };
-            socialDB[gid].votes[currentUser.id || currentUser.username] = vote;
-            if (typeof saveLocalSocialDB === 'function') saveLocalSocialDB(socialDB);
-            const vals = Object.values(socialDB[gid].votes);
-            likes = vals.filter(v => v === 'like').length;
-            dislikes = vals.filter(v => v === 'dislike').length;
-            total = likes + dislikes;
-        }
+        if (upsertErr) return gameSocialUnavailable();
+        const stats = await sb.from('game_ratings').select('vote').eq('game_id', gid);
+        if (stats.error) return gameSocialUnavailable();
+        const votes = stats.data || [];
+        const likes = votes.filter(v => v.vote === 'like').length;
+        const dislikes = votes.filter(v => v.vote === 'dislike').length;
+        const total = likes + dislikes;
 
         return {
             ok: true,
@@ -1037,29 +1022,8 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
             cErr = e;
         }
 
+        if (cErr || !newComment) return gameSocialUnavailable();
         currentUser.last_comment_at = now;
-        if (cErr || !newComment) {
-            console.warn('Supabase comment insert warning (falling back to local):', cErr);
-            const fallbackComment = {
-                id: Date.now(),
-                gameId: gid,
-                username: currentUser.username,
-                content: clean,
-                createdAt: now
-            };
-            const socialDB = (typeof getLocalSocialDB === 'function') ? getLocalSocialDB() : {};
-            if (!socialDB[gid]) socialDB[gid] = { votes: {}, comments: [] };
-            socialDB[gid].comments.unshift(fallbackComment);
-            if (typeof saveLocalSocialDB === 'function') saveLocalSocialDB(socialDB);
-            return {
-                ok: true,
-                status: 201,
-                data: {
-                    ok: true,
-                    comment: fallbackComment
-                }
-            };
-        }
 
         return {
             ok: true,
@@ -1087,9 +1051,7 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
             sb.from('comments').select('*').eq('game_id', gid).order('created_at', { ascending: false }).limit(50)
         ]);
 
-        if (ratingsRes.error && (ratingsRes.error.code === '42501' || ratingsRes.error.message?.includes('row-level'))) {
-            return null;
-        }
+        if (ratingsRes.error || commentsRes.error) return gameSocialUnavailable();
 
         const votes = ratingsRes.data || [];
         const likes = votes.filter(v => v.vote === 'like').length;
@@ -1448,6 +1410,14 @@ function isStaticHostingWithoutBackend() {
     return h.endsWith('.github.io') || h.endsWith('.pages.dev') || h.endsWith('.netlify.app') || h.endsWith('.surge.sh');
 }
 
+function gameSocialUnavailable() {
+    return { ok: false, status: 503, data: { error: 'Sdílená hodnocení a komentáře nejsou dostupné. Zkus to prosím znovu později.' } };
+}
+
+function isGameSocialRequest(path) {
+    return /^\/api\/games\/(summary|[a-z0-9_]+\/(social|rate|comments))$/.test(path);
+}
+
 async function apiRequest(path, options = {}) {
     // 1. Prioritize Supabase Cloud Database (Cross-device, works directly on GitHub Pages!)
     const sb = getSupabaseClient();
@@ -1460,6 +1430,7 @@ async function apiRequest(path, options = {}) {
                 return sbRes;
             }
         } catch (sbErr) {
+            if (isGameSocialRequest(path)) return gameSocialUnavailable();
             console.warn('Supabase API error, falling back:', sbErr);
         }
     }
@@ -1513,6 +1484,8 @@ async function apiRequest(path, options = {}) {
 
 // Seamless cryptographic local DB fallback when hosted on static GitHub Pages or opened without node server.js
 async function handleOfflineApiFallback(path, options = {}) {
+    // Shared interactions must never be acknowledged from device-only storage.
+    if (isGameSocialRequest(path)) return gameSocialUnavailable();
     const method = (options.method || 'GET').toUpperCase();
     const body = options.body || {};
     const users = getLocalUsersDB();

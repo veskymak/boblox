@@ -1,5 +1,8 @@
 # PortalUI.js - AI Context
 
+## Game social refresh (v9.1)
+`openGameModal` renders the selected game's cache immediately, then `loadGameSocialDetails` fetches persisted data. Visible details refresh every 15 seconds via `refreshVisibleGameSocial` and on `visibilitychange` after mobile resume; hidden documents/modals do not poll. Responses update the modal only when their game is still selected. `rateSelectedGame` and `submitGameComment` capture the game ID before awaiting, so switching games cannot misfile results. Rating controls retain 44px touch targets. `game-social-ui.test.js` covers delayed reads/writes during game switching; physical-device/browser layout testing is separate.
+
 ## 1. Quick Summary (TL;DR)
 `src/ui/PortalUI.js` ovládá kompletní 2D uživatelské rozhraní portálu Boblox (katalog her, filtrování, detaily a recenze her), profily hráčů s vitrínou avatarů, sociální systém (přátelé, žádosti o přátelství, soukromé zprávy v lobby), responzivní mobilní navigaci, herní Roblox ESC menu a systém detekce nových verzí aplikace (cache-busting).
 

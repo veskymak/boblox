@@ -88,7 +88,32 @@ describe('Seam 3: Game Comments & Like/Dislike Resilience', () => {
         global.authState.lastCommentTime = 0;
     });
 
-    it('handleSupabaseApiRequest gracefully recovers when Supabase comments table has RLS policy error', async () => {
+    it('does not acknowledge device-only writes when the shared backend is unavailable', async () => {
+        for (const path of ['/api/games/obby/comments', '/api/games/obby/rate', '/api/games/obby/social', '/api/games/summary']) {
+            const result = await PortalStore.apiRequest(path, { method: path.endsWith('/rate') || path.endsWith('/comments') ? 'POST' : 'GET', body: { content: 'Shared comment', vote: 'like' } });
+            assert.equal(result.ok, false);
+            assert.equal(result.status, 503);
+        }
+    });
+
+    it('reports comment read errors instead of returning an empty shared discussion', async () => {
+        const failure = { data: null, error: { code: '42501' } };
+        const mockSb = {
+            from(table) {
+                return {
+                    select() {
+                        const result = table === 'comments' ? failure : { data: [], error: null };
+                        return { ...result, eq() { return this; }, order() { return this; }, limit() { return result; } };
+                    }
+                };
+            }
+        };
+        const result = await PortalStore.handleSupabaseApiRequest(mockSb, '/api/games/summary');
+        assert.equal(result.ok, false);
+        assert.equal(result.status, 503);
+    });
+
+    it('handleSupabaseApiRequest reports failure when Supabase rejects a shared comment', async () => {
         // Mock Supabase client where insert into comments fails with RLS code 42501
         const mockSb = {
             auth: {
@@ -125,12 +150,12 @@ describe('Seam 3: Game Comments & Like/Dislike Resilience', () => {
         });
 
         assert.strictEqual(res !== null && typeof res === 'object', true);
-        assert.strictEqual(res.ok, true, 'Should gracefully fall back to storing comment and return ok: true');
-        assert.strictEqual(res.data.comment.content, 'Testovací komentář obby');
-        assert.strictEqual(res.data.comment.username, 'Vendeez');
+        assert.strictEqual(res.ok, false, 'Rejected cloud writes must never report a globally saved comment');
+        assert.ok(res.data.error);
+        assert.strictEqual(res.data.comment, undefined);
     });
 
-    it('handleSupabaseApiRequest gracefully recovers when Supabase game_ratings table has RLS error', async () => {
+    it('handleSupabaseApiRequest reports failure when Supabase rejects a shared vote', async () => {
         // Mock Supabase client where upsert into game_ratings fails with RLS code 42501
         const mockSb = {
             auth: {
@@ -166,7 +191,7 @@ describe('Seam 3: Game Comments & Like/Dislike Resilience', () => {
         });
 
         assert.strictEqual(res !== null && typeof res === 'object', true);
-        assert.strictEqual(res.ok, true, 'Should gracefully fall back and return ok: true for rating');
-        assert.strictEqual(res.data.myVote, 'like');
+        assert.strictEqual(res.ok, false, 'Rejected cloud votes must never report success');
+        assert.ok(res.data.error);
     });
 });
