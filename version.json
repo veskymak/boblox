@@ -1,7 +1,7 @@
 {
-  "version": "8.5",
-  "buildTime": 1793057648555,
-  "updatedAt": "2026-10-26T23:34:08.555Z",
-  "title": "Boblox Aktualizace v8.5",
-  "message": "Supabase RPC Bobux persistence sync for Blackjack and user sync"
+  "version": "8.6",
+  "buildTime": 1793461465091,
+  "updatedAt": "2026-10-31T15:44:25.091Z",
+  "title": "Boblox Aktualizace v8.6",
+  "message": "Oprava zobrazení výsledků válců ve hře Automaty."
 }

@@ -3868,10 +3868,12 @@ function spinSlots() {
     const r2 = document.getElementById('slot-reel-2');
     const r3 = document.getElementById('slot-reel-3');
 
-    // Rapid emoji cycling simulation
+    // Only animate reels that have not reached their final symbol yet.
+    let reel1Stopped = false;
+    let reel2Stopped = false;
     const cycleInterval = setInterval(() => {
-        r1.textContent = SLOTS_SYMBOLS[Math.floor(Math.random() * SLOTS_SYMBOLS.length)].icon;
-        r2.textContent = SLOTS_SYMBOLS[Math.floor(Math.random() * SLOTS_SYMBOLS.length)].icon;
+        if (!reel1Stopped) r1.textContent = SLOTS_SYMBOLS[Math.floor(Math.random() * SLOTS_SYMBOLS.length)].icon;
+        if (!reel2Stopped) r2.textContent = SLOTS_SYMBOLS[Math.floor(Math.random() * SLOTS_SYMBOLS.length)].icon;
         r3.textContent = SLOTS_SYMBOLS[Math.floor(Math.random() * SLOTS_SYMBOLS.length)].icon;
         sfx.playSlotSpin();
     }, 60);
@@ -3882,12 +3884,14 @@ function spinSlots() {
 
     // Stop Reel 1
     setTimeout(() => {
+        reel1Stopped = true;
         r1.textContent = SLOTS_SYMBOLS[final1].icon;
         sfx.playWheelTick();
     }, 600);
 
     // Stop Reel 2
     setTimeout(() => {
+        reel2Stopped = true;
         r2.textContent = SLOTS_SYMBOLS[final2].icon;
         sfx.playWheelTick();
     }, 1100);
