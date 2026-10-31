@@ -77,12 +77,56 @@ describe('Seam 1: Admin Bobux Management & Supabase Cloud Integration', () => {
         assert.match(hudToastMessages[0].msg, /zadej.*bobux/i, 'Toast should instruct user to enter a Bobux amount');
     });
 
-    it('isCurrentUserAdmin recognizes both vendeez and admin accounts as administrators', () => {
+    it('isCurrentUserAdmin recognizes only Vendeez as administrator', () => {
         assert.strictEqual(AdminUI.isCurrentUserAdmin({ username: 'Vendeez' }), true);
         assert.strictEqual(AdminUI.isCurrentUserAdmin({ username: 'vendeez' }), true);
-        assert.strictEqual(AdminUI.isCurrentUserAdmin({ username: 'admin' }), true);
-        assert.strictEqual(AdminUI.isCurrentUserAdmin({ username: 'Admin' }), true);
+        assert.strictEqual(AdminUI.isCurrentUserAdmin({ username: 'admin' }), false);
+        assert.strictEqual(AdminUI.isCurrentUserAdmin({ username: 'Admin' }), false);
         assert.strictEqual(AdminUI.isCurrentUserAdmin({ username: 'Max' }), false);
+    });
+
+    it('persists daily bonus reset in Supabase and reports write errors', async () => {
+        const profile = { id: 'vendeez-id', username: 'Vendeez', daily_claim_date: 123 };
+        let fail = false;
+        const mockSb = {
+            auth: { getUser: async () => ({ data: { user: { id: profile.id } } }) },
+            from: () => ({
+                select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: profile }) }) }),
+                update: payload => ({ ilike: () => ({ select: () => ({ maybeSingle: async () => {
+                    if (fail) return { error: { message: 'write rejected' } };
+                    Object.assign(profile, payload);
+                    return { data: { ...profile } };
+                } }) }) })
+            })
+        };
+        const options = { method: 'POST', body: { username: 'Vendeez' } };
+        const saved = await PortalStore.handleSupabaseApiRequest(mockSb, '/api/admin/reset-daily', options);
+        assert.strictEqual(saved.data.ok, true);
+        assert.strictEqual(profile.daily_claim_date, 0);
+        fail = true;
+        const rejected = await PortalStore.handleSupabaseApiRequest(mockSb, '/api/admin/reset-daily', options);
+        assert.strictEqual(rejected.ok, false);
+        fail = false;
+        profile.username = 'admin';
+        const denied = await PortalStore.handleSupabaseApiRequest(mockSb, '/api/admin/reset-daily', options);
+        assert.strictEqual(denied.status, 403);
+    });
+
+    it('does not report a rejected Supabase coin update as successful', async () => {
+        const profile = { id: 'vendeez-id', username: 'Vendeez', coins: 250 };
+        const query = { maybeSingle: async () => ({ data: profile }) };
+        const mockSb = {
+            auth: { getUser: async () => ({ data: { user: { id: profile.id } } }) },
+            from: () => ({
+                select: () => ({ eq: () => query, ilike: () => query }),
+                update: () => ({ eq: async () => ({ error: { message: 'write rejected' } }) })
+            })
+        };
+        const result = await PortalStore.handleSupabaseApiRequest(mockSb, '/api/admin/give-coins', {
+            method: 'POST', body: { username: 'Vendeez', amount: 100, action: 'add' }
+        });
+        assert.strictEqual(result.ok, false);
+        assert.strictEqual(profile.coins, 250);
     });
 
     it('handleSupabaseApiRequest handles POST /api/admin/give-coins and updates target profile coins', async () => {

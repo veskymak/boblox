@@ -1041,18 +1041,21 @@ function setRobloxPeopleViewMode(mode) {
 }
 
 function switchRobloxMenuTab(tabId) {
-    const validTabs = ['people', 'settings', 'gallery', 'report', 'help'];
+    const isAdmin = typeof isCurrentUserAdmin === 'function' && isCurrentUserAdmin();
+    const validTabs = ['people', 'settings', 'gallery', 'report', 'help', ...(isAdmin ? ['admin'] : [])];
     const target = validTabs.includes(tabId) ? tabId : 'people';
     robloxUiState.activeTab = target;
 
     document.querySelectorAll('.rblx-menu-tab').forEach(btn => {
         const isAct = btn.getAttribute('data-rblx-tab') === target;
         btn.className = isAct
-            ? 'rblx-menu-tab py-2.5 flex items-center justify-center gap-2 text-xs sm:text-sm font-semibold text-white border-b-2 border-white transition'
-            : 'rblx-menu-tab py-2.5 flex items-center justify-center gap-2 text-xs sm:text-sm font-medium text-gray-400 hover:text-white border-b-2 border-transparent transition';
+            ? 'rblx-menu-tab min-h-[44px] shrink-0 px-3 py-2.5 flex items-center justify-center gap-2 text-xs sm:text-sm font-semibold text-white border-b-2 border-white transition'
+            : 'rblx-menu-tab min-h-[44px] shrink-0 px-3 py-2.5 flex items-center justify-center gap-2 text-xs sm:text-sm font-medium text-gray-400 hover:text-white border-b-2 border-transparent transition';
+        if (btn.getAttribute('data-rblx-tab') === 'admin' && !isAdmin) btn.classList.add('hidden');
+        if (isAct) btn.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
     });
 
-    validTabs.forEach(t => {
+    [...new Set([...validTabs, 'admin'])].forEach(t => {
         const panel = document.getElementById(`rblx-panel-${t}`);
         if (panel) {
             panel.classList.toggle('hidden', t !== target);
@@ -1061,10 +1064,12 @@ function switchRobloxMenuTab(tabId) {
 
     if (target === 'people') renderRobloxPeopleList();
     if (target === 'settings') updateRobloxSettingsUI();
+    if (typeof syncAdminCheatControls === 'function') syncAdminCheatControls();
 }
 
 function openRobloxEscMenu(initialTab) {
     if (!activeGameMode) return;
+    if (typeof updateAdminUI === 'function') updateAdminUI();
     robloxUiState.isMenuOpen = true;
     robloxUiState.isShiftLocked = false;
 

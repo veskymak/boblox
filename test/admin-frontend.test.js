@@ -211,7 +211,9 @@ describe('Seam 2: Frontend Admin State & UI Controls', () => {
         assert.strictEqual(mockPanelUsers.classList.contains('hidden'), true);
     });
 
-    it('cheats toggles update playerState and reset daily bonus timestamp', () => {
+    it('cheats toggles update playerState and reset daily bonus timestamp', async () => {
+        global.authState.user = { username: 'Vendeez' };
+        global.apiRequest = async () => ({ data: { ok: true } });
         toggleAdminGodmode(true);
         assert.strictEqual(global.playerState.godmode, true);
         toggleAdminGodmode(false);
@@ -223,7 +225,7 @@ describe('Seam 2: Frontend Admin State & UI Controls', () => {
         assert.strictEqual(global.playerState.superSpeed, false);
 
         global.lastClaimTimestamp = 99999999;
-        resetAdminDailyCooldown();
+        await resetAdminDailyCooldown();
         assert.strictEqual(global.lastClaimTimestamp, 0);
     });
 });

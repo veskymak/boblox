@@ -1589,7 +1589,7 @@
             <div class="w-full max-w-[760px] h-[510px] max-h-[85vh] bg-[#121316]/95 border border-white/10 rounded-xl shadow-[0_24px_64px_rgba(0,0,0,0.85)] flex flex-col overflow-hidden text-white">
 
                 <!-- TOP TABS NAVIGATION (People, Settings, Gallery, Report, Help) -->
-                <div class="grid grid-cols-5 border-b border-white/15 px-3 pt-1.5 shrink-0 bg-[#141619]">
+                <div class="flex justify-between overflow-x-auto border-b border-white/15 px-3 pt-1.5 shrink-0 bg-[#141619]">
                     <button type="button" onclick="switchRobloxMenuTab('people')" data-rblx-tab="people"
                         class="rblx-menu-tab py-2.5 flex items-center justify-center gap-2 text-xs sm:text-sm font-semibold text-white border-b-2 border-white transition">
                         <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
@@ -1633,10 +1633,33 @@
                         </svg>
                         <span>Help</span>
                     </button>
+                    <button type="button" id="rblx-admin-tab" data-rblx-tab="admin" onclick="switchRobloxMenuTab('admin')" class="rblx-menu-tab hidden min-h-[44px] shrink-0 px-3 py-2.5 text-xs sm:text-sm font-bold text-amber-300 border-b-2 border-transparent">🛠️ Cheaty</button>
                 </div>
 
                 <!-- TAB CONTENT AREA -->
                 <div class="flex-1 min-h-0 overflow-y-auto px-4 py-3.5">
+
+                    <div id="rblx-panel-admin" class="hidden space-y-4">
+                        <div class="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+                            <h3 class="font-bold text-white">Cheaty · Vendeez</h3>
+                            <p class="mt-1 text-xs text-gray-400">Přepni cheaty a vrať se rovnou do hry. Stav je společný s admin panelem.</p>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div class="rounded-xl bg-[#232527] border border-[#2C2F33] p-4 space-y-3">
+                                <div class="font-bold text-sm">🛡️ Nesmrtelnost</div>
+                                <p class="text-xs text-gray-400">Ochrana před poškozením a pádem z mapy.</p>
+                                <div id="esc-admin-godmode-status" class="text-gray-400 font-bold">VYPNUTO</div>
+                                <button id="esc-admin-godmode-toggle" type="button" aria-pressed="false" onclick="toggleAdminGodmode()" class="min-h-[44px] w-full rounded-lg bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-black text-xs font-bold px-4 py-2">Zapnout</button>
+                            </div>
+                            <div class="rounded-xl bg-[#232527] border border-[#2C2F33] p-4 space-y-3">
+                                <div class="font-bold text-sm">⚡ Super Speed</div>
+                                <p class="text-xs text-gray-400">Pohyb po mapě rychlostí 2,5×.</p>
+                                <div id="esc-admin-superspeed-status" class="text-gray-400 font-bold">VYPNUTO</div>
+                                <button id="esc-admin-superspeed-toggle" type="button" aria-pressed="false" onclick="toggleAdminSuperSpeed()" class="min-h-[44px] w-full rounded-lg bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-black text-xs font-bold px-4 py-2">Zapnout</button>
+                            </div>
+                        </div>
+                        <button type="button" onclick="closeRobloxEscMenu()" class="min-h-[44px] w-full rounded-lg bg-[#00A2FF] text-white font-bold text-sm px-4 py-2">Zpět do hry</button>
+                    </div>
 
                     <!-- A. PEOPLE TAB (Matches Screenshot 2) -->
                     <div id="rblx-panel-people" class="space-y-4">
@@ -2580,16 +2603,16 @@
     <div id="admin-broadcast-banner" class="fixed top-5 left-1/2 -translate-x-1/2 z-[100] hidden items-center gap-3 px-6 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-400 text-black border-2 border-yellow-200 font-extrabold text-sm sm:text-base shadow-2xl animate-bounce pointer-events-none"></div>
 
     <!-- ADMIN DEVELOPER MODAL (EXCLUSIVELY FOR VENDEEZ) -->
-    <div id="admin-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md">
-        <div class="bg-[#191B1D] border border-amber-500/40 rounded-2xl max-w-2xl w-full p-4 sm:p-6 space-y-5 shadow-2xl max-h-[90vh] flex flex-col overflow-hidden text-gray-200">
+    <div id="admin-modal" role="dialog" aria-modal="true" aria-labelledby="admin-menu-title" onclick="if(event.target === this) closeAdminModal();" class="fixed inset-0 z-50 hidden items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md">
+        <div class="bg-[#191B1D] border border-amber-500/40 rounded-2xl max-w-3xl w-full p-4 sm:p-6 gap-4 shadow-2xl max-h-[90vh] flex flex-col overflow-hidden text-gray-200">
             <!-- Modal Header -->
             <div class="flex items-center justify-between border-b border-[#2C2F33] pb-3 shrink-0">
                 <div class="flex items-center gap-2.5">
                     <span class="flex items-center justify-center w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/40 text-lg">⚡</span>
                     <div>
-                        <h3 class="font-extrabold text-base sm:text-lg text-white flex items-center gap-2">
-                            Admin Developer Menu
-                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">Vendeez Root</span>
+                        <h3 id="admin-menu-title" class="font-extrabold text-base sm:text-lg text-white flex flex-wrap items-center gap-2">
+                            Administrace
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">Vendeez · ADMIN</span>
                         </h3>
                         <p class="text-[11px] text-gray-400">Dedikovaný řídicí panel pro správu Bobuxů, hráčů a vysílání</p>
                     </div>
@@ -2598,37 +2621,39 @@
             </div>
 
             <!-- Tab Navigation (4 Tabs) -->
-            <div class="flex items-center gap-1.5 p-1 bg-[#121315] border border-[#27292D] rounded-xl shrink-0 overflow-x-auto no-scrollbar">
-                <button type="button" id="admin-tab-btn-economy" onclick="switchAdminTab('economy')" class="min-h-[44px] py-2.5 px-3.5 sm:px-4 rounded-xl text-xs font-bold bg-amber-500 text-black shadow-lg shadow-amber-500/20 transition shrink-0 flex items-center justify-center">
+            <div role="tablist" aria-label="Administrace" class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1 bg-[#121315] border border-[#27292D] rounded-xl shrink-0">
+                <button type="button" id="admin-tab-btn-economy" role="tab" aria-controls="admin-panel-economy" onclick="switchAdminTab('economy')" class="min-h-[44px] py-2.5 px-3.5 sm:px-4 rounded-xl text-xs font-bold bg-amber-500 text-black shadow-lg shadow-amber-500/20 transition shrink-0 flex items-center justify-center">
                     💰 Ekonomika
                 </button>
-                <button type="button" id="admin-tab-btn-users" onclick="switchAdminTab('users')" class="min-h-[44px] py-2.5 px-3.5 sm:px-4 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:bg-[#2C2F33] transition shrink-0 flex items-center justify-center">
+                <button type="button" id="admin-tab-btn-users" role="tab" aria-controls="admin-panel-users" onclick="switchAdminTab('users')" class="min-h-[44px] py-2.5 px-3.5 sm:px-4 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:bg-[#2C2F33] transition shrink-0 flex items-center justify-center">
                     👥 Hráči
                 </button>
-                <button type="button" id="admin-tab-btn-broadcast" onclick="switchAdminTab('broadcast')" class="min-h-[44px] py-2.5 px-3.5 sm:px-4 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:bg-[#2C2F33] transition shrink-0 flex items-center justify-center">
+                <button type="button" id="admin-tab-btn-broadcast" role="tab" aria-controls="admin-panel-broadcast" onclick="switchAdminTab('broadcast')" class="min-h-[44px] py-2.5 px-3.5 sm:px-4 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:bg-[#2C2F33] transition shrink-0 flex items-center justify-center">
                     📢 Oznámení
                 </button>
-                <button type="button" id="admin-tab-btn-cheats" onclick="switchAdminTab('cheats')" class="min-h-[44px] py-2.5 px-3.5 sm:px-4 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:bg-[#2C2F33] transition shrink-0 flex items-center justify-center">
+                <button type="button" id="admin-tab-btn-cheats" role="tab" aria-controls="admin-panel-cheats" onclick="switchAdminTab('cheats')" class="min-h-[44px] py-2.5 px-3.5 sm:px-4 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:bg-[#2C2F33] transition shrink-0 flex items-center justify-center">
                     🛠️ Cheaty
                 </button>
             </div>
 
             <!-- Tab Content Container -->
+            <div id="admin-feedback" role="status" aria-live="polite" class="text-xs min-h-[20px] text-gray-300"></div>
             <div class="flex-1 overflow-y-auto min-h-0 space-y-4 pr-1">
                 <!-- PANEL 1: EKONOMIKA -->
-                <div id="admin-panel-economy" class="space-y-4">
+                <div id="admin-panel-economy" role="tabpanel" aria-labelledby="admin-tab-btn-economy" class="space-y-4">
+                    <p class="text-xs text-gray-400">Rychlé částky přidávají Bobuxy vybranému hráči. Prázdné jméno použije tvůj účet.</p>
                     <div class="p-3 sm:p-4 rounded-xl bg-[#232527] border border-[#2C2F33] space-y-3">
-                        <h4 class="text-xs font-bold uppercase tracking-wider text-amber-400">Rychlé přidání Bobuxů (Vendeez)</h4>
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-[#FFE066]">Rychlé přidání Bobuxů</h4>
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                            <button type="button" onclick="submitAdminGiveCoins(1000, 'add')" class="min-h-[44px] py-2.5 px-3 rounded-xl bg-[#2C2F33] hover:bg-amber-500 hover:text-black border border-amber-500/20 text-xs font-extrabold text-white transition flex flex-col items-center justify-center">
+                            <button type="button" data-admin-economy onclick="submitAdminGiveCoins(1000, 'add')" class="min-h-[44px] py-2.5 px-3 rounded-xl bg-[#2C2F33] hover:bg-amber-500 hover:text-black border border-amber-500/20 text-xs font-extrabold text-white transition disabled:opacity-50 disabled:cursor-wait flex flex-col items-center justify-center">
                                 <span>+1 000</span>
                                 <span class="text-[10px] text-[#FFE066] font-normal">B$ Bobux</span>
                             </button>
-                            <button type="button" onclick="submitAdminGiveCoins(10000, 'add')" class="min-h-[44px] py-2.5 px-3 rounded-xl bg-[#2C2F33] hover:bg-amber-500 hover:text-black border border-amber-500/20 text-xs font-extrabold text-white transition flex flex-col items-center justify-center">
+                            <button type="button" data-admin-economy onclick="submitAdminGiveCoins(10000, 'add')" class="min-h-[44px] py-2.5 px-3 rounded-xl bg-[#2C2F33] hover:bg-amber-500 hover:text-black border border-amber-500/20 text-xs font-extrabold text-white transition disabled:opacity-50 disabled:cursor-wait flex flex-col items-center justify-center">
                                 <span>+10 000</span>
                                 <span class="text-[10px] text-[#FFE066] font-normal">B$ Bobux</span>
                             </button>
-                            <button type="button" onclick="submitAdminGiveCoins(100000, 'add')" class="min-h-[44px] py-2.5 px-3 rounded-xl bg-[#2C2F33] hover:bg-amber-500 hover:text-black border border-amber-500/20 text-xs font-extrabold text-white transition flex flex-col items-center justify-center">
+                            <button type="button" data-admin-economy onclick="submitAdminGiveCoins(100000, 'add')" class="min-h-[44px] py-2.5 px-3 rounded-xl bg-[#2C2F33] hover:bg-amber-500 hover:text-black border border-amber-500/20 text-xs font-extrabold text-white transition disabled:opacity-50 disabled:cursor-wait flex flex-col items-center justify-center">
                                 <span>+100 000</span>
                                 <span class="text-[10px] text-[#FFE066] font-normal">B$ Bobux</span>
                             </button>
@@ -2641,17 +2666,17 @@
                         <div class="space-y-2">
                             <div>
                                 <label class="text-[11px] text-gray-400 font-semibold block mb-1">Cílový hráč (nech prázdné pro Vendeez):</label>
-                                <input type="text" id="admin-target-user-input" placeholder="např. Vendeez" class="w-full bg-[#191B1D] border border-[#393B3D] focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 outline-none">
+                                <input type="text" id="admin-target-user-input" placeholder="např. Vendeez" class="min-h-[44px] w-full bg-[#191B1D] border border-[#393B3D] focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 outline-none">
                             </div>
                             <div>
                                 <label class="text-[11px] text-gray-400 font-semibold block mb-1">Počet Bobuxů:</label>
-                                <input type="number" id="admin-custom-coins-input" placeholder="10000" class="w-full bg-[#191B1D] border border-[#393B3D] focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 outline-none">
+                                <input type="number" id="admin-custom-coins-input" min="0" step="1" inputmode="numeric" placeholder="10000" class="min-h-[44px] w-full bg-[#191B1D] border border-[#393B3D] focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 outline-none">
                             </div>
-                            <div class="flex gap-2 pt-1">
-                                <button type="button" onclick="submitAdminGiveCoins(undefined, 'add')" class="flex-1 min-h-[44px] py-2.5 px-3 rounded-xl bg-[#00B06F] hover:bg-[#00c57d] text-white text-xs font-bold transition shadow-sm flex items-center justify-center">
+                            <div class="flex flex-col sm:flex-row gap-2 pt-1">
+                                <button type="button" data-admin-economy onclick="submitAdminGiveCoins(undefined, 'add')" class="flex-1 min-h-[44px] py-2.5 px-3 rounded-xl bg-[#00B06F] hover:bg-[#00c57d] text-white text-xs font-bold transition shadow-sm flex items-center justify-center">
                                     ➕ Přičíst Bobuxy
                                 </button>
-                                <button type="button" onclick="submitAdminGiveCoins(undefined, 'set')" class="flex-1 min-h-[44px] py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition shadow-sm flex items-center justify-center">
+                                <button type="button" data-admin-economy onclick="submitAdminGiveCoins(undefined, 'set')" class="flex-1 min-h-[44px] py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition shadow-sm flex items-center justify-center">
                                     ⚙️ Nastavit přesný zůstatek
                                 </button>
                             </div>
@@ -2660,9 +2685,10 @@
                 </div>
 
                 <!-- PANEL 2: HRÁČI -->
-                <div id="admin-panel-users" class="space-y-3 hidden">
-                    <div class="flex items-center gap-2">
-                        <input type="text" id="admin-users-search" oninput="renderAdminUsersList()" placeholder="Hledat hráče podle jména..." class="flex-1 bg-[#232527] border border-[#2C2F33] focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 outline-none">
+                <div id="admin-panel-users" role="tabpanel" aria-labelledby="admin-tab-btn-users" class="space-y-3 hidden">
+                    <p class="text-xs text-gray-400">Vyhledej účet a uprav zůstatek. Seznam se po změně automaticky obnoví.</p>
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <input type="text" id="admin-users-search" oninput="renderAdminUsersList()" placeholder="Hledat hráče podle jména..." class="min-h-[44px] min-w-0 flex-1 bg-[#232527] border border-[#2C2F33] focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 outline-none">
                         <button type="button" onclick="loadAdminUsersList()" class="min-h-[44px] px-3.5 py-2.5 rounded-xl bg-[#2C2F33] hover:bg-[#393B3D] text-xs font-bold text-gray-200 hover:text-white transition shrink-0 flex items-center justify-center">
                             🔄 Obnovit
                         </button>
@@ -2671,12 +2697,13 @@
                 </div>
 
                 <!-- PANEL 3: OZNÁMENÍ -->
-                <div id="admin-panel-broadcast" class="space-y-4 hidden">
+                <div id="admin-panel-broadcast" role="tabpanel" aria-labelledby="admin-tab-btn-broadcast" class="space-y-4 hidden">
                     <div class="p-3 sm:p-4 rounded-xl bg-[#232527] border border-[#2C2F33] space-y-3">
                         <h4 class="text-xs font-bold uppercase tracking-wider text-amber-400">Globální serverové oznámení</h4>
                         <p class="text-[11px] text-gray-400">Zpráva se okamžitě zobrazí jako zlatý vysílací banner a toast všem hráčům aktuálně připojeným k serveru.</p>
-                        <textarea id="admin-broadcast-input" rows="3" placeholder="Napiš zprávu pro hráče (např. Za 5 minut začíná turnaj o 50 000 Bobuxů!)..." class="w-full bg-[#191B1D] border border-[#393B3D] focus:border-amber-500 rounded-xl p-3 text-xs text-white placeholder-gray-500 outline-none resize-none"></textarea>
-                        <button type="button" id="admin-broadcast-send-btn" onclick="submitAdminBroadcast()" class="w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs transition shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2">
+                        <label for="admin-broadcast-input" class="block text-xs font-bold text-gray-300">Text oznámení · maximálně 300 znaků</label>
+                        <textarea id="admin-broadcast-input" maxlength="300" rows="4" placeholder="Napiš zprávu pro hráče (např. Za 5 minut začíná turnaj o 50 000 Bobuxů!)..." class="min-h-[44px] w-full bg-[#191B1D] border border-[#393B3D] focus:border-amber-500 rounded-xl p-3 text-sm text-white placeholder-gray-500 outline-none resize-y"></textarea>
+                        <button type="button" id="admin-broadcast-send-btn" onclick="submitAdminBroadcast()" class="min-h-[44px] disabled:opacity-50 disabled:cursor-wait w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs transition shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2">
                             <span>📢</span>
                             <span>Odeslat všem hráčům (Broadcast)</span>
                         </button>
@@ -2684,10 +2711,11 @@
                 </div>
 
                 <!-- PANEL 4: CHEATY -->
-                <div id="admin-panel-cheats" class="space-y-3 hidden">
+                <div id="admin-panel-cheats" role="tabpanel" aria-labelledby="admin-tab-btn-cheats" class="space-y-3 hidden">
+                    <p class="text-xs text-gray-400">Nesmrtelnost a rychlost můžeš ovládat také přímo ve hře: ESC → Cheaty. Po odhlášení se vypnou.</p>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <!-- Godmode -->
-                        <div class="p-4 rounded-xl bg-[#232527] border border-[#2C2F33] flex items-center justify-between">
+                        <div class="p-4 rounded-xl bg-[#232527] border border-[#2C2F33] flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
                             <div>
                                 <div class="font-bold text-xs text-white flex items-center gap-1.5">
                                     <span>🛡️</span>
@@ -2695,13 +2723,13 @@
                                 </div>
                                 <div class="text-[11px] text-gray-400 mt-0.5">Stav: <span id="admin-godmode-status" class="text-gray-400 font-bold">VYPNUTO</span></div>
                             </div>
-                            <button type="button" onclick="toggleAdminGodmode()" class="min-h-[44px] min-w-[44px] px-4 py-2.5 rounded-lg bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-black text-xs font-bold transition flex items-center justify-center">
+                            <button type="button" id="admin-godmode-toggle" aria-pressed="false" onclick="toggleAdminGodmode()" class="min-h-[44px] min-w-[44px] px-4 py-2.5 rounded-lg bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-black text-xs font-bold transition flex items-center justify-center">
                                 Přepnout
                             </button>
                         </div>
 
                         <!-- Super Speed -->
-                        <div class="p-4 rounded-xl bg-[#232527] border border-[#2C2F33] flex items-center justify-between">
+                        <div class="p-4 rounded-xl bg-[#232527] border border-[#2C2F33] flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
                             <div>
                                 <div class="font-bold text-xs text-white flex items-center gap-1.5">
                                     <span>⚡</span>
@@ -2709,14 +2737,14 @@
                                 </div>
                                 <div class="text-[11px] text-gray-400 mt-0.5">Stav: <span id="admin-superspeed-status" class="text-gray-400 font-bold">VYPNUTO</span></div>
                             </div>
-                            <button type="button" onclick="toggleAdminSuperSpeed()" class="min-h-[44px] min-w-[44px] px-4 py-2.5 rounded-lg bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-black text-xs font-bold transition flex items-center justify-center">
+                            <button type="button" id="admin-superspeed-toggle" aria-pressed="false" onclick="toggleAdminSuperSpeed()" class="min-h-[44px] min-w-[44px] px-4 py-2.5 rounded-lg bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-black text-xs font-bold transition flex items-center justify-center">
                                 Přepnout
                             </button>
                         </div>
                     </div>
 
                     <!-- Reset Cooldown -->
-                    <div class="p-4 rounded-xl bg-[#232527] border border-[#2C2F33] flex items-center justify-between">
+                    <div class="p-4 rounded-xl bg-[#232527] border border-[#2C2F33] flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
                         <div>
                             <div class="font-bold text-xs text-white flex items-center gap-1.5">
                                 <span>🎁</span>
@@ -2734,15 +2762,15 @@
     </div>
 
     <!-- BOBLOX Modular Architecture (Core Engine, State, Network, Games & UI with Cache-Busting) -->
-    <script src="src/core/SoundEngine.js?v=8.8" defer></script>
-    <script src="src/state/PortalStore.js?v=8.8" defer></script>
-    <script src="src/network/NetworkManager.js?v=8.8" defer></script>
-    <script src="src/ui/PortalUI.js?v=8.8" defer></script>
-    <script src="src/ui/AdminUI.js?v=8.8" defer></script>
-    <script src="src/core/AvatarAndShop.js?v=8.8" defer></script>
-    <script src="src/core/Engine.js?v=8.8" defer></script>
-    <script src="src/games/GameWorlds.js?v=8.8" defer></script>
-    <script src="src/core/PhysicsAndLoop.js?v=8.8" defer></script>
-    <script src="src/core/InputManager.js?v=8.8" defer></script>
+    <script src="src/core/SoundEngine.js?v=8.9" defer></script>
+    <script src="src/state/PortalStore.js?v=8.9" defer></script>
+    <script src="src/network/NetworkManager.js?v=8.9" defer></script>
+    <script src="src/ui/PortalUI.js?v=8.9" defer></script>
+    <script src="src/ui/AdminUI.js?v=8.9" defer></script>
+    <script src="src/core/AvatarAndShop.js?v=8.9" defer></script>
+    <script src="src/core/Engine.js?v=8.9" defer></script>
+    <script src="src/games/GameWorlds.js?v=8.9" defer></script>
+    <script src="src/core/PhysicsAndLoop.js?v=8.9" defer></script>
+    <script src="src/core/InputManager.js?v=8.9" defer></script>
 </body>
 </html>

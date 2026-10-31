@@ -101,3 +101,6 @@ async function acceptFriendRequest(senderUsername) {
 
 ## Player tag priority
 Profile, ESC people cards, leaderboard, game chat and direct messages use getPlayerTag(username, isVip). ADMIN replaces VIP for Vendeez, preserving priority in narrow layouts.
+
+## ESC admin tab (v8.9)
+switchRobloxMenuTab includes admin only when isCurrentUserAdmin() succeeds; direct unauthorized calls fall back to people and hide the admin panel. openRobloxEscMenu refreshes admin visibility. syncAdminCheatControls in AdminUI updates both sets of controls. Tab strip scrolls horizontally and dynamic tab classes retain 44px touch targets.

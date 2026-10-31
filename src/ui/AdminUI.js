@@ -3,16 +3,63 @@
  * ============================================================================ */
 
 let adminCachedUsers = [];
+let adminEconomyPending = false;
+let adminBroadcastPending = false;
+let adminUsersRequest = 0;
+let adminDailyPending = false;
+
+function setAdminFeedback(message, isError = false) {
+    const el = document.getElementById('admin-feedback');
+    if (!el) return;
+    el.textContent = message;
+    el.className = `text-xs min-h-[20px] ${isError ? 'text-[#FF4D4D]' : 'text-gray-300'}`;
+}
+
+function syncAdminCheatControls() {
+    const allowed = isCurrentUserAdmin();
+    for (const [name, key] of [['godmode', 'godmode'], ['superspeed', 'superSpeed']]) {
+        const enabled = allowed && typeof playerState !== 'undefined' && !!playerState[key];
+        for (const prefix of ['admin', 'esc-admin']) {
+            const status = document.getElementById(`${prefix}-${name}-status`);
+            const button = document.getElementById(`${prefix}-${name}-toggle`);
+            if (status) {
+                status.textContent = enabled ? 'ZAPNUTO' : 'VYPNUTO';
+                status.className = enabled ? 'text-[#00B06F] font-bold' : 'text-gray-400 font-bold';
+            }
+            if (button) {
+                button.disabled = !allowed;
+                button.textContent = enabled ? 'Vypnout' : 'Zapnout';
+                button.setAttribute?.('aria-pressed', String(enabled));
+            }
+        }
+    }
+}
 
 function isCurrentUserAdmin(user) {
     const target = user || ((typeof authState !== 'undefined' && authState) ? authState.user : null);
     if (!target || typeof target.username !== 'string') return false;
     const name = target.username.trim().toLowerCase();
-    return name === 'vendeez' || name === 'admin' || Boolean(target.isAdmin);
+    return name === 'vendeez';
 }
 
 function updateAdminUI() {
     const isAdmin = isCurrentUserAdmin();
+    if (!isAdmin && typeof playerState !== 'undefined') {
+        playerState.godmode = false;
+        playerState.superSpeed = false;
+    }
+    for (const id of ['rblx-admin-tab', 'rblx-panel-admin']) {
+        const el = document.getElementById(id);
+        if (el && !isAdmin) el.classList.add('hidden');
+        if (el && isAdmin && id === 'rblx-admin-tab') el.classList.remove('hidden');
+    }
+    if (!isAdmin) {
+        adminUsersRequest++;
+        adminCachedUsers = [];
+        const list = document.getElementById('admin-users-list');
+        if (list) list.innerHTML = '';
+    }
+    syncAdminCheatControls();
     const sidebarBtn = document.getElementById('sidebar-admin-btn');
     const mobileBtn = document.getElementById('quick-action-admin');
     const adminModal = document.getElementById('admin-modal');
@@ -54,10 +101,9 @@ function openAdminModal() {
     if (!modal) return;
     modal.classList.remove('hidden');
     modal.classList.add('flex');
+    setAdminFeedback('Vyber akci v jednotlivých záložkách.');
     switchAdminTab('economy');
-    if (typeof loadAdminUsersList === 'function') {
-        loadAdminUsersList();
-    }
+    syncAdminCheatControls();
 }
 
 function closeAdminModal() {
@@ -69,11 +115,13 @@ function closeAdminModal() {
 
 function switchAdminTab(tabName) {
     const tabs = ['economy', 'users', 'broadcast', 'cheats'];
+    if (!tabs.includes(tabName)) tabName = 'economy';
     tabs.forEach(t => {
         const btn = document.getElementById(`admin-tab-btn-${t}`);
         const panel = document.getElementById(`admin-panel-${t}`);
         const isActive = t === tabName;
         if (btn) {
+            btn.setAttribute?.('aria-selected', String(isActive));
             if (isActive) {
                 btn.className = 'min-h-[44px] py-2.5 px-3.5 sm:px-4 rounded-xl text-xs font-bold bg-amber-500 text-black shadow-lg shadow-amber-500/20 transition shrink-0 flex items-center justify-center';
             } else {
@@ -88,50 +136,57 @@ function switchAdminTab(tabName) {
             }
         }
     });
+    if (tabName === 'users' && isCurrentUserAdmin()) loadAdminUsersList();
+    if (tabName === 'cheats') syncAdminCheatControls();
 }
 
 function toggleAdminGodmode(forceVal) {
-    if (typeof playerState === 'undefined') return false;
+    if (!isCurrentUserAdmin() || typeof playerState === 'undefined') return false;
     playerState.godmode = typeof forceVal === 'boolean' ? forceVal : !playerState.godmode;
-    const indicator = document.getElementById('admin-godmode-status');
-    if (indicator) {
-        indicator.textContent = playerState.godmode ? 'AKTIVNÍ' : 'VYPNUTO';
-        indicator.className = playerState.godmode ? 'text-green-400 font-bold' : 'text-gray-400 font-bold';
-    }
     if (typeof showHudToast === 'function') {
         showHudToast(`Godmode: ${playerState.godmode ? 'ZAPNUTO (Nesmrtelnost)' : 'VYPNUTO'}`, playerState.godmode ? 'gold' : 'blue');
     }
+    syncAdminCheatControls();
     return playerState.godmode;
 }
 
 function toggleAdminSuperSpeed(forceVal) {
-    if (typeof playerState === 'undefined') return false;
+    if (!isCurrentUserAdmin() || typeof playerState === 'undefined') return false;
     playerState.superSpeed = typeof forceVal === 'boolean' ? forceVal : !playerState.superSpeed;
-    const indicator = document.getElementById('admin-superspeed-status');
-    if (indicator) {
-        indicator.textContent = playerState.superSpeed ? 'AKTIVNÍ' : 'VYPNUTO';
-        indicator.className = playerState.superSpeed ? 'text-green-400 font-bold' : 'text-gray-400 font-bold';
-    }
     if (typeof showHudToast === 'function') {
         showHudToast(`Super Speed: ${playerState.superSpeed ? 'ZAPNUTO (2.5x rychlost)' : 'VYPNUTO'}`, playerState.superSpeed ? 'gold' : 'blue');
     }
+    syncAdminCheatControls();
     return playerState.superSpeed;
 }
 
-function resetAdminDailyCooldown() {
-    if (typeof lastClaimTimestamp !== 'undefined') {
-        lastClaimTimestamp = 0;
-        const dailyTsKey = (typeof STORAGE_KEYS !== 'undefined' && STORAGE_KEYS.DAILY_TS) ? STORAGE_KEYS.DAILY_TS : 'boblox_daily_claim_ts_v2';
-        try { localStorage.setItem(dailyTsKey, '0'); } catch (e) {}
-    }
-    if (typeof updateDailyBonusUI === 'function') {
-        updateDailyBonusUI();
-    }
-    if (typeof syncAccountToServer === 'function') {
-        syncAccountToServer();
-    }
-    if (typeof showHudToast === 'function') {
-        showHudToast('Denní bonus cooldown byl úspěšně vynulován!', 'gold');
+async function resetAdminDailyCooldown() {
+    if (!isCurrentUserAdmin() || adminDailyPending) return;
+    adminDailyPending = true;
+    const user = authState.user;
+    try {
+        const res = await apiRequest('/api/admin/reset-daily', { method: 'POST', body: { username: user.username } });
+        if (!res?.data?.ok) throw new Error(res?.data?.error || 'Reset bonusu se nezdařil.');
+        if (authState.user !== user || !isCurrentUserAdmin()) return;
+        if (typeof lastClaimTimestamp !== 'undefined') {
+            lastClaimTimestamp = 0;
+            if (typeof STORAGE_KEYS !== 'undefined') {
+                try { localStorage.setItem(STORAGE_KEYS.DAILY_TS, '0'); } catch (e) {}
+            }
+        }
+        if (typeof updateDailyBonusUI === 'function') {
+            updateDailyBonusUI();
+        }
+        if (authState.user) authState.user.daily_claim_date = 0;
+        if (typeof showHudToast === 'function') {
+            showHudToast('Denní bonus cooldown byl úspěšně vynulován!', 'gold');
+        }
+        setAdminFeedback('Denní bonus je znovu dostupný.');
+    } catch (err) {
+        setAdminFeedback(err.message, true);
+        if (typeof showHudToast === 'function') showHudToast(err.message, 'red');
+    } finally {
+        adminDailyPending = false;
     }
 }
 
@@ -189,16 +244,21 @@ function getFallbackAdminUsers() {
 }
 
 async function submitAdminGiveCoins(amount, action = 'add', targetUsername = null) {
-    if (!isCurrentUserAdmin()) return;
+    if (!isCurrentUserAdmin() || adminEconomyPending) return;
     const username = targetUsername || (document.getElementById('admin-target-user-input')?.value || '').trim() || ((typeof authState !== 'undefined' && authState.user) ? authState.user.username : 'Vendeez');
-    const amountVal = (typeof amount === 'number') ? amount : parseInt(document.getElementById('admin-custom-coins-input')?.value, 10);
-    if (isNaN(amountVal) || amountVal < 0) {
+    const raw = amount === undefined ? document.getElementById('admin-custom-coins-input')?.value : amount;
+    const amountVal = Number(raw);
+    if (raw === undefined || String(raw).trim() === '' || !Number.isSafeInteger(amountVal) || amountVal < 0 || !['add', 'set'].includes(action)) {
+        setAdminFeedback('Zadej celé nezáporné číslo Bobuxů.', true);
         if (typeof showHudToast === 'function') {
             showHudToast('Zadej platný počet Bobuxů!', 'red');
         }
         return;
     }
 
+    adminEconomyPending = true;
+    setAdminFeedback('Ukládání zůstatku…');
+    document.querySelectorAll('[data-admin-economy]').forEach(btn => { btn.disabled = true; });
     try {
         let data = null;
         if (typeof apiRequest === 'function') {
@@ -210,6 +270,7 @@ async function submitAdminGiveCoins(amount, action = 'add', targetUsername = nul
         }
 
         if (data && data.ok) {
+            setAdminFeedback(`${data.username}: ${Number(data.coins).toLocaleString('cs-CZ')} B$`);
             if (typeof showHudToast === 'function') {
                 showHudToast(`Bobuxy upraveny: ${data.username} má nyní ${Number(data.coins).toLocaleString('cs-CZ')} B$!`, 'gold');
             }
@@ -233,20 +294,32 @@ async function submitAdminGiveCoins(amount, action = 'add', targetUsername = nul
             }
         } else {
             const errMsg = (data && data.error) ? data.error : 'Chyba při úpravě Bobuxů.';
+            setAdminFeedback(errMsg, true);
             console.warn('[AdminUI] Chyba při úpravě mincí:', errMsg);
             if (typeof showHudToast === 'function') showHudToast(errMsg, 'red');
         }
     } catch (e) {
         console.warn('[AdminUI] Chyba při úpravě mincí:', e);
         if (typeof showHudToast === 'function') showHudToast('Chyba komunikace se serverem.', 'red');
+        setAdminFeedback('Chyba komunikace se serverem.', true);
+    } finally {
+        adminEconomyPending = false;
+        document.querySelectorAll('[data-admin-economy]').forEach(btn => { btn.disabled = false; });
     }
 }
 
 async function submitAdminBroadcast() {
-    if (!isCurrentUserAdmin()) return;
+    if (!isCurrentUserAdmin() || adminBroadcastPending) return;
     const input = document.getElementById('admin-broadcast-input');
     const msg = (input ? input.value : '').trim();
-    if (!msg) return;
+    if (!msg || msg.length > 300) {
+        setAdminFeedback('Oznámení musí obsahovat 1 až 300 znaků.', true);
+        return;
+    }
+    adminBroadcastPending = true;
+    const button = document.getElementById('admin-broadcast-send-btn');
+    if (button) button.disabled = true;
+    setAdminFeedback('Odesílání oznámení…');
 
     try {
         let data = null;
@@ -259,18 +332,24 @@ async function submitAdminBroadcast() {
         }
 
         if (data && data.ok) {
-            if (input) input.value = '';
+            if (input && input.value.trim() === msg) input.value = '';
+            setAdminFeedback('Oznámení bylo odesláno.');
             if (typeof showHudToast === 'function') {
                 showHudToast('Systémové oznámení odesláno všem hráčům!', 'gold');
             }
         } else {
             const errMsg = (data && data.error) ? data.error : 'Chyba při odesílání oznámení.';
+            setAdminFeedback(errMsg, true);
             console.warn('[AdminUI] Chyba při odesílání hromadného oznámení:', errMsg);
             if (typeof showHudToast === 'function') showHudToast(errMsg, 'red');
         }
     } catch (e) {
         console.warn('[AdminUI] Chyba při odesílání hromadného oznámení:', e);
         if (typeof showHudToast === 'function') showHudToast('Chyba komunikace se serverem.', 'red');
+        setAdminFeedback('Chyba komunikace se serverem.', true);
+    } finally {
+        adminBroadcastPending = false;
+        if (button) button.disabled = false;
     }
 }
 
@@ -278,6 +357,7 @@ function renderFallbackAdminUsers(listContainer, errorMsg = 'Chyba připojení k
     const fallbackUsers = getFallbackAdminUsers();
     if (fallbackUsers.length > 0) {
         renderAdminUsersList(fallbackUsers);
+        setAdminFeedback('Připojení selhalo. Zobrazená mezipaměť nemusí být aktuální.', true);
         return true;
     }
     if (listContainer) {
@@ -287,6 +367,8 @@ function renderFallbackAdminUsers(listContainer, errorMsg = 'Chyba připojení k
 }
 
 async function loadAdminUsersList() {
+    if (!isCurrentUserAdmin()) return;
+    const request = ++adminUsersRequest;
     const listContainer = document.getElementById('admin-users-list');
     if (!listContainer) return;
     listContainer.innerHTML = '<div class="text-center text-gray-400 py-6 text-xs">Načítání seznamu hráčů...</div>';
@@ -300,21 +382,25 @@ async function loadAdminUsersList() {
             }
         }
 
+        if (request !== adminUsersRequest || !isCurrentUserAdmin()) return;
         if (!data || !data.ok || !Array.isArray(data.users)) {
             console.warn('[AdminUI] Chyba při načítání seznamu administrátorských uživatelů:', (data && data.error) || 'Neplatná data ze serveru.');
             renderFallbackAdminUsers(listContainer, 'Chyba při načítání uživatelů.');
             return;
         }
 
+        setAdminFeedback(`Načteno hráčů: ${data.users.length}`);
         renderAdminUsersList(data.users);
     } catch (e) {
+        if (request !== adminUsersRequest || !isCurrentUserAdmin()) return;
         console.warn('[AdminUI] Chyba při načítání seznamu administrátorských uživatelů:', e);
         renderFallbackAdminUsers(listContainer, 'Chyba připojení k serveru.');
     }
 }
 
 function renderAdminUsersList(users) {
-    adminCachedUsers = users || adminCachedUsers || [];
+    if (!isCurrentUserAdmin()) return;
+    adminCachedUsers = (users || adminCachedUsers || []).filter(u => typeof u?.username === 'string');
     const listContainer = document.getElementById('admin-users-list');
     if (!listContainer) return;
 
@@ -327,25 +413,27 @@ function renderAdminUsersList(users) {
     }
 
     listContainer.innerHTML = filtered.map(u => {
+        const escapedName = u.username.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+        const usernameArgument = JSON.stringify(u.username).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
         const isMe = typeof authState !== 'undefined' && authState.user && authState.user.username && authState.user.username.toLowerCase() === u.username.toLowerCase();
         return `
-            <div class="flex items-center justify-between p-3 rounded-xl bg-[#191B1D] border border-[#2C2F33] hover:border-amber-500/30 transition">
+            <div class="flex flex-col sm:flex-row gap-3 sm:items-center justify-between p-3 rounded-xl bg-[#191B1D] border border-[#2C2F33] hover:border-amber-500/30 transition">
                 <div class="flex items-center gap-3 min-w-0">
                     <div class="w-9 h-9 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center font-bold text-amber-400 text-xs shrink-0">
-                        ${(u.username || 'P')[0].toUpperCase()}
+                        ${escapedName[0].toUpperCase()}
                     </div>
                     <div class="min-w-0">
                         <div class="flex items-center gap-2">
-                            <span class="font-bold text-xs text-white truncate">${u.username}</span>
+                            <span class="font-bold text-xs text-white truncate">${escapedName}</span>
                             ${isMe ? '<span class="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-extrabold border border-amber-500/40">TY</span>' : ''}
                         </div>
                         <div class="text-[11px] text-[#FFE066] font-semibold">${Number(u.coins || 0).toLocaleString('cs-CZ')} B$</div>
                     </div>
                 </div>
                 <div class="flex items-center gap-1.5 shrink-0">
-                    <button type="button" onclick="submitAdminGiveCoins(1000, 'add', '${u.username}')" class="min-h-[44px] min-w-[44px] px-3 py-2 rounded-lg text-xs font-bold bg-[#2C2F33] hover:bg-amber-500 hover:text-black text-gray-300 transition flex items-center justify-center">+1k</button>
-                    <button type="button" onclick="submitAdminGiveCoins(10000, 'add', '${u.username}')" class="min-h-[44px] min-w-[44px] px-3 py-2 rounded-lg text-xs font-bold bg-[#2C2F33] hover:bg-amber-500 hover:text-black text-gray-300 transition flex items-center justify-center">+10k</button>
-                    <button type="button" onclick="promptAdminSetCoins('${u.username}')" class="min-h-[44px] min-w-[44px] px-3 py-2 rounded-lg text-xs font-bold bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-black transition flex items-center justify-center">Nastavit</button>
+                    <button type="button" data-admin-economy onclick="submitAdminGiveCoins(1000, 'add', ${usernameArgument})" class="min-h-[44px] min-w-[44px] px-3 py-2 rounded-lg text-xs font-bold bg-[#2C2F33] hover:bg-[#393B3D] text-[#FFE066] transition flex items-center justify-center">+1k</button>
+                    <button type="button" data-admin-economy onclick="submitAdminGiveCoins(10000, 'add', ${usernameArgument})" class="min-h-[44px] min-w-[44px] px-3 py-2 rounded-lg text-xs font-bold bg-[#2C2F33] hover:bg-[#393B3D] text-[#FFE066] transition flex items-center justify-center">+10k</button>
+                    <button type="button" data-admin-economy onclick="promptAdminSetCoins(${usernameArgument})" class="min-h-[44px] min-w-[44px] px-3 py-2 rounded-lg text-xs font-bold bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-black transition flex items-center justify-center">Nastavit</button>
                 </div>
             </div>
         `;
@@ -353,16 +441,18 @@ function renderAdminUsersList(users) {
 }
 
 function promptAdminSetCoins(targetUsername) {
+    if (!isCurrentUserAdmin()) return;
     const raw = prompt(`Zadej nový počet Bobuxů pro hráče ${targetUsername}:`, '10000');
     if (raw === null) return;
-    const num = parseInt(raw, 10);
-    if (!isNaN(num) && num >= 0) {
+    const num = Number(raw);
+    if (raw.trim() && Number.isSafeInteger(num) && num >= 0) {
         submitAdminGiveCoins(num, 'set', targetUsername);
     }
 }
 
 if (typeof window !== 'undefined') {
     window.isCurrentUserAdmin = isCurrentUserAdmin;
+    window.syncAdminCheatControls = syncAdminCheatControls;
     window.updateAdminUI = updateAdminUI;
     window.openAdminModal = openAdminModal;
     window.closeAdminModal = closeAdminModal;
@@ -382,6 +472,7 @@ if (typeof window !== 'undefined') {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         isCurrentUserAdmin,
+        syncAdminCheatControls,
         updateAdminUI,
         openAdminModal,
         closeAdminModal,

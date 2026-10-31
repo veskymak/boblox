@@ -1,7 +1,7 @@
 # AdminUI.js - AI Context
 
 ## 1. Quick Summary (TL;DR)
-`src/ui/AdminUI.js` poskytuje rozhraní vývojářského a administrátorského panelu Bobloxu. Zajišťuje autorizaci administrátorů (uživatelé Vendeez a admin), ovládá 4záložkový administrátorský modál (správa Bobuxů a ekonomiky, seznam uživatelů, globální oznámení a cheaty jako Godmode a Super Speed) a zprostředkovává volání privilegovaných endpointů.
+`src/ui/AdminUI.js` poskytuje administrační panel pouze pro účet Vendeez. Ovládá ekonomiku, hráče, oznámení a cheaty a sdílí přepínače cheatů s herním ESC menu.
 
 ---
 
@@ -20,7 +20,7 @@
 
 ## 3. Key API Functions & Signatures
 - `isCurrentUserAdmin(user?: Object): boolean`
-  - Ověří, zda je daný uživatel administrátor (kontrola jména `vendeez` nebo `admin` bez ohledu na velikost písmen, případně role `admin`).
+  - Povolí pouze username `vendeez` bez ohledu na velikost písmen. Účet `admin` ani příznak `isAdmin` přístup neudělují.
 - `updateAdminUI(): void`
   - Zobrazí nebo skryje administrátorská tlačítka v postranním panelu (`#sidebar-admin-btn`) a v mobilních rychlých volbách (`#quick-action-admin`).
 - `openAdminModal(): void` / `closeAdminModal(): void`
@@ -34,7 +34,7 @@
 - `toggleAdminGodmode(forceVal?: boolean): boolean`
   - Aktivuje/deaktivuje nesmrtelnost lokálního hráče.
 - `toggleAdminSuperSpeed(forceVal?: boolean): boolean`
-  - Zvyšuje rychlost pohybu hráče na dvojnásobek.
+  - Přepíná násobič rychlosti pohybu 2,5×.
 - `resetAdminDailyCooldown(): void`
   - Vynuluje časovač denního bonusu na nulu pro okamžitý opakovaný výběr.
 - `loadAdminUsersList(): Promise<void>`
@@ -61,33 +61,43 @@
 
 ### Seam A: Ověření role administrátora
 ```javascript
-// src/ui/AdminUI.js: L10-L20
+// src/ui/AdminUI.js: L38-L43
 function isCurrentUserAdmin(user) {
     const u = user || (typeof authState !== 'undefined' ? authState.user : null);
     if (!u || !u.username) return false;
     const name = String(u.username).toLowerCase();
-    return name === 'vendeez' || name === 'admin' || u.role === 'admin';
+    return name === 'vendeez';
 }
 ```
 
 ### Seam B: Nastavení a přičtení Bobuxů cílovému hráči
 ```javascript
-// src/ui/AdminUI.js: L220-L235
-async function submitAdminGiveCoins(targetUsername, customAmount, action = 'add') {
+// src/ui/AdminUI.js: L246+ (request excerpt)
+async function submitAdminGiveCoins(amount, action = 'add', targetUsername = null) {
     const res = await apiRequest('/api/admin/give-coins', {
         method: 'POST',
-        body: JSON.stringify({ target: targetUsername, amount: customAmount, action })
+        body: { username: targetUsername, amount, action }
     });
-    if (res && res.coins !== undefined && isTargetSelf) { bobuxBalance = res.coins; updateBobuxUI(); }
+    // Only a successful response updates the local balance and refreshes players.
 }
 ```
 
 ### Seam C: Přepínání vývojářských cheatů
 ```javascript
-// src/ui/AdminUI.js: L120-L135
+// src/ui/AdminUI.js: L143+ (toggle excerpt)
 function toggleAdminGodmode(forceVal) {
+    if (!isCurrentUserAdmin() || typeof playerState === 'undefined') return false;
     playerState.godmode = (forceVal !== undefined) ? !!forceVal : !playerState.godmode;
-    showHudToast(playerState.godmode ? 'Godmode ZAPNUT' : 'Godmode VYPNUT', 'gold');
+    syncAdminCheatControls();
     return playerState.godmode;
 }
 ```
+
+## Admin menu and ESC controls (v8.9)
+- syncAdminCheatControls() synchronizes admin-* and esc-admin-* status, button text and aria-pressed from playerState. Toggles check Vendeez at the mutation boundary. updateAdminUI clears cheats and cached users on logout/account change.
+- ESC controls live in #rblx-panel-admin; PortalUI permits the admin tab only for Vendeez. Cheat behavior stays in AdminUI, without new localStorage state.
+- Economy accepts safe nonnegative integers and add/set actions. Pending flags block duplicate mutations; data-admin-economy buttons disable while saving. Success refreshes the balance and players list.
+- Users load when entering the tab; request sequence ignores stale responses. Names and inline handler arguments are escaped; search uses adminCachedUsers. Cached fallback is explicitly labeled stale.
+- Broadcast validates 1-300 characters, preserves input on failure and prevents duplicate sends. #admin-feedback provides progress/errors via aria-live.
+- resetAdminDailyCooldown is async: /api/admin/reset-daily must succeed before local state changes. Node already persists this route; PortalStore adds the Supabase implementation.
+- Tests: node --test test/admin-menu-improvements.test.js and existing admin frontend/cloud tests. Existing DOM IDs remain intact.

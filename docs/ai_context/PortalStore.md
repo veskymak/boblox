@@ -97,3 +97,6 @@ async function syncAccountToServer({ bypassQueue = false } = {}) {
 
 ## Player tag priority
 getPlayerTag(username, isVip) is the cosmetic badge SSOT: only Vendeez (case-insensitive exact username) receives ADMIN, ahead of VIP. Uses the existing persisted account username across devices; grants no permissions. Existing *-vip-badge DOM IDs display the primary tag.
+
+## Admin transport (v8.9)
+handleSupabaseApiRequest checks the current profile username for admin routes (Vendeez only), matching Node. POST /api/admin/reset-daily persists daily_claim_date: 0 and checks update/read-back success. Admin coin fallback checks update errors instead of reporting a rejected save as successful. All calls use apiRequest and existing authenticated transport.

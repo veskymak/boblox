@@ -81,14 +81,14 @@ describe('Architectural Guardrails (Retrospective Enforcement)', () => {
         assert.ok(portalUiCode.includes('STORAGE_KEYS.CHAT_UNREAD'), 'PortalUI must derive STORAGE_KEY_UNREAD_MESSAGES from STORAGE_KEYS.CHAT_UNREAD');
     });
 
-    it('enforces isCurrentUserAdmin accepts optional user and handles both Vendeez and isAdmin', () => {
+    it('enforces isCurrentUserAdmin accepts optional user and restricts access to Vendeez', () => {
         const { isCurrentUserAdmin } = AdminUI;
         assert.strictEqual(typeof isCurrentUserAdmin, 'function', 'isCurrentUserAdmin must be exported');
 
         // 1. Explicit user parameter
         assert.strictEqual(isCurrentUserAdmin({ username: 'Vendeez' }), true);
         assert.strictEqual(isCurrentUserAdmin({ username: 'vendeez' }), true);
-        assert.strictEqual(isCurrentUserAdmin({ username: 'OtherUser', isAdmin: true }), true);
+        assert.strictEqual(isCurrentUserAdmin({ username: 'OtherUser', isAdmin: true }), false);
         assert.strictEqual(isCurrentUserAdmin({ username: 'OtherUser', isAdmin: false }), false);
 
         // 2. Global authState fallback when no user is passed

@@ -1277,12 +1277,20 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
     }
 
     function isSupabaseAdminUser(profile) {
-        if (typeof isCurrentUserAdmin === 'function' && isCurrentUserAdmin(profile)) return true;
         const pName = (profile?.username || '').toLowerCase();
-        if (pName === 'vendeez' || pName === 'admin' || profile?.isAdmin) return true;
-        const aName = (authState.user?.username || '').toLowerCase();
-        if (aName === 'vendeez' || aName === 'admin' || authState.user?.isAdmin) return true;
-        return false;
+        return pName === 'vendeez';
+    }
+
+    if (path === '/api/admin/reset-daily' && method === 'POST') {
+        const currentUser = await getCurrentSupabaseProfile();
+        if (!isSupabaseAdminUser(currentUser)) {
+            return { ok: false, status: 403, data: { error: 'Přístup odepřen.' } };
+        }
+        const username = String(body.username || currentUser.username).trim();
+        const { data, error } = await sb.from('profiles').update({ daily_claim_date: 0 })
+            .ilike('username', username).select('username, daily_claim_date').maybeSingle();
+        if (error || !data) return { ok: false, status: 400, data: { error: 'Reset denního bonusu se nezdařil.' } };
+        return { ok: true, status: 200, data: { ok: true, ...data } };
     }
 
     if (path === '/api/admin/users' && method === 'GET') {
@@ -1371,9 +1379,11 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
             newCoins = action === 'set' ? Math.max(0, Math.floor(rawAmount)) : Math.max(0, Math.floor(currentCoins + rawAmount));
 
             try {
-                await sb.from('profiles').update({ coins: newCoins }).eq('id', targetProfile.id);
+                const result = await sb.from('profiles').update({ coins: newCoins }).eq('id', targetProfile.id);
+                if (result.error) return { ok: false, status: 400, data: { error: 'Zůstatek se nepodařilo uložit.' } };
             } catch (e) {
                 console.warn('Supabase coins update failed:', e);
+                return { ok: false, status: 500, data: { error: 'Zůstatek se nepodařilo uložit.' } };
             }
             targetProfile.coins = newCoins;
         }
