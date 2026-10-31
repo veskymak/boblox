@@ -54,6 +54,9 @@ function updateAdminUI() {
         if (el && isAdmin && id === 'rblx-admin-tab') el.classList.remove('hidden');
     }
     if (!isAdmin) {
+        adminSocialRequest++;
+        const socialList = document.getElementById('admin-ratings-list');
+        if (socialList) socialList.textContent = '';
         adminUsersRequest++;
         adminCachedUsers = [];
         const list = document.getElementById('admin-users-list');
@@ -114,7 +117,7 @@ function closeAdminModal() {
 }
 
 function switchAdminTab(tabName) {
-    const tabs = ['economy', 'users', 'broadcast', 'cheats'];
+    const tabs = ['economy', 'users', 'broadcast', 'cheats', 'ratings'];
     if (!tabs.includes(tabName)) tabName = 'economy';
     tabs.forEach(t => {
         const btn = document.getElementById(`admin-tab-btn-${t}`);
@@ -137,6 +140,7 @@ function switchAdminTab(tabName) {
         }
     });
     if (tabName === 'users' && isCurrentUserAdmin()) loadAdminUsersList();
+    if (tabName === 'ratings') openAdminRatings();
     if (tabName === 'cheats') syncAdminCheatControls();
 }
 
@@ -488,4 +492,75 @@ if (typeof module !== 'undefined' && module.exports) {
         submitAdminBroadcast,
         promptAdminSetCoins
     };
+}
+
+let adminSocialRequest = 0;
+let adminSocialPending = false;
+
+function openAdminRatings() {
+    const select = document.getElementById('admin-ratings-game');
+    if (!select || !isCurrentUserAdmin()) return;
+    if (!select.options.length) {
+        for (const game of GAMES_CATALOG) {
+            const option = document.createElement('option');
+            option.value = game.id;
+            option.textContent = game.title || game.name || game.id;
+            select.appendChild(option);
+        }
+    }
+    loadAdminRatings();
+}
+
+async function loadAdminRatings() {
+    if (!isCurrentUserAdmin()) return;
+    const request = ++adminSocialRequest;
+    const gid = document.getElementById('admin-ratings-game').value;
+    const list = document.getElementById('admin-ratings-list');
+    list.textContent = 'Načítání…';
+    try {
+        const res = await apiRequest(`/api/admin/games/${gid}/social`);
+        if (request !== adminSocialRequest || !isCurrentUserAdmin()) return;
+        if (!res.ok) throw new Error(res.data?.error || 'Načítání selhalo.');
+        list.replaceChildren();
+        for (const [label, rows] of [['Hlasy', res.data.ratings], ['Komentáře', res.data.comments]]) {
+            const heading = document.createElement('h3');
+            heading.textContent = `${label} (${rows.length})`;
+            list.appendChild(heading);
+            for (const row of rows) {
+                const item = document.createElement('div');
+                item.className = 'bg-[#2C2F33] rounded-lg p-3 break-words';
+                item.textContent = `${row.username}: ${row.vote ? (row.vote === 'like' ? '\uD83D\uDC4D Like' : '\uD83D\uDC4E Dislike') : row.content}`;
+                if (!row.vote) {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'min-h-[44px] px-3 text-[#FF4D4D]';
+                    button.textContent = 'Smazat komentář';
+                    button.onclick = () => mutateAdminSocial('delete-comment', gid, row.id);
+                    item.appendChild(button);
+                }
+                list.appendChild(item);
+            }
+        }
+    } catch (err) {
+        if (request === adminSocialRequest && isCurrentUserAdmin()) list.textContent = err.message;
+    }
+}
+
+async function mutateAdminSocial(action, gid, commentId) {
+    if (!isCurrentUserAdmin() || adminSocialPending) return;
+    if (!window.confirm(action === 'reset-ratings' ? 'Trvale smazat hodnocen\u00ed vybran\u00e9 hry z datab\u00e1ze? Koment\u00e1\u0159e z\u016fstanou.' : 'Trvale smazat tento koment\u00e1\u0159?')) return;
+    adminSocialPending = true;
+    try {
+        const res = await apiRequest(`/api/admin/games/${gid}/${action}`, { method: 'POST', body: { commentId } });
+        if (!res.ok) throw new Error(res.data?.error || 'Uložení selhalo.');
+        if (!isCurrentUserAdmin()) return;
+        setAdminFeedback('Změna byla uložena do databáze.');
+        await loadAdminRatings();
+        if (typeof fetchAllGamesSummary === 'function') await fetchAllGamesSummary();
+        if (typeof refreshVisibleGameSocial === 'function') await refreshVisibleGameSocial();
+    } catch (err) {
+        setAdminFeedback(err.message, true);
+    } finally {
+        adminSocialPending = false;
+    }
 }

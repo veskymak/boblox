@@ -48,3 +48,10 @@ Adopt Me: `/api/user/sync` persists `adoptme_bucks` and `adoptme_pets` in users.
 - **Vždy escapuj a sanitizuj vstupy**: Veškerý uživatelský text prochází sanitizací před uložením do SQLite.
 - **Bezpečnost hesel**: Hesla se ukládají výhradně jako bcrypt hash se solí.
 - **Hesla se nikdy nesmí vrátit klientovi**: `serializeUserForClient()` vždy odstraní `password_hash`.
+
+## Game moderation (v9.2)
+- Vendeez-only GET `/api/admin/games/:gameId/social` returns named votes and comments. POST sibling `reset-ratings` deletes all game votes; `delete-comment` takes `commentId`.
+- SQLite mutations are transactional and remove legacy users JSON mirrors. Existing public social/summary reads and fresh auth reflect deletions.
+- AdminUI ratings tab loads on entry/game selection and refreshes after writes; DOM textContent protects user content. Logout invalidates pending reads. Destructive actions require browser confirmation.
+- Supabase uses authenticated SECURITY DEFINER RPC `admin_game_social`, checking auth.uid() against profiles username. Deploy `docs/supabase/schema_update_v9.2.sql` first; unavailable RPC fails closed, with no offline success or Node fallback.
+- Comments have no separate voting model. Moderation supports viewing authors and deleting comments, while game reset preserves comments.

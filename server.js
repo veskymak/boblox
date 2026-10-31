@@ -826,6 +826,47 @@ app.post('/api/games/:gameId/comments', requireAuth, (req, res) => {
 /* ============================================================================
  * 6B. DEDICATED ADMIN ENDPOINTS (EXCLUSIVELY FOR VENDEEZ)
  * ============================================================================ */
+// Admin moderation always uses authenticated database state.
+app.get('/api/admin/games/:gameId/social', requireAdmin, (req, res) => {
+    const gid = req.params.gameId;
+    if (!VALID_GAME_IDS.has(gid)) return res.status(404).json({ error: 'Hra nenalezena.' });
+    const ratings = db.prepare(`SELECT u.username, r.vote, r.updated_at FROM game_ratings r
+        JOIN users u ON u.id = r.user_id WHERE r.game_id = ? ORDER BY r.updated_at DESC`).all(gid);
+    const comments = db.prepare('SELECT id, username, content, created_at FROM comments WHERE game_id = ? ORDER BY created_at DESC').all(gid);
+    res.json({ ratings, comments });
+});
+
+app.post('/api/admin/games/:gameId/:action', requireAdmin, (req, res) => {
+    const gid = req.params.gameId;
+    const action = req.params.action;
+    if (!VALID_GAME_IDS.has(gid)) return res.status(404).json({ error: 'Hra nenalezena.' });
+    if (!['reset-ratings', 'delete-comment'].includes(action)) return res.status(404).json({ error: 'Neplatná akce.' });
+    const commentId = Number(req.body.commentId);
+    if (action === 'delete-comment' && !Number.isSafeInteger(commentId)) return res.status(400).json({ error: 'Neplatný komentář.' });
+    db.exec('BEGIN IMMEDIATE');
+    try {
+        if (action === 'reset-ratings') {
+            db.prepare('DELETE FROM game_ratings WHERE game_id = ?').run(gid);
+            for (const user of db.prepare('SELECT id, game_ratings FROM users').all()) {
+                const ratings = safeParseJSON(user.game_ratings, {});
+                delete ratings[gid];
+                db.prepare('UPDATE users SET game_ratings = ? WHERE id = ?').run(JSON.stringify(ratings), user.id);
+            }
+        } else {
+            db.prepare('DELETE FROM comments WHERE game_id = ? AND id = ?').run(gid, commentId);
+            for (const user of db.prepare('SELECT id, comments FROM users').all()) {
+                const comments = safeParseJSON(user.comments, []).filter(c => !(c.gameId === gid && Number(c.id) === commentId));
+                db.prepare('UPDATE users SET comments = ? WHERE id = ?').run(JSON.stringify(comments), user.id);
+            }
+        }
+        db.exec('COMMIT');
+        res.json({ ok: true });
+    } catch (err) {
+        db.exec('ROLLBACK');
+        res.status(500).json({ error: 'Změna se neuložila.' });
+    }
+});
+
 app.get('/api/admin/users', requireAdmin, (req, res) => {
     try {
         const rows = db.prepare(`

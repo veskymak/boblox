@@ -101,3 +101,10 @@ function toggleAdminGodmode(forceVal) {
 - Broadcast validates 1-300 characters, preserves input on failure and prevents duplicate sends. #admin-feedback provides progress/errors via aria-live.
 - resetAdminDailyCooldown is async: /api/admin/reset-daily must succeed before local state changes. Node already persists this route; PortalStore adds the Supabase implementation.
 - Tests: node --test test/admin-menu-improvements.test.js and existing admin frontend/cloud tests. Existing DOM IDs remain intact.
+
+## Game moderation (v9.2)
+- Vendeez-only GET `/api/admin/games/:gameId/social` returns named votes and comments. POST sibling `reset-ratings` deletes all game votes; `delete-comment` takes `commentId`.
+- SQLite mutations are transactional and remove legacy users JSON mirrors. Existing public social/summary reads and fresh auth reflect deletions.
+- AdminUI ratings tab loads on entry/game selection and refreshes after writes; DOM textContent protects user content. Logout invalidates pending reads. Destructive actions require browser confirmation.
+- Supabase uses authenticated SECURITY DEFINER RPC `admin_game_social`, checking auth.uid() against profiles username. Deploy `docs/supabase/schema_update_v9.2.sql` first; unavailable RPC fails closed, with no offline success or Node fallback.
+- Comments have no separate voting model. Moderation supports viewing authors and deleting comments, while game reset preserves comments.

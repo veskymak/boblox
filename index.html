@@ -2660,6 +2660,7 @@
                 <button type="button" id="admin-tab-btn-broadcast" role="tab" aria-controls="admin-panel-broadcast" onclick="switchAdminTab('broadcast')" class="min-h-[44px] py-2.5 px-3.5 sm:px-4 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:bg-[#2C2F33] transition shrink-0 flex items-center justify-center">
                     📢 Oznámení
                 </button>
+                <button type="button" id="admin-tab-btn-ratings" role="tab" aria-controls="admin-panel-ratings" onclick="switchAdminTab('ratings')" class="min-h-[44px] px-4 text-gray-400">Hodnocení a komentáře</button>
                 <button type="button" id="admin-tab-btn-cheats" role="tab" aria-controls="admin-panel-cheats" onclick="switchAdminTab('cheats')" class="min-h-[44px] py-2.5 px-3.5 sm:px-4 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:bg-[#2C2F33] transition shrink-0 flex items-center justify-center">
                     🛠️ Cheaty
                 </button>
@@ -2740,6 +2741,13 @@
                 </div>
 
                 <!-- PANEL 4: CHEATY -->
+                <div id="admin-panel-ratings" role="tabpanel" aria-labelledby="admin-tab-btn-ratings" class="space-y-3 hidden">
+                    <label for="admin-ratings-game">Vyber hru</label>
+                    <select id="admin-ratings-game" onchange="loadAdminRatings()" class="min-h-[44px] w-full bg-[#2C2F33] rounded-lg px-3"></select>
+                    <button type="button" onclick="loadAdminRatings()" class="min-h-[44px] px-3 bg-[#2C2F33] rounded-lg">Obnovit</button>
+                    <button type="button" onclick="mutateAdminSocial('reset-ratings', document.getElementById('admin-ratings-game').value)" class="min-h-[44px] px-3 text-[#FF4D4D]">Resetovat všechna hodnocení hry</button>
+                    <div id="admin-ratings-list" aria-live="polite" class="space-y-2"></div>
+                </div>
                 <div id="admin-panel-cheats" role="tabpanel" aria-labelledby="admin-tab-btn-cheats" class="space-y-3 hidden">
                     <p class="text-xs text-gray-400">Nesmrtelnost a rychlost můžeš ovládat také přímo ve hře: ESC → Cheaty. Po odhlášení se vypnou.</p>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2791,16 +2799,16 @@
     </div>
 
     <!-- BOBLOX Modular Architecture (Core Engine, State, Network, Games & UI with Cache-Busting) -->
-    <script src="src/core/SoundEngine.js?v=9.1" defer></script>
-    <script src="src/state/PortalStore.js?v=9.1" defer></script>
-    <script src="src/network/NetworkManager.js?v=9.1" defer></script>
-    <script src="src/ui/PortalUI.js?v=9.1" defer></script>
-    <script src="src/ui/AdminUI.js?v=9.1" defer></script>
-    <script src="src/core/AvatarAndShop.js?v=9.1" defer></script>
-    <script src="src/core/Engine.js?v=9.1" defer></script>
-    <script src="src/ui/AdoptMeUI.js?v=9.1" defer></script>
-    <script src="src/games/GameWorlds.js?v=9.1" defer></script>
-    <script src="src/core/PhysicsAndLoop.js?v=9.1" defer></script>
-    <script src="src/core/InputManager.js?v=9.1" defer></script>
+    <script src="src/core/SoundEngine.js?v=9.2" defer></script>
+    <script src="src/state/PortalStore.js?v=9.2" defer></script>
+    <script src="src/network/NetworkManager.js?v=9.2" defer></script>
+    <script src="src/ui/PortalUI.js?v=9.2" defer></script>
+    <script src="src/ui/AdminUI.js?v=9.2" defer></script>
+    <script src="src/core/AvatarAndShop.js?v=9.2" defer></script>
+    <script src="src/core/Engine.js?v=9.2" defer></script>
+    <script src="src/ui/AdoptMeUI.js?v=9.2" defer></script>
+    <script src="src/games/GameWorlds.js?v=9.2" defer></script>
+    <script src="src/core/PhysicsAndLoop.js?v=9.2" defer></script>
+    <script src="src/core/InputManager.js?v=9.2" defer></script>
 </body>
 </html>

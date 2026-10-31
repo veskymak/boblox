@@ -1243,6 +1243,18 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
         return pName === 'vendeez';
     }
 
+    const moderation = path.match(/^\/api\/admin\/games\/([a-z0-9_]+)\/(social|reset-ratings|delete-comment)$/);
+    if (moderation) {
+        const profile = await getCurrentSupabaseProfile();
+        if (!isSupabaseAdminUser(profile)) return { ok: false, status: 403, data: { error: 'Přístup odepřen.' } };
+        const [, gid, action] = moderation;
+        if (!GAMES_CATALOG.some(g => g.id === gid)) return { ok: false, status: 404, data: { error: 'Hra nenalezena.' } };
+        if ((action === 'social' ? 'GET' : 'POST') !== method) return { ok: false, status: 405, data: { error: 'Neplatná metoda.' } };
+        const result = await sb.rpc('admin_game_social', { target_game: gid, moderation_action: action, target_comment: String(body.commentId || '') });
+        if (result.error || !result.data) return gameSocialUnavailable();
+        return { ok: true, status: 200, data: result.data };
+    }
+
     if (path === '/api/admin/reset-daily' && method === 'POST') {
         const currentUser = await getCurrentSupabaseProfile();
         if (!isSupabaseAdminUser(currentUser)) {
@@ -1415,7 +1427,7 @@ function gameSocialUnavailable() {
 }
 
 function isGameSocialRequest(path) {
-    return /^\/api\/games\/(summary|[a-z0-9_]+\/(social|rate|comments))$/.test(path);
+    return /^\/api\/admin\/games\//.test(path) || /^\/api\/games\/(summary|[a-z0-9_]+\/(social|rate|comments))$/.test(path);
 }
 
 async function apiRequest(path, options = {}) {
