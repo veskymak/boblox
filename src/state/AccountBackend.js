@@ -38,14 +38,28 @@
                 const { error } = await sb.auth.signOut();
                 return error ? failure(error) : { ok: true, status: 200, data: { ok: true } };
             }
+            if (path === '/api/auth/reset-password') {
+                const email = String(body.email || '').trim();
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.toLowerCase().endsWith('@boblox.cz')) return failure('Zadej svůj potvrzený e-mail.', 400);
+                const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: body.redirectTo });
+                return error ? failure(error, 400) : { ok: true, status: 200, data: { ok: true } };
+            }
             if (path === '/api/auth/login' || path === '/api/auth/register') {
                 const username = String(body.username || '').trim();
-                if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) return failure('Neplatné jméno.', 400);
-                const credentials = { email: username.toLowerCase() + '@boblox.cz', password: body.password };
                 const registering = path.endsWith('register');
-                const { data, error } = registering
-                    ? await sb.auth.signUp({ ...credentials, options: { data: { username } } })
-                    : await sb.auth.signInWithPassword(credentials);
+                const email = String(body.email || '').trim().toLowerCase();
+                if (registering && (!/^[a-zA-Z0-9_]{3,20}$/.test(username) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.endsWith('@boblox.cz')))
+                    return failure('Vyplň platné jméno a skutečný e-mail.', 400);
+                let data, error;
+                if (registering) {
+                    ({ data, error } = await sb.auth.signUp({ email, password: body.password,
+                        options: { data: { username }, emailRedirectTo: body.redirectTo } }));
+                    if (!error && !data?.session) return { ok: true, status: 200, data: { confirmationRequired: true } };
+                } else {
+                    const login = await sb.functions.invoke('account-login', { body: { username, password: body.password } });
+                    error = login.error;
+                    if (!error && login.data?.session) ({ data, error } = await sb.auth.setSession(login.data.session));
+                }
                 if (error || !data?.session)
                     return failure(
                         error ||
@@ -66,6 +80,20 @@
             }
             const { data: verified, error: authError } = await sb.auth.getUser();
             if (authError || !verified?.user) return failure('Přihlas se prosím znovu.', 401);
+            if (path === '/api/auth/email-status' || path === '/api/auth/email-dismiss') {
+                const { data, error } = await sb.rpc('recovery_email_status', { dismiss: path.endsWith('dismiss') });
+                return error ? failure(error) : { ok: true, status: 200, data };
+            }
+            if (path === '/api/auth/email') {
+                const email = String(body.email || '').trim().toLowerCase();
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.endsWith('@boblox.cz')) return failure('Zadej platný e-mail.', 400);
+                const { error } = await sb.auth.updateUser({ email }, { emailRedirectTo: body.redirectTo });
+                return error ? failure(error, 400) : { ok: true, status: 200, data: { confirmationRequired: true } };
+            }
+            if (path === '/api/auth/password') {
+                const { error } = await sb.auth.updateUser({ password: body.password });
+                return error ? failure(error, 400) : { ok: true, status: 200, data: { ok: true } };
+            }
             let command = 'me';
             let payload = body;
             if (path === '/api/user/sync') command = 'profile';
@@ -84,7 +112,12 @@
                     };
             } else if (path.startsWith('/api/transactions')) command = 'transactions';
             const id = body.requestId || crypto.randomUUID();
-            const { data, error } = await rpcForUser(sb, verified.user.id, command, payload, id);
+            let { data, error } = await rpcForUser(sb, verified.user.id, command, payload, id);
+            // A confirmed signup can return on a different device before a profile exists.
+            if (error && path === '/api/auth/me' && verified.user.user_metadata?.username) {
+                ({ data, error } = await rpcForUser(sb, verified.user.id, 'register',
+                    { username: verified.user.user_metadata.username }, crypto.randomUUID()));
+            }
             if (error)
                 return failure(error, error.code === '42501' ? 403 : error.code === '22023' ? 400 : 503);
             if (data.user) {

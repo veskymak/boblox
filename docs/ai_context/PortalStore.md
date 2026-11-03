@@ -18,3 +18,12 @@ Regression surface: account-commands.integration.test.js, bobux-pagehide-persist
 Two legacy profiles without matching Auth users require verified recovery. Never reintroduce public-hash login or bind accounts merely by matching editable metadata/usernames.
 
 Each RPC pins the verified session access token on its PostgREST request. Switching SDK sessions while a command is in flight cannot redirect that write into the new account. Friendship responses also check the originating account identity before applying snapshots.
+
+## Recovery email enrollment (v9.5)
+`AccountBackend.request` owns `/api/auth/email-status`, `email-dismiss`, `email`, `reset-password` and `password`. UI goes through `apiRequest`. New signups require a real email (internal `@boblox.cz` aliases are rejected). A signup without a session returns `confirmationRequired`, never a fake authenticated user. After confirmation, `/auth/me` can create a new profile via the guarded `register` command; pre-migration orphan profiles cannot be claimed by matching metadata.
+
+Username/email login uses deployed `account-login` Edge Function; only its service-role-only lookup can resolve usernames to private Auth email addresses. The browser receives a session only after password verification, then installs it with `setSession`. Password reset uses Auth's recovery link and `PASSWORD_RECOVERY` event. Existing account email changes use `auth.updateUser` and require confirmation before becoming active.
+
+`docs/supabase/email_recovery.sql` is applied as `one_time_recovery_email`. Private `email_enrollment` snapshots accounts existing at deployment, persists refusal/selected target and enforces a single target with an `auth.users` trigger. New accounts cannot subsequently change email. Pending confirmation of the selected target remains allowed. The status RPC checks `auth.uid()` and reveals no email; service-only name lookup grants no browser access. See `test/recovery-email-security.sql` (rollback-only database test) and `test/recovery-email.test.js`.
+
+Deployment configuration: Confirm email is enabled (public Auth settings verified `mailer_autoconfirm=false` on 2026-11-03). The user confirmed disabling Secure email change for legacy synthetic addresses, which have no inbox. The connected MCP cannot change Auth configuration. The hosted app URL must be configured as Site URL / allowed redirect URL. The deployed login function returns a generic 401 for invalid credentials, verified over HTTP. Delivery to a real inbox still needs an end-to-end user check.

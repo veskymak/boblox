@@ -1,0 +1,40 @@
+-- Run in a transaction; no real users or email messages are modified.
+BEGIN;
+DO $$
+DECLARE uid uuid:=gen_random_uuid(); denied boolean;
+BEGIN
+ INSERT INTO auth.users(id,email) VALUES(uid,uid::text||'@example.test');
+ INSERT INTO boblox_private.email_enrollment(user_id) VALUES(uid);
+ PERFORM set_config('request.jwt.claim.sub',uid::text,true);
+ IF NOT (public.recovery_email_status()->>'showPrompt')::boolean THEN RAISE EXCEPTION 'Missing existing account prompt'; END IF;
+ UPDATE auth.users SET email_change='recovery@example.test' WHERE id=uid;
+ IF (public.recovery_email_status()->>'showPrompt')::boolean THEN RAISE EXCEPTION 'Prompt repeated on another device'; END IF;
+ denied:=false;
+ BEGIN UPDATE auth.users SET email_change='different@example.test' WHERE id=uid;
+ EXCEPTION WHEN insufficient_privilege THEN denied:=true; END;
+ IF NOT denied THEN RAISE EXCEPTION 'Second target accepted'; END IF;
+ UPDATE auth.users SET email='recovery@example.test',email_change='' WHERE id=uid;
+ denied:=false;
+ BEGIN UPDATE auth.users SET email='different@example.test' WHERE id=uid;
+ EXCEPTION WHEN insufficient_privilege THEN denied:=true; END;
+ IF NOT denied THEN RAISE EXCEPTION 'Confirmed address was mutable'; END IF;
+ DELETE FROM auth.users WHERE id=uid;
+ uid:=gen_random_uuid();
+ INSERT INTO auth.users(id,email) VALUES(uid,uid::text||'@example.test');
+ INSERT INTO boblox_private.email_enrollment(user_id) VALUES(uid);
+ PERFORM set_config('request.jwt.claim.sub',uid::text,true);
+ PERFORM public.recovery_email_status(true);
+ IF (public.recovery_email_status()->>'showPrompt')::boolean THEN RAISE EXCEPTION 'Dismissal not persisted'; END IF;
+ denied:=false;
+ BEGIN UPDATE auth.users SET email_change='late@example.test' WHERE id=uid;
+ EXCEPTION WHEN insufficient_privilege THEN denied:=true; END;
+ IF NOT denied THEN RAISE EXCEPTION 'Dismissal bypassed'; END IF;
+ DELETE FROM auth.users WHERE id=uid;
+ denied:=false;
+ BEGIN INSERT INTO auth.users(id,email) VALUES(gen_random_uuid(),'new@boblox.cz');
+ EXCEPTION WHEN invalid_parameter_value THEN denied:=true; END;
+ IF NOT denied THEN RAISE EXCEPTION 'Synthetic signup allowed'; END IF;
+ IF has_function_privilege('anon','public.account_login_email(text)','execute') OR has_function_privilege('authenticated','public.account_login_email(text)','execute') THEN RAISE EXCEPTION 'Email lookup exposed'; END IF;
+END $$;
+SELECT 'email enrollment security and cross-device persistence passed' AS result;
+ROLLBACK;

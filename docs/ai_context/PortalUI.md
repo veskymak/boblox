@@ -10,3 +10,10 @@ Game detail reads/writes still capture selected game IDs, reject local-only succ
 Seams: sendLobbyDirectChatMessage, syncDirectChatMessages, sendFriendRequest, acceptFriendRequest, declineFriendRequest, removeFriend, handleIncomingSocialPacket, loadGameSocialDetails. UI classes must retain 44px controls and the canonical Bobux color. Browser layout/physical-device verification is separate from the DOM/HTTP test suite.
 
 Supabase comments and votes now carry immutable user_id authors. Database triggers enforce matching usernames/author IDs, game IDs, comment length and a 30-second comment cooldown. Client cooldown checks are presentation only.
+
+## Recovery email UI (v9.5)
+`src/ui/RecoveryEmailUI.js` owns the native `recovery-email-modal` dialog and password recovery dialog. `applyAuthenticatedUser` schedules `refreshRecoveryEmailPrompt`; visibility resume rechecks persisted server state. Account identity checks discard stale responses. Refusal is saved via `/auth/email-dismiss` before closing; successful email submission hides the invitation on all devices. No localStorage flag controls eligibility.
+
+The first submit expands the form, moves the blue CTA down into a green check and reveals the email input in its original position. CSS transitions in index.html respect reduced motion; native dialog provides focus confinement. The input is disabled before expansion so native validation does not block the first click. Submission failures retain the field and permit retry. Escape persists refusal. `sidebar-settings-btn` opens the existing `auth-modal`, including logout. Registration exposes a required email field; login accepts username or email. Forgot password reveals the email field and sends an Auth recovery link; `PASSWORD_RECOVERY` opens a new-password form.
+
+Automated validation: 243 Node tests pass and rollback-only Supabase enrollment tests pass. Confirm email is verified enabled, and the user confirmed disabling Secure email change. Physical browser animation and delivery to a real inbox have not been verified; Auth configuration is documented in PortalStore.md.

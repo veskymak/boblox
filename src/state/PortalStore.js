@@ -950,6 +950,7 @@ function applyAuthenticatedUser(user) {
     if (typeof user.wheelAt === 'number') localStorage.setItem(STORAGE_KEYS.WHEEL, String(user.extraSpin ? 0 : user.wheelAt));
     if (authState.user?.id !== user.id && typeof resetAccountSocialCaches === 'function') resetAccountSocialCaches();
     authState.user = user;
+    if (typeof refreshRecoveryEmailPrompt === 'function') refreshRecoveryEmailPrompt();
     if (typeof sentFriendRequests !== 'undefined') Object.keys(sentFriendRequests).forEach(k => delete sentFriendRequests[k]);
     if (typeof receivedFriendRequests !== 'undefined') Object.keys(receivedFriendRequests).forEach(k => delete receivedFriendRequests[k]);
     const vip = !!(user.is_vip || user.inventory?.is_vip);
@@ -1189,6 +1190,7 @@ async function touchUserActivity(forceImmediate = false) {
 }
 
 function updateAuthUI() {
+    if (!authState.user && typeof closeRecoveryEmailPrompt === 'function') closeRecoveryEmailPrompt();
     const isLogged = !!authState.user;
     const navName = document.getElementById('nav-player-name');
     const navLabel = document.getElementById('nav-auth-label');
@@ -1288,6 +1290,16 @@ function closeAuthModal() {
 
 function switchAuthTab(mode) {
     authState.mode = mode === 'register' ? 'register' : 'login';
+    const registering = authState.mode === 'register';
+    const emailInput = document.getElementById('auth-email-input');
+    document.getElementById('auth-email-field')?.classList.toggle('hidden', !registering);
+    if (emailInput) { emailInput.required = registering; emailInput.disabled = !registering; }
+    const usernameInput = document.getElementById('auth-username-input');
+    if (usernameInput) usernameInput.maxLength = registering ? 20 : 254;
+    const usernameLabel = document.getElementById('auth-username-label');
+    if (usernameLabel) usernameLabel.textContent = registering ? 'Uživatelské jméno (3–20 znaků)' : 'Uživatelské jméno nebo e-mail';
+    const passwordInput = document.getElementById('auth-password-input');
+    if (passwordInput) passwordInput.autocomplete = registering ? 'new-password' : 'current-password';
     const tabLogin = document.getElementById('auth-tab-login');
     const tabReg = document.getElementById('auth-tab-register');
     const submitBtn = document.getElementById('auth-submit-btn');
@@ -1321,11 +1333,15 @@ async function submitAuthForm() {
 
     const res = await apiRequest(endpoint, {
         method: 'POST',
-        body: { username, password }
+        body: { username, password, email: document.getElementById('auth-email-input')?.value || '', redirectTo: window.location.origin + window.location.pathname }
     });
 
     if (!res.ok) {
         showAuthAlert(res.data?.error || 'Přihlášení se nezdařilo.', true);
+        return;
+    }
+    if (res.data?.confirmationRequired) {
+        showAuthAlert('Zkontroluj e-mail a potvrď adresu. Potom se přihlas svým e-mailem a heslem.', false);
         return;
     }
 

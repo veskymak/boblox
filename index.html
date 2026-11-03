@@ -582,6 +582,10 @@
                     <span>Transactions</span>
                 </button>
 
+                <button type="button" id="sidebar-settings-btn" onclick="openAuthModal()" class="w-full min-h-[44px] flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-[#232527] text-gray-300 hover:text-white transition">
+                    <span aria-hidden="true">⚙</span><span>Nastavení</span>
+                </button>
+
                 <!-- Admin Menu (Only for Vendeez) -->
                 <button type="button" id="sidebar-admin-btn" onclick="openAdminModal()" class="w-full min-h-[44px] hidden items-center gap-3 px-2.5 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300 transition font-bold">
                     <span class="text-sm">⚡</span>
@@ -1250,8 +1254,8 @@
 
                 <div class="space-y-3">
                     <div>
-                        <label class="text-xs font-bold uppercase text-gray-400" for="auth-username-input">Uživatelské jméno (3–20 znaků)</label>
-                        <input id="auth-username-input" name="username" type="text" maxlength="20" placeholder="např. NoobMaster_CZ" autocomplete="username"
+                        <label id="auth-username-label" class="text-xs font-bold uppercase text-gray-400" for="auth-username-input">Uživatelské jméno nebo e-mail</label>
+                        <input id="auth-username-input" name="username" type="text" maxlength="254" placeholder="např. NoobMaster_CZ" autocomplete="username"
                             class="w-full mt-1 bg-[#191B1D] text-white text-sm font-semibold px-3.5 py-2.5 rounded-xl border border-[#393B3D] focus:outline-none focus:border-[#00A2FF]">
                     </div>
                     <div>
@@ -1261,12 +1265,59 @@
                     </div>
                 </div>
 
-                <button id="auth-submit-btn" type="submit" class="w-full py-3 rounded-xl btn-play-green text-white font-bold text-sm shadow-lg">
+                <div id="auth-email-field" class="hidden">
+                    <label for="auth-email-input" class="text-xs font-bold text-gray-400">E-mail pro potvrzení účtu a obnovu hesla</label>
+                    <input id="auth-email-input" name="email" type="email" maxlength="254" autocomplete="email" disabled class="w-full min-h-[44px] mt-1 bg-[#191B1D] text-white px-3.5 py-2.5 rounded-xl border border-[#393B3D] focus:border-[#00A2FF]">
+                </div>
+                <button id="auth-submit-btn" type="submit" class="w-full min-h-[44px] py-3 rounded-xl btn-play-green text-white font-bold text-sm shadow-lg">
                     Přihlásit se k účtu
                 </button>
+                <button type="button" onclick="requestPasswordReset()" class="w-full min-h-[44px] text-sm text-[#00A2FF]">Zapomenuté heslo</button>
             </form>
         </div>
     </div>
+
+    <style>
+        #recovery-email-modal, #recovery-password-modal { color: white; background: #232527; border: 1px solid #393B3D; border-radius: 24px; width: min(448px, calc(100% - 32px)); max-height: calc(100dvh - 32px); padding: 28px; box-shadow: 0 24px 80px #0008; }
+        #recovery-email-modal::backdrop, #recovery-password-modal::backdrop { background: #000b; backdrop-filter: blur(8px); }
+        #recovery-email-form { position: relative; height: 56px; margin-top: 24px; transition: height 550ms cubic-bezier(.22,1,.36,1); }
+        #recovery-email-form.editing { height: 124px; }
+        #recovery-email-input { width: 100%; height: 52px; border-radius: 14px; padding: 0 16px; color: white; background: #191B1D; border: 1px solid #555; opacity: 0; transform: translateY(14px) scale(.97); pointer-events: none; transition: opacity 400ms 100ms, transform 550ms cubic-bezier(.22,1,.36,1); }
+        #recovery-email-form.editing #recovery-email-input { opacity: 1; transform: none; pointer-events: auto; }
+        #recovery-email-action { position: absolute; top: 0; left: 0; width: 100%; height: 52px; border-radius: 14px; background: #00A2FF; color: white; font-weight: 700; transition: top 550ms cubic-bezier(.22,1,.36,1), left 550ms cubic-bezier(.22,1,.36,1), width 550ms cubic-bezier(.22,1,.36,1), border-radius 550ms, background-color 450ms; }
+        #recovery-email-form.editing #recovery-email-action { top: 68px; left: calc(50% - 26px); width: 52px; border-radius: 50%; background: #00B06F; }
+        #recovery-email-action .email-action-label { transition: opacity 180ms, transform 300ms; display: inline-block; }
+        #recovery-email-form.editing .email-action-label { opacity: 0; transform: scale(.65); }
+        #recovery-email-action svg { position: absolute; width: 26px; height: 26px; top: 13px; left: calc(50% - 13px); opacity: 0; transform: scale(.5) rotate(-30deg); transition: opacity 350ms 180ms, transform 550ms cubic-bezier(.22,1,.36,1); }
+        #recovery-email-form.editing svg { opacity: 1; transform: none; }
+        #recovery-email-action:disabled { opacity: .6; cursor: wait; }
+        @media (prefers-reduced-motion: reduce) { #recovery-email-form, #recovery-email-form * { transition: none !important; } }
+    </style>
+    <dialog id="recovery-email-modal" aria-labelledby="recovery-email-title" aria-describedby="recovery-email-description">
+        <div class="text-3xl mb-3" aria-hidden="true">✉</div>
+        <h2 id="recovery-email-title" class="text-2xl font-bold mb-3">Chceš si přidat e-mail?</h2>
+        <p id="recovery-email-description" class="text-sm text-gray-300">Když zapomeneš heslo, pomůže ti obnovit přístup k účtu. E-mail můžeš doplnit jen jednou.</p>
+        <form id="recovery-email-form" onsubmit="submitRecoveryEmail(event)">
+            <label class="sr-only" for="recovery-email-input">E-mailová adresa</label>
+            <input id="recovery-email-input" type="email" autocomplete="email" maxlength="254" placeholder="tvuj@email.cz" required disabled>
+            <button id="recovery-email-action" type="submit" class="min-h-[44px] min-w-[44px]" aria-label="Přidat e-mail">
+                <span class="email-action-label">Přidat email</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="m5 12 4 4L19 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+        </form>
+        <p id="recovery-email-status" role="status" aria-live="polite" class="text-sm text-gray-300 mt-3"></p>
+        <button id="recovery-email-later" type="button" onclick="dismissRecoveryEmail()" class="min-h-[44px] w-full mt-3 text-sm text-gray-400 hover:text-white">Ne, děkuji</button>
+        <p class="text-xs text-gray-500 text-center">Po odmítnutí se tato nabídka znovu nezobrazí.</p>
+    </dialog>
+    <dialog id="recovery-password-modal" aria-labelledby="recovery-password-title">
+        <h2 id="recovery-password-title" class="text-xl font-bold mb-4">Nové heslo</h2>
+        <form onsubmit="saveRecoveredPassword(event)" class="space-y-4">
+            <label for="recovery-password-input">Zvol nové heslo (min. 6 znaků)</label>
+            <input id="recovery-password-input" type="password" minlength="6" maxlength="64" autocomplete="new-password" required class="w-full min-h-[44px] rounded-xl bg-[#191B1D] p-3">
+            <button id="recovery-password-submit" class="w-full min-h-[44px] rounded-xl bg-[#00B06F] font-bold">Uložit heslo</button>
+            <p id="recovery-password-status" role="status"></p>
+        </form>
+    </dialog>
 
     <!-- AVATAR CUSTOMIZER / STATS MODAL -->
     <div id="avatar-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
@@ -2799,23 +2850,24 @@
     </div>
 
     <!-- BOBLOX Modular Architecture (Core Engine, State, Network, Games & UI with Cache-Busting) -->
-    <script src="src/core/SoundEngine.js?v=9.4" defer></script>
-    <script src="src/state/AccountBackend.js?v=9.4" defer></script>
-    <script src="src/state/AccountCommands.js?v=9.4" defer></script>
-    <script src="src/state/AccountSocial.js?v=9.4" defer></script>
-    <script src="src/state/PortalStore.js?v=9.4" defer></script>
-    <script src="src/network/NetworkManager.js?v=9.4" defer></script>
-    <script src="src/ui/PortalUI.js?v=9.4" defer></script>
-    <script src="src/ui/AdminUI.js?v=9.4" defer></script>
-    <script src="src/core/SceneResources.js?v=9.4" defer></script>
-    <script src="src/core/AvatarAndShop.js?v=9.4" defer></script>
-    <script src="src/core/SpatialIndex.js?v=9.4" defer></script>
-    <script src="src/core/Engine.js?v=9.4" defer></script>
-    <script src="src/ui/AdoptMeUI.js?v=9.4" defer></script>
-    <script src="src/core/Lifetime.js?v=9.4" defer></script>
-    <script src="src/games/CasinoCommands.js?v=9.4" defer></script>
-    <script src="src/games/GameWorlds.js?v=9.4" defer></script>
-    <script src="src/core/PhysicsAndLoop.js?v=9.4" defer></script>
-    <script src="src/core/InputManager.js?v=9.4" defer></script>
+    <script src="src/core/SoundEngine.js?v=9.5" defer></script>
+    <script src="src/state/AccountBackend.js?v=9.5" defer></script>
+    <script src="src/state/AccountCommands.js?v=9.5" defer></script>
+    <script src="src/state/AccountSocial.js?v=9.5" defer></script>
+    <script src="src/state/PortalStore.js?v=9.5" defer></script>
+    <script src="src/network/NetworkManager.js?v=9.5" defer></script>
+    <script src="src/ui/PortalUI.js?v=9.5" defer></script>
+    <script src="src/ui/RecoveryEmailUI.js?v=9.5" defer></script>
+    <script src="src/ui/AdminUI.js?v=9.5" defer></script>
+    <script src="src/core/SceneResources.js?v=9.5" defer></script>
+    <script src="src/core/AvatarAndShop.js?v=9.5" defer></script>
+    <script src="src/core/SpatialIndex.js?v=9.5" defer></script>
+    <script src="src/core/Engine.js?v=9.5" defer></script>
+    <script src="src/ui/AdoptMeUI.js?v=9.5" defer></script>
+    <script src="src/core/Lifetime.js?v=9.5" defer></script>
+    <script src="src/games/CasinoCommands.js?v=9.5" defer></script>
+    <script src="src/games/GameWorlds.js?v=9.5" defer></script>
+    <script src="src/core/PhysicsAndLoop.js?v=9.5" defer></script>
+    <script src="src/core/InputManager.js?v=9.5" defer></script>
 </body>
 </html>
