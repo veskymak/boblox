@@ -54,6 +54,7 @@ function createBlackjackGame() {
     };
     const blackjackSource = source.slice(start, end)
         + '\nglobalThis.blackjack = { bjState, dealBlackjack, doubleBlackjack, finishBlackjackRound };';
+    context.gameTimers = { timeout: (...args) => context.setTimeout(...args), interval: (...args) => context.setInterval(...args), cancel: handle => context.clearInterval?.(handle) };
     vm.runInNewContext(blackjackSource, context);
 
     return { game: context.blackjack, spendCalls, elements, context };

@@ -1,3 +1,5 @@
+process.env.JWT_SECRET = 'test-only-secret-never-use-in-production-2026';
+process.env.ADMIN_USER_ID = '1';
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert');
 const http = require('http');
@@ -13,7 +15,7 @@ describe('Seam 1: Backend requireAdmin Middleware & Admin API Endpoints', () => 
     let wsUrl;
     let vendeezToken;
     let normalUserToken;
-    const JWT_SECRET = process.env.JWT_SECRET || 'boblox_super_secret_jwt_key_2026_v2';
+    const JWT_SECRET = process.env.JWT_SECRET;
 
     before(async () => {
         // Set test port to 0 so OS assigns random open port

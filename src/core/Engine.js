@@ -1,3 +1,4 @@
+const collisionIndex = typeof BobloxSpatialIndex !== 'undefined' ? new BobloxSpatialIndex() : null;
 /* ============================================================================
  * 6. CORE 3D ENGINE, WEAPON SWITCHING SYSTEM, CAMERA ORBIT & COLLISIONS
  * ============================================================================ */
@@ -441,6 +442,7 @@ function createBlock(x, y, z, w, h, d, colorHex, opts = {}) {
 
     if (!opts.decorOnly) {
         worldBlocks.push(blockObj);
+        if (collisionIndex) collisionIndex.invalidate();
         if (blockObj.movingFn) {
             movingBlocks.push(blockObj);
         }
@@ -449,6 +451,12 @@ function createBlock(x, y, z, w, h, d, colorHex, opts = {}) {
 }
 
 function cleanupCurrentGame() {
+    if (typeof gameTimers !== 'undefined') gameTimers.reset();
+    if (typeof slotsState !== 'undefined') slotsState.spinning = false;
+    if (typeof isWheelSpinning !== 'undefined') isWheelSpinning = false;
+    if (typeof slotsState !== 'undefined') slotsState.autoSpin = false;
+    if (typeof wheelAutoSpin !== 'undefined') wheelAutoSpin = false;
+    if (collisionIndex) collisionIndex.invalidate();
     if (typeof unmountAdoptMeUI === 'function') unmountAdoptMeUI();
     if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
@@ -460,22 +468,7 @@ function cleanupCurrentGame() {
     }
 
     if (scene) {
-        scene.traverse(obj => {
-            if (obj.geometry && !obj.geometry.userData?.cachedGeo) {
-                obj.geometry.dispose();
-            }
-            if (obj.material) {
-                const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-                mats.forEach(m => {
-                    if (!m.userData?.cachedMat) {
-                        if (m.map && m.map !== sharedStudTexture && !m.map.userData?.cachedTex) {
-                            m.map.dispose();
-                        }
-                        m.dispose();
-                    }
-                });
-            }
-        });
+        disposeObject3D(scene);
         while (scene.children.length > 0) {
             scene.remove(scene.children[0]);
         }
@@ -507,6 +500,7 @@ function startGame(gameId, skipAutoMatchmaking = false) {
     cleanupCurrentGame();
     if (typeof closeRobloxEscMenu === 'function') closeRobloxEscMenu();
     activeGameMode = gameId;
+    if (typeof startAccountGame === 'function') startAccountGame(gameId);
     if (typeof broadcastSocialPresence === 'function') {
         broadcastSocialPresence(true);
     }

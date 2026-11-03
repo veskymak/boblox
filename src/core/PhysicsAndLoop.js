@@ -488,8 +488,12 @@ function resolvePlayerCollisions(dt) {
     _playerBox.min.set(p.x - r, p.y, p.z - r);
     _playerBox.max.set(p.x + r, p.y + h, p.z + r);
 
-    for (let i = 0; i < worldBlocks.length; i++) {
-        const b = worldBlocks[i];
+    // Include step-up headroom and correction margin; exact collision checks remain unchanged.
+    const candidates = typeof collisionIndex !== 'undefined' && collisionIndex
+        ? collisionIndex.query(worldBlocks, { min: { x:p.x-r-4,y:p.y-4,z:p.z-r-4 }, max: { x:p.x+r+4,y:p.y+h+4,z:p.z+r+4 } })
+        : worldBlocks;
+    for (let i = 0; i < candidates.length; i++) {
+        const b = candidates[i];
         if (b.flyingDebris) continue;
 
         if (!_playerBox.intersectsBox(b.box)) continue;
@@ -596,8 +600,8 @@ function resolvePlayerCollisions(dt) {
             if (!b.isLadder && stepUp > 0.001 && stepUp <= 0.75 && playerState.vel.y <= 0.5 && playerState.vel.y >= -5.0) {
                 const targetY = b.box.max.y;
                 let canStep = true;
-                for (let j = 0; j < worldBlocks.length; j++) {
-                    const ob = worldBlocks[j];
+                for (let j = 0; j < candidates.length; j++) {
+                    const ob = candidates[j];
                     if (ob === b || ob.flyingDebris || ob.isKill) continue;
                     if (p.x + r > ob.box.min.x && p.x - r < ob.box.max.x &&
                         p.z + r > ob.box.min.z && p.z - r < ob.box.max.z &&
@@ -1686,7 +1690,9 @@ function updateGame11AdoptMe(dt, elapsedSec) {
     gd.moneyTreeTimer = (gd.moneyTreeTimer || 0) + dt;
     if (gd.moneyTreeTimer >= 9.0) {
         gd.moneyTreeTimer = 0;
-        gd.bucks += 15;
+        if (typeof isServerAccount === 'function' && isServerAccount()) {
+            accountCommand('adopt_tree').catch(reportAccountError);
+        } else gd.bucks += 15;
         saveAdoptMeData(gd.bucks, gd.pets);
         refreshAdoptMeHUD();
         showHudToast('💵 Adopt Me! Výplata (Paycheck): +$15 Bucks!', 'green');
@@ -1820,9 +1826,11 @@ function updateGame11AdoptMe(dt, elapsedSec) {
     // 8. Central Trade Hub Pad (X = 0, Z = -4) -> Trade Showcase Bonus with NPCs/Players
     if (Math.hypot(playerState.pos.x, playerState.pos.z + 4) < 3.5 && gd.tradeCooldown <= 0) {
         gd.tradeCooldown = 16.0;
-        gd.bucks += 40;
+        if (typeof isServerAccount === 'function' && isServerAccount()) {
+            accountCommand('adopt_trade').catch(reportAccountError);
+        } else gd.bucks += 40;
         saveAdoptMeData(gd.bucks, gd.pets);
-        addBobux(35, 'Adopt Me! Trade Hub bonus s Trader_Mia');
+        if (!(typeof isServerAccount === 'function' && isServerAccount())) addBobux(35, 'Adopt Me! Trade Hub bonus s Trader_Mia');
         sfx.playCoin();
         refreshAdoptMeHUD();
         showHudToast('🔁 TRADE HUB: Obchodoval jsi s Trader_Mia! (+$40 Bucks & +35 B$)', 'gold');

@@ -86,7 +86,7 @@ describe('Seam 1: Admin Bobux Management & Supabase Cloud Integration', () => {
     });
 
     it('persists daily bonus reset in Supabase and reports write errors', async () => {
-        const profile = { id: 'vendeez-id', username: 'Vendeez', daily_claim_date: 123 };
+        const profile = { id: '2806aa83-95cb-405d-8db4-23b95f676612', username: 'Vendeez', daily_claim_date: 123 };
         let fail = false;
         const mockSb = {
             auth: { getUser: async () => ({ data: { user: { id: profile.id } } }) },
@@ -107,13 +107,13 @@ describe('Seam 1: Admin Bobux Management & Supabase Cloud Integration', () => {
         const rejected = await PortalStore.handleSupabaseApiRequest(mockSb, '/api/admin/reset-daily', options);
         assert.strictEqual(rejected.ok, false);
         fail = false;
-        profile.username = 'admin';
+        profile.username = 'admin'; profile.id='ordinary-user';
         const denied = await PortalStore.handleSupabaseApiRequest(mockSb, '/api/admin/reset-daily', options);
         assert.strictEqual(denied.status, 403);
     });
 
     it('does not report a rejected Supabase coin update as successful', async () => {
-        const profile = { id: 'vendeez-id', username: 'Vendeez', coins: 250 };
+        const profile = { id: '2806aa83-95cb-405d-8db4-23b95f676612', username: 'Vendeez', coins: 250 };
         const query = { maybeSingle: async () => ({ data: profile }) };
         const mockSb = {
             auth: { getUser: async () => ({ data: { user: { id: profile.id } } }) },
@@ -135,12 +135,12 @@ describe('Seam 1: Admin Bobux Management & Supabase Cloud Integration', () => {
 
         const fakeProfiles = [
             { id: 'uuid-max-1', username: 'Max', coins: 250, inventory: {} },
-            { id: 'uuid-vendeez-1', username: 'Vendeez', coins: 5000, inventory: {} }
+            { id: '2806aa83-95cb-405d-8db4-23b95f676612', username: 'Vendeez', coins: 5000, inventory: {} }
         ];
 
         const mockSb = {
             auth: {
-                getUser: async () => ({ data: { user: { id: 'uuid-vendeez-1' } } })
+                getUser: async () => ({ data: { user: { id: '2806aa83-95cb-405d-8db4-23b95f676612' } } })
             },
             from: (table) => {
                 if (table === 'profiles') {
@@ -189,13 +189,13 @@ describe('Seam 1: Admin Bobux Management & Supabase Cloud Integration', () => {
 
     it('handleSupabaseApiRequest handles GET /api/admin/users and returns list of all cloud profiles', async () => {
         const fakeProfiles = [
-            { id: 'uuid-1', username: 'Vendeez', coins: 5000, inventory: { gamesPlayed: 10 } },
+            { id: '2806aa83-95cb-405d-8db4-23b95f676612', username: 'Vendeez', coins: 5000, inventory: { gamesPlayed: 10 } },
             { id: 'uuid-2', username: 'Max', coins: 1250, inventory: { gamesPlayed: 3 } }
         ];
 
         const mockSb = {
             auth: {
-                getUser: async () => ({ data: { user: { id: 'uuid-1' } } })
+                getUser: async () => ({ data: { user: { id: '2806aa83-95cb-405d-8db4-23b95f676612' } } })
             },
             from: (table) => {
                 if (table === 'profiles') {

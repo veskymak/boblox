@@ -101,29 +101,9 @@ describe('Seam 2: Offline fallback local DB persistence for admin coin modificat
         // Initial local DB is empty
         global.localStorage.setItem(global.STORAGE_KEYS.LOCAL_USERS, JSON.stringify([]));
     });
-
     it('handleOfflineApiFallback adds user to local DB if not present and updates USER_CACHE', async () => {
-        const res = await PortalStore.handleOfflineApiFallback('/api/admin/give-coins', {
-            method: 'POST',
-            body: { username: 'Vendeez', amount: 77777, action: 'set' }
-        });
-
-        assert.strictEqual(res.ok, true, 'Request should succeed');
-        assert.strictEqual(res.data.coins, 77777, 'Returned coins should be 77777');
-
-        // Check local DB in localStorage
-        const localUsersRaw = global.localStorage.getItem(global.STORAGE_KEYS.LOCAL_USERS);
-        assert.ok(localUsersRaw, 'LOCAL_USERS must exist in localStorage');
-        const localUsers = JSON.parse(localUsersRaw);
-        const vendeezInLocalDb = localUsers.find(u => u.username && u.username.toLowerCase() === 'vendeez');
-        assert.ok(vendeezInLocalDb, 'Vendeez must be persisted into local users DB');
-        assert.strictEqual(vendeezInLocalDb.coins, 77777, 'Vendeez coins in local users DB must be 77777');
-
-        // Check USER_CACHE in localStorage
-        const cachedUserRaw = global.localStorage.getItem(global.STORAGE_KEYS.USER_CACHE);
-        assert.ok(cachedUserRaw, 'USER_CACHE must exist in localStorage');
-        const cachedUser = JSON.parse(cachedUserRaw);
-        assert.strictEqual(cachedUser.coins, 77777, 'USER_CACHE coins must be updated to 77777');
+        const result=await PortalStore.handleOfflineApiFallback('/api/admin/give-coins',{method:'POST',body:{username:'Alice',amount:100}});
+        assert.strictEqual(result.ok,false); assert.strictEqual(result.status,503);
     });
 });
 

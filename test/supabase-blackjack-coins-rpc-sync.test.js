@@ -1,183 +1,104 @@
-const { describe, it, beforeEach } = require('node:test');
-const assert = require('node:assert');
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const adapter = require('./helpers/account-adapter.cjs');
+function client(rpc) {
+    return { auth: { getUser: async () => ({ data: { user: { id: 'actor-id' } } }) }, rpc };
+}
 
-// Global browser shims
-global.window = global;
-const windowListeners = new Map();
-global.window.addEventListener = (event, handler) => {
-    const handlers = windowListeners.get(event) || [];
-    handlers.push(handler);
-    windowListeners.set(event, handlers);
-};
-global.window.location = { protocol: 'https:', hostname: 'veskymak.github.io' };
-const storageStore = {};
-global.localStorage = {
-    getItem: (key) => storageStore[key] ?? null,
-    setItem: (key, val) => { storageStore[key] = String(val); },
-    removeItem: (key) => { delete storageStore[key]; },
-    clear: () => { Object.keys(storageStore).forEach(k => delete storageStore[k]); }
-};
-
-global.document = {
-    readyState: 'complete',
-    getElementById: () => null,
-    querySelectorAll: () => [],
-    addEventListener: () => {},
-    createElement: () => ({
-        getContext: () => null,
-        appendChild: () => {},
-        style: {},
-        classList: { add: () => {}, remove: () => {}, toggle: () => {} }
-    })
-};
-global.setInterval = () => ({ unref: () => {} });
-global.setTimeout = () => ({ unref: () => {} });
-
-global.authState = {
-    user: { username: 'Vendeez', id: 'uuid-vendeez', coins: 1000 },
-    token: 'sb_jwt_uuid-vendeez',
-    backendConnected: true,
-    isSupabase: true
-};
-global.bobuxBalance = 1000;
-global.ownedShopItems = new Set(['face_classic']);
-global.avatarOutfit = { shirt: null, pants: null, face: 'face_classic', hat: null };
-global.avatarTorsoHex = '#0D69AC';
-global.gamesPlayedCount = 5;
-global.lastClaimTimestamp = 0;
-
-global.sfx = { playCoin: () => {}, playWinFanfare: () => {}, playOof: () => {} };
-global.showHudToast = () => {};
-
-const PortalStore = require('../src/state/PortalStore.js');
-
-describe('Supabase RPC Coins Sync for Blackjack & Economy (v8.5)', () => {
-    beforeEach(() => {
-        global.localStorage.clear();
-        global.authState.user = { username: 'Vendeez', id: 'uuid-vendeez', coins: 1000 };
-        global.authState.token = 'sb_jwt_uuid-vendeez';
-        global.authState.backendConnected = true;
-        global.authState.isSupabase = true;
-    });
-
-    it('handleSupabaseApiRequest calls admin_give_coins RPC with action: set on /api/user/sync', async () => {
-        let rpcCalledWith = null;
-        let updateCalledWith = null;
-
-        const mockSb = {
+test('an account switch before sending a command prevents the write', async () => {
+    let called = false;
+    const actual = require('../src/state/AccountBackend');
+    const response = await actual.request(
+        {
             auth: {
-                getUser: async () => ({ data: { user: { id: 'uuid-vendeez' } } })
+                getUser: async () => ({ data: { user: { id: 'first-account' } } }),
+                getSession: async () => ({
+                    data: { session: { user: { id: 'second-account' }, access_token: 'second-token' } }
+                })
             },
-            rpc: async (funcName, args) => {
-                if (funcName === 'admin_give_coins') {
-                    rpcCalledWith = args;
-                    return { data: { ok: true, coins: args.amount, action: args.action, username: args.target_username }, error: null };
-                }
-                return { data: null, error: new Error('Unknown RPC') };
-            },
-            from: (table) => {
-                if (table === 'profiles') {
-                    return {
-                        select: () => ({
-                            eq: () => ({ maybeSingle: async () => ({ data: { id: 'uuid-vendeez', username: 'Vendeez', coins: 1000 } }) }),
-                            ilike: () => ({ maybeSingle: async () => ({ data: { id: 'uuid-vendeez', username: 'Vendeez', coins: 1000 } }) })
-                        }),
-                        update: (payload) => {
-                            updateCalledWith = payload;
-                            return {
-                                eq: async () => ({ data: [], error: null })
-                            };
-                        }
-                    };
-                }
-                return {};
+            rpc() {
+                called = true;
             }
-        };
+        },
+        '/api/account/command',
+        { method: 'POST', body: { command: 'purchase', payload: { itemId: 'shirt_logo' } } }
+    );
+    assert.equal(response.ok, false);
+    assert.equal(called, false);
+});
 
-        const syncRes = await PortalStore.handleSupabaseApiRequest(mockSb, '/api/user/sync', {
-            method: 'POST',
-            body: {
-                coins: 1500,
-                bio: 'Winning at Blackjack!'
+test('an authenticated command pins its original token instead of following a later SDK session', async () => {
+    const actual = require('../src/state/AccountBackend');
+    let authorization;
+    const response = await actual.request(
+        {
+            auth: {
+                getUser: async () => ({ data: { user: { id: 'actor' } } }),
+                getSession: async () => ({
+                    data: { session: { user: { id: 'actor' }, access_token: 'original-token' } }
+                })
+            },
+            rpc() {
+                return {
+                    setHeader(key, value) {
+                        authorization = [key, value];
+                        return Promise.resolve({ data: { user: { id: 'actor' } } });
+                    }
+                };
             }
-        });
+        },
+        '/api/auth/me'
+    );
+    assert.equal(response.ok, true);
+    assert.deepEqual(authorization, ['Authorization', 'Bearer original-token']);
+});
 
-        assert.strictEqual(syncRes.ok, true, 'Sync should respond ok: true');
-        assert.ok(rpcCalledWith, 'admin_give_coins RPC must be called');
-        assert.strictEqual(rpcCalledWith.target_username, 'Vendeez');
-        assert.strictEqual(rpcCalledWith.amount, 1500);
-        assert.strictEqual(rpcCalledWith.action, 'set');
-        assert.strictEqual(syncRes.data.user.coins, 1500);
-        assert.strictEqual(global.authState.user.coins, 1500);
-    });
-
-    it('handles JSON string stringified body in /api/user/sync properly', async () => {
-        let rpcCalled = false;
-
-        const mockSb = {
-            auth: {
-                getUser: async () => ({ data: { user: { id: 'uuid-vendeez' } } })
-            },
-            rpc: async (funcName, args) => {
-                if (funcName === 'admin_give_coins') {
-                    rpcCalled = true;
-                    return { data: { ok: true, coins: args.amount, action: args.action, username: args.target_username }, error: null };
-                }
-                return { data: null, error: new Error('Unknown RPC') };
-            },
-            from: (table) => ({
-                select: () => ({
-                    eq: () => ({ maybeSingle: async () => ({ data: { id: 'uuid-vendeez', username: 'Vendeez', coins: 1000 } }) }),
-                    ilike: () => ({ maybeSingle: async () => ({ data: { id: 'uuid-vendeez', username: 'Vendeez', coins: 1000 } }) })
-                }),
-                update: () => ({ eq: async () => ({ data: [], error: null }) })
-            })
-        };
-
-        const syncRes = await PortalStore.handleSupabaseApiRequest(mockSb, '/api/user/sync', {
-            method: 'POST',
-            body: JSON.stringify({ coins: 2500 })
-        });
-
-        assert.strictEqual(syncRes.ok, true);
-        assert.strictEqual(rpcCalled, true);
-        assert.strictEqual(syncRes.data.user.coins, 2500);
-    });
-
-    it('syncAccountToServer persists Bobux balance to Supabase and updates USER_CACHE', async () => {
-        let capturedCoins = null;
-
-        const mockSb = {
-            auth: {
-                getUser: async () => ({ data: { user: { id: 'uuid-vendeez' } } })
-            },
-            rpc: async (funcName, args) => {
-                if (funcName === 'admin_give_coins') {
-                    capturedCoins = args.amount;
-                    return { data: { ok: true, coins: args.amount, action: args.action, username: args.target_username }, error: null };
-                }
-                return { data: null, error: null };
-            },
-            from: () => ({
-                select: () => ({
-                    eq: () => ({ maybeSingle: async () => ({ data: { id: 'uuid-vendeez', username: 'Vendeez', coins: 1000 } }) }),
-                    ilike: () => ({ maybeSingle: async () => ({ data: { id: 'uuid-vendeez', username: 'Vendeez', coins: 1000 } }) })
-                }),
-                update: () => ({ eq: async () => ({ data: [], error: null }) })
-            })
-        };
-
-        // Attach mockSb to window.supabase so getSupabaseClient() finds it
-        global.window.supabase = {
-            createClient: () => mockSb
-        };
-
-        // Simulate winning in blackjack: addBobux changes balance
-        PortalStore.addBobux(2950, 'Blackjack výhra');
-        await PortalStore.syncAccountToServer({ bypassQueue: true });
-
-        assert.strictEqual(capturedCoins, 3200, 'Supabase RPC should receive the new 3200 Bobux balance');
-        const userCache = JSON.parse(global.localStorage.getItem(PortalStore.STORAGE_KEYS.USER_CACHE));
-        assert.strictEqual(userCache.coins, 3200, 'USER_CACHE in localStorage must reflect 3200 coins');
-    });
+test('account sync uses profile command, never administrator coin RPC', async () => {
+    let called;
+    const result = await adapter.request(
+        client(async (name, args) => {
+            called = { name, args };
+            return { data: { user: { id: 'actor-id', coins: 250 } }, error: null };
+        }),
+        '/api/user/sync',
+        { method: 'POST', body: JSON.stringify({ bio: 'hello', revision: 2 }) }
+    );
+    assert.equal(result.ok, true);
+    assert.equal(called.name, 'account_command');
+    assert.equal(called.args.command, 'profile');
+    assert.equal(called.args.payload.bio, 'hello');
+});
+test('casino sends the action and displays only the confirmed result', async () => {
+    const result = await adapter.request(
+        client(async (name, args) => {
+            assert.equal(name, 'account_command');
+            assert.equal(args.command, 'blackjack');
+            assert.equal(args.payload.action, 'hit');
+            return { data: { hand: [{ val: 'A' }], user: { coins: 300 } } };
+        }),
+        '/api/account/command',
+        { method: 'POST', body: { command: 'blackjack', payload: { action: 'hit' } } }
+    );
+    assert.equal(result.data.user.coins, 300);
+    assert.equal(result.data.hand[0].val, 'A');
+});
+test('a rejected settlement is not acknowledged as a local success', async () => {
+    const result = await adapter.request(
+        client(async () => ({ error: { code: '42501', message: 'denied' } })),
+        '/api/account/command',
+        { method: 'POST', body: { command: 'wheel' } }
+    );
+    assert.equal(result.ok, false);
+    assert.equal(result.status, 403);
+});
+test('a local account marker cannot replace verified Supabase authentication', async () => {
+    let called = false;
+    const sb = {
+        auth: { getUser: async () => ({ data: { user: null } }) },
+        rpc: async () => {
+            called = true;
+        }
+    };
+    assert.equal((await adapter.request(sb, '/api/auth/me')).status, 401);
+    assert.equal(called, false);
 });

@@ -1,63 +1,12 @@
-# Server.js - AI Context
+# Node backend (v9.4)
 
-## 1. Quick Summary (TL;DR)
+server.js owns Express, SQLite schema, authentication, public social data and the WebSocket gateway. server/AccountCommands.js owns authenticated economic commands, idempotency records, a wallet ledger and command-private state. server/Blackjack.js owns shuffled decks, split hands, draws and payouts behind advance(). The active production backend is Supabase; Node is an alternative deployment, not a fallback identity system.
 
-Adopt Me: `/api/user/sync` persists `adoptme_bucks` and `adoptme_pets` in users.inventory JSON; `serializeUserForClient` returns them as top-level properties for existing PortalStore hydration. Both fields must be supplied together; validates finite bounded integer currency, 1–200 known pets, nonnegative bounded task counts; age is derived from tasks. Omitted fields preserve progress. `/api/auth/me` restores it on another device. Test `test/adoptme-progress.test.js` uses a temporary SQLite DB and real authenticated HTTP requests, never the player's database.
-`server.js` je backendový Node.js Express server s SQLite databází (`boblox.db`) a WebSocket real-time serverem (`/ws`). Zajišťuje perzistenci uživatelských účtů, ověřování JWT tokenů, synchronizaci ekonomiky a inventářů (včetně VIP statusu `is_vip`), multiplayerový relay a administrátorské API.
+## Security and configuration
+Starting server.js requires JWT_SECRET with at least 32 characters. Library/test use gets an ephemeral random secret when not configured; tests explicitly configure their own keys. ADMIN_USER_ID determines administrative authority, never presence or the username. ALLOWED_ORIGINS is an explicit comma-separated CORS/WS allowlist. Production cookies use Secure. Auth requests and WS packet size/frequency are limited.
+Only /, /index.html, /version.json, /src and /assets are publicly served. Never restore express.static(__dirname). BOBLOX_DB_PATH can place SQLite outside the repo; node --test uses isolated memory databases.
+/api/user/sync rejects financial/progress/social snapshots, checks item ownership and optional revision. /api/account/command accepts only concrete validated commands with a request UUID; replaying the same request does not pay twice. Wallet updates are audited by a SQLite trigger; /api/transactions reads only the current user's ledger. No password hashes are serialized.
+Private messages persist through authenticated HTTP endpoints; WebSocket social_event is never a write or a relay of private content. Admin WS broadcasts verify JWT and configured admin ID. Game packets remain untrusted cosmetic replication, not proof for economic rewards.
 
----
-
-## 2. Global State & Single Source of Truth (SSOT)
-- **Vlastní a spravuje výhradně:**
-  - SQLite databázi `boblox.db`:
-    - Tabulka `users`: `id`, `username`, `password_hash`, `coins`, `is_vip`, `inventory` (JSON), `daily_claim_date`, `created_at`, `last_login_at`, `last_active_at`.
-    - Tabulky `game_ratings`, `comments`, `direct_messages`, `transactions`.
-  - WebSocket klienty (`wss.clients`): Seznam aktivních socketů pro broadcast zpráv a real-time přítomnost.
-  - JWT secret klíč (`JWT_SECRET`) pro podepisování a verifikaci autorizačních tokenů.
-
----
-
-## 3. Key API Endpoints & Handlers
-- **Autentizace & Profil:**
-  - `POST /api/auth/register`: Vytvoří uživatele, zahashuje heslo (bcrypt), inicializuje základní inventář a vrátí JWT token.
-  - `POST /api/auth/login`: Ověří přihlašovací údaje a vrátí JWT + serializovaný uživatelský profil.
-  - `GET /api/auth/me`: Vrátí aktuální profil přihlášeného uživatele z JWT tokenu.
-- **Synchronizace účtu & Perzistence:**
-  - `POST /api/user/sync`: Zpracuje změny konta (`coins`), bio, přátel, Adopt Me postupu, transakcí a VIP statusu (`is_vip`).
-  - `serializeUserForClient(row)`: Bezpečně převede databázový záznam do JSONu pro klienta (včetně `is_vip: isVip` a odstranění `password_hash`).
-- **Sociální funkce & Hodnocení:**
-  - `GET/POST /api/friends/request`, `/api/friends/accept`: Správa žádostí o přátelství.
-  - `GET/POST /api/comments`, `GET/POST /api/ratings`: Recenze a hodnocení miniher.
-- **Administrace:**
-  - `POST /api/admin/give-coins`: Privilegované přičtení nebo nastavení Bobuxů (pouze pro uživatele `vendeez` nebo `admin`).
-  - `POST /api/admin/broadcast`: Odeslání systémové zprávy všem připojeným klientům.
-  - `GET /api/admin/users`: Seznam registrovaných účtů pro administrátorský panel.
-- **WebSocket Gateway (`/ws`):**
-  - Obousměrný relay pro multiplayerové pakety (`playerState`, `chatMessage`, `admin_broadcast`, `presence`).
-
----
-
-## 4. Lifecycle & Execution Hooks
-- **Start serveru:** `node server.js` (nebo `npm start`) inicializuje SQLite tabulky, spustí HTTP server na portu 3000 (nebo `PORT`) a naváže WebSocket server `/ws`.
-- **Statické soubory:** Servíruje kořenový adresář Bobloxu (`index.html`, `src/`, assety) s `Cache-Control: no-cache` pro HTML a JS soubory.
-
----
-
-## 5. Anti-Duplication Rules & Gotchas
-- **Perzistence VIP statusu (`is_vip`)**: `is_vip` je uloženo jak v kořenovém sloupci/objektu uživatele, tak v JSON inventáři `inventory.is_vip` pro maximální zpětnou kompatibilitu se staršími verzemi databáze a Supabase.
-- **Vždy escapuj a sanitizuj vstupy**: Veškerý uživatelský text prochází sanitizací před uložením do SQLite.
-- **Bezpečnost hesel**: Hesla se ukládají výhradně jako bcrypt hash se solí.
-- **Hesla se nikdy nesmí vrátit klientovi**: `serializeUserForClient()` vždy odstraní `password_hash`.
-
-## Game moderation (v9.2)
-- Vendeez-only GET `/api/admin/games/:gameId/social` returns named votes and comments. POST sibling `reset-ratings` deletes all game votes; `delete-comment` takes `commentId`.
-- SQLite mutations are transactional and remove legacy users JSON mirrors. Existing public social/summary reads and fresh auth reflect deletions.
-- AdminUI ratings tab loads on entry/game selection and refreshes after writes; DOM textContent protects user content. Logout invalidates pending reads. Destructive actions require browser confirmation.
-- Supabase uses authenticated SECURITY DEFINER RPC `admin_game_social`, checking auth.uid() against profiles username. Deploy `docs/supabase/schema_update_v9.2.sql` first; unavailable RPC fails closed, with no offline success or Node fallback.
-- Comments have no separate voting model. Moderation supports viewing authors and deleting comments, while game reset preserves comments.
-
-## Casino social and removable votes (v9.3)
-- `casino` (Blox Vegas) must be allowed by Node VALID_GAME_IDS and Supabase admin_game_social. Previously omitted from both lists, causing 404/Unknown game.
-- Clicking an active like/dislike sends explicit `vote: null`; other clicks set the requested vote. Node removes the table row and users.game_ratings mirror atomically. Cloud deletes only matching game_id + authenticated profile username and verifies absence; failures never report success.
-- Re-run updated `docs/supabase/schema_update_v9.2.sql`: adds casino to moderation RPC and authenticated own-vote DELETE RLS policy. Missing RPC errors tell the admin which migration to run. Production deployment remains separate from local verification.
-- Regression tests cover casino admin API, persisted removal, fresh reads, UI payload, scoped cloud deletion, silent RLS rejection and missing RPC.
+## Tests
+account-commands.integration.test.js verifies real HTTP persistence, replay, concurrent purchase and static-file isolation. blackjack-server-rules.test.js covers natural blackjack and splitting. Existing admin, bio, direct-chat and social integration tests continue using real SQLite. Every server edit must update this document.

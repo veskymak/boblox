@@ -1,3 +1,5 @@
+process.env.JWT_SECRET = 'test-only-secret-never-use-in-production-2026';
+process.env.ADMIN_USER_ID = '1';
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -36,7 +38,9 @@ test('admin moderation persists resets and comment removal across devices', asyn
         assert.equal((await request('/api/games/obby/rate', bob, { vote: 'dislike' })).status, 200);
         const posted = await request('/api/games/obby/comments', alice, { content: 'Skvělá hra z mobilu!' });
         assert.equal(posted.status, 201);
-        const admin = (await request('/api/auth/register', null, { username: 'Vendeez', password })).data.token;
+        const adminAccount = (await request('/api/auth/register', null, { username: 'Vendeez', password })).data;
+        process.env.ADMIN_USER_ID=String(adminAccount.user.id);
+        const admin=adminAccount.token;
         const route = '/api/admin/games/obby/';
         assert.equal((await request('/api/admin/games/casino/social', admin)).status, 200);
         assert.equal((await request('/api/games/casino/rate', alice, { vote: 'like' })).status, 200);

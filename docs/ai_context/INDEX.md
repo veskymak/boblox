@@ -26,3 +26,9 @@ Adopt Me GUI, sbírka, atlas a navigace: [AdoptMeUI.md](AdoptMeUI.md) (`src/ui/A
 1. **Nenačítej celý adresář `src/`!** Identifikuj z tabulky výše 1–2 relevantní dokumenty a přečti si jejich shrnutí v `docs/ai_context/<nazev>.md`.
 2. **Respektuj Single Source of Truth (SSOT)**: Každý modul má pevně daného vlastníka stavu popsaného v sekci 2 každého dokumentu.
 3. **Self-Maintaining Protocol**: Pokud upravíš jakýkoliv soubor v `src/` nebo `server.js`, **tvojí povinností v téže odpovědi** je aktualizovat odpovídající `.md` dokument v `docs/ai_context/`.
+
+## v9.4 command and lifecycle modules
+- AccountBackend, AccountCommands, AccountSocial → [PortalStore.md](PortalStore.md).
+- CasinoCommands and server/Blackjack → [GameWorlds.md](GameWorlds.md), [Server.md](Server.md).
+- SpatialIndex and SceneResources → [Engine.md](Engine.md), [PhysicsAndLoop.md](PhysicsAndLoop.md).
+- Production migration order and known deployment limits → [release notes](../development/v9.4-security-and-architecture.md).

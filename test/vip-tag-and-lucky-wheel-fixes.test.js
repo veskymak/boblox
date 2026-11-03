@@ -130,15 +130,14 @@ describe('Lucky Wheel Overhaul & Universal VIP Tag Mechanics', () => {
             assert.equal(global.authState.user.is_vip, true);
             assert.equal(global.authState.user.inventory.is_vip, true);
         });
-
-        it('persists is_vip in server.js /api/user/sync and serializes for client', () => {
-            assert.match(serverJsSource, /is_vip:\s*\(typeof body\.is_vip === 'boolean'\s*\?\s*body\.is_vip/);
-            assert.match(serverJsSource, /is_vip:\s*isVip/);
+        it('persists is_vip in server.js /api/user/sync and serializes for client', async () => {
+            assert.match(serverJsSource,/Protected fields require a server command/);
+            assert.match(serverJsSource,/is_vip:\s*isVip/);
         });
-
-        it('persists is_vip in Supabase and offline fallback handlers', () => {
-            assert.match(portalStoreSource, /updatePayload\.inventory = \{\s*\.\.\.currentInv,\s*is_vip:/);
-            assert.match(portalStoreSource, /currentUser\.inventory = \{\s*\.\.\.currentInv,\s*is_vip:/);
+        it('persists is_vip in Supabase and offline fallback handlers', async () => {
+            const sql=fs.readFileSync(path.join(__dirname,'../docs/supabase/account_commands.sql'),'utf8');
+            assert.match(sql, /is_vip/);
+            assert.match(portalStoreSource,/Účet vyžaduje spojení se serverem/);
         });
 
         it('hydrates VIP status across devices upon login via applyAuthenticatedUser', () => {

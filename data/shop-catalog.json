@@ -1,0 +1,182 @@
+[
+  {
+    "id": "shirt_logo",
+    "slot": "shirt",
+    "price": 50
+  },
+  {
+    "id": "shirt_hoodie",
+    "slot": "shirt",
+    "price": 120
+  },
+  {
+    "id": "shirt_stripes",
+    "slot": "shirt",
+    "price": 80
+  },
+  {
+    "id": "shirt_flannel",
+    "slot": "shirt",
+    "price": 100
+  },
+  {
+    "id": "shirt_hero",
+    "slot": "shirt",
+    "price": 200
+  },
+  {
+    "id": "shirt_tux",
+    "slot": "shirt",
+    "price": 250
+  },
+  {
+    "id": "shirt_gold",
+    "slot": "shirt",
+    "price": 600
+  },
+  {
+    "id": "pants_jeans",
+    "slot": "pants",
+    "price": 60
+  },
+  {
+    "id": "pants_black",
+    "slot": "pants",
+    "price": 40
+  },
+  {
+    "id": "pants_white",
+    "slot": "pants",
+    "price": 45
+  },
+  {
+    "id": "pants_red",
+    "slot": "pants",
+    "price": 55
+  },
+  {
+    "id": "pants_khaki",
+    "slot": "pants",
+    "price": 70
+  },
+  {
+    "id": "face_classic",
+    "slot": "face",
+    "price": 0
+  },
+  {
+    "id": "face_wink",
+    "slot": "face",
+    "price": 50
+  },
+  {
+    "id": "face_surprised",
+    "slot": "face",
+    "price": 40
+  },
+  {
+    "id": "face_grin",
+    "slot": "face",
+    "price": 60
+  },
+  {
+    "id": "face_angry",
+    "slot": "face",
+    "price": 60
+  },
+  {
+    "id": "face_cool",
+    "slot": "face",
+    "price": 75
+  },
+  {
+    "id": "face_kawaii",
+    "slot": "face",
+    "price": 90
+  },
+  {
+    "id": "face_villain",
+    "slot": "face",
+    "price": 120
+  },
+  {
+    "id": "face_robot",
+    "slot": "face",
+    "price": 150
+  },
+  {
+    "id": "hat_cone",
+    "slot": "hat",
+    "price": 40
+  },
+  {
+    "id": "hat_party",
+    "slot": "hat",
+    "price": 60
+  },
+  {
+    "id": "hat_cap",
+    "slot": "hat",
+    "price": 80
+  },
+  {
+    "id": "hat_headphones",
+    "slot": "hat",
+    "price": 140
+  },
+  {
+    "id": "hat_tophat",
+    "slot": "hat",
+    "price": 150
+  },
+  {
+    "id": "hat_cowboy",
+    "slot": "hat",
+    "price": 180
+  },
+  {
+    "id": "hat_viking",
+    "slot": "hat",
+    "price": 300
+  },
+  {
+    "id": "hat_crown",
+    "slot": "hat",
+    "price": 500
+  },
+  {
+    "id": "hat_halo",
+    "slot": "hat",
+    "price": 1000
+  },
+  {
+    "id": "hat_brown_hair",
+    "slot": "hat",
+    "price": 58
+  },
+  {
+    "id": "hat_ponytail",
+    "slot": "hat",
+    "price": 40
+  },
+  {
+    "id": "shirt_black_flannel",
+    "slot": "shirt",
+    "price": 50
+  },
+  {
+    "id": "cracked_egg",
+    "slot": "egg",
+    "price": 35
+  },
+  {
+    "id": "pet_egg",
+    "slot": "egg",
+    "price": 65
+  },
+  {
+    "id": "royal_egg",
+    "slot": "egg",
+    "price": 120
+  }
+]

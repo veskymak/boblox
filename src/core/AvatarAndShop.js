@@ -981,7 +981,7 @@ SHOP_SLOTS.forEach(slot => { if (avatarOutfit[slot] && !ownedShopItems.has(avata
 function saveShopState() {
     localStorage.setItem(STORAGE_KEY_OWNED, JSON.stringify([...ownedShopItems]));
     localStorage.setItem(STORAGE_KEY_OUTFIT, JSON.stringify(avatarOutfit));
-    syncAccountToServer();
+    syncAccountToServer().catch(error => { if (typeof reportAccountError === 'function') reportAccountError(error); });
 }
 
 function resetAvatarToGuestStarter() {
@@ -1007,15 +1007,7 @@ function createShirtTexture(item, baseHex) {
 }
 
 function disposeObject3D(obj) {
-    obj.traverse(o => {
-        if (o.geometry) o.geometry.dispose();
-        if (o.material) {
-            (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => {
-                if (m.map) m.map.dispose();
-                m.dispose();
-            });
-        }
-    });
+    if (typeof BobloxSceneResources !== 'undefined') BobloxSceneResources.disposeObject(obj, typeof sharedStudTexture !== 'undefined' ? sharedStudTexture : null);
 }
 
 function addPreviewLights(targetScene) {
@@ -1276,6 +1268,9 @@ function closeShopModal() {
         cancelAnimationFrame(shopState.rafId);
         shopState.rafId = null;
     }
+    if (shopState.scene) disposeObject3D(shopState.scene);
+    if (shopState.renderer) shopState.renderer.dispose();
+    shopState.scene = null; shopState.renderer = null; shopState.camera = null; shopState.avatar = null;
     shopState.selectedId = null;
     renderGameCatalog();
     if (typeof renderPortalProfileView === 'function') renderPortalProfileView();
@@ -1292,11 +1287,19 @@ function selectShopItem(id) {
     renderShop();
 }
 
-function buyShopItem(id) {
+async function buyShopItem(id) {
     const item = SHOP_ITEM_MAP[id];
     if (!item || ownedShopItems.has(id)) return;
     if (bobuxBalance < item.price) {
         showShopToast(`Chybí ti ${(item.price - bobuxBalance).toLocaleString('cs-CZ')} B$. Zahraj si nějakou hru!`, 'error');
+        return;
+    }
+    if (typeof isServerAccount === 'function' && isServerAccount()) {
+        try {
+            await accountCommand('purchase', { itemId: id });
+            rebuildShopPreviewAvatar(); renderShop();
+            showShopToast(`Koupeno a nasazeno: ${item.name}!`, 'success');
+        } catch (error) { showShopToast(error.message, 'error'); }
         return;
     }
     bobuxBalance -= item.price;

@@ -73,8 +73,8 @@ describe('Account sync ordering after game and shop actions', () => {
         await Promise.all([olderSync, newerSync]);
 
         const profileAfterReload = persistedRequests.at(-1);
-        assert.equal(profileAfterReload.coins, 8200);
-        assert.ok(profileAfterReload.owned.includes('hat_crown'));
+        assert.equal(Object.hasOwn(profileAfterReload,'coins'),false);
+        assert.equal(Object.hasOwn(profileAfterReload,'owned'),false);
         assert.equal(profileAfterReload.outfit.hat, 'hat_crown');
     });
 });

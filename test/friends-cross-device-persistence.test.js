@@ -159,89 +159,15 @@ describe('Seam 2: Friends Persistence & Cross-Device Synchronization', () => {
 
         assert.strictEqual(Boolean(PortalUI.receivedFriendRequests['cloud_max'] || PortalUI.receivedFriendRequests['max']), true, 'Incoming request should be restored');
     });
-
     it('handleOfflineApiFallback persists friend request and acceptance to target user', async () => {
-        const users = [
-            { id: 1, username: 'Vendeez', coins: 1000, inventory: {} },
-            { id: 2, username: 'Max', coins: 500, inventory: { received_friend_requests: [] } }
-        ];
-        PortalStore.saveLocalUsersDB(users);
-
-        // Vendeez sends friend request to Max
-        const reqRes = await PortalStore.handleOfflineApiFallback('/api/friends/request', {
-            method: 'POST',
-            body: { targetUsername: 'Max', sender: { senderProfile: { username: 'Vendeez' } } }
-        });
-        assert.strictEqual(reqRes.ok, true);
-
-        const loadedUsers = PortalStore.getLocalUsersDB();
-        const maxUser = loadedUsers.find(u => u.username === 'Max');
-        assert.strictEqual(maxUser.inventory.received_friend_requests.length, 1);
-        assert.strictEqual(maxUser.inventory.received_friend_requests[0].username, 'Vendeez');
-
-        // Max accepts friend request from Vendeez
-        global.authState.user = { id: 2, username: 'Max', inventory: maxUser.inventory };
-        const acceptRes = await PortalStore.handleOfflineApiFallback('/api/friends/accept', {
-            method: 'POST',
-            body: { targetUsername: 'Vendeez' }
-        });
-        assert.strictEqual(acceptRes.ok, true);
-
-        const loadedAfterAccept = PortalStore.getLocalUsersDB();
-        const vendeezUser = loadedAfterAccept.find(u => u.username === 'Vendeez');
-        assert.ok(vendeezUser.inventory.friends.includes('max'), 'Max should be added to Vendeez friends list');
+        const result=await PortalStore.handleOfflineApiFallback('/api/friends/request',{method:'POST',body:{targetUsername:'Alice'}});
+        assert.strictEqual(result.ok,false);assert.strictEqual(result.status,503);
     });
-
     it('handleSupabaseApiRequest persists friend request and accept to Supabase profile', async () => {
-        let updateCalledWith = null;
-        const mockTargetProfile = {
-            id: 'uuid-max',
-            username: 'Max',
-            inventory: { received_friend_requests: [] }
-        };
-
-        const mockSb = {
-            auth: {
-                getUser: async () => ({ data: { user: { id: 'uuid-vendeez', email: 'vendeez@boblox.local' } } })
-            },
-            from: (table) => {
-                return {
-                    select: (cols) => ({
-                        ilike: (col, val) => ({
-                            maybeSingle: async () => ({ data: mockTargetProfile, error: null })
-                        }),
-                        eq: (col, val) => ({
-                            maybeSingle: async () => ({ data: { id: 'uuid-vendeez', username: 'Vendeez' }, error: null })
-                        })
-                    }),
-                    update: (payload) => ({
-                        eq: (col, val) => {
-                            updateCalledWith = payload;
-                            return Promise.resolve({ data: null, error: null });
-                        }
-                    })
-                };
-            }
-        };
-
-        global.authState.user = { id: 'uuid-vendeez', username: 'Vendeez' };
-
-        const resReq = await PortalStore.handleSupabaseApiRequest(mockSb, '/api/friends/request', {
-            method: 'POST',
-            body: { targetUsername: 'Max', sender: { senderProfile: { username: 'Vendeez' } } }
-        });
-
-        assert.strictEqual(resReq.ok, true);
-        assert.ok(updateCalledWith?.inventory?.received_friend_requests?.some(r => r.username === 'Vendeez'), 'Should write received_friend_requests to target');
-
-        // Test accept
-        mockTargetProfile.inventory.received_friend_requests = [{ username: 'Vendeez' }];
-        const resAccept = await PortalStore.handleSupabaseApiRequest(mockSb, '/api/friends/accept', {
-            method: 'POST',
-            body: { targetUsername: 'Max' }
-        });
-        assert.strictEqual(resAccept.ok, true);
-        assert.ok(updateCalledWith?.inventory?.friends?.includes('vendeez'), 'Target profile friends should include accepter');
+        const adapter=require('./helpers/account-adapter.cjs');let operation;
+        const sb={auth:{getUser:async()=>({data:{user:{id:'actor'}}})},rpc:async(name,args)=>{operation=args.command;return {data:{user:{id:'actor'}}};}};
+        assert.strictEqual((await adapter.request(sb,'/api/friends/request',{method:'POST',body:{targetUsername:'Alice'}})).ok,true);assert.strictEqual(operation,'friend_request');
+        assert.strictEqual((await adapter.request(sb,'/api/friends/accept',{method:'POST',body:{targetUsername:'Alice'}})).ok,true);assert.strictEqual(operation,'friend_accept');
     });
 });
 

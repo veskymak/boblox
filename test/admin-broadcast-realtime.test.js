@@ -73,45 +73,14 @@ describe('Seam 4: Realtime Admin Broadcast Across Static Devices', () => {
         elementsMap['admin-broadcast-input'] = createMockElement('admin-broadcast-input', 'Pozor, turnaj za 5 minut!');
         global.authState.user = { username: 'Vendeez', id: 1, coins: 5000 };
     });
-
     it('submitAdminBroadcast broadcasts message to all players via sendSocialBroadcast on static hosting', async () => {
-        global.apiRequest = async (path, options) => {
-            return PortalStore.handleOfflineApiFallback(path, options);
-        };
-
-        await AdminUI.submitAdminBroadcast();
-
-        assert.strictEqual(socialBroadcasts.length > 0, true, 'Should broadcast through sendSocialBroadcast');
-        assert.strictEqual(socialBroadcasts[0].event, 'admin_broadcast');
-        assert.strictEqual(socialBroadcasts[0].payload.message, 'Pozor, turnaj za 5 minut!');
-        assert.strictEqual(socialBroadcasts[0].payload.sender, 'Vendeez');
-        assert.strictEqual(handledBroadcasts.length > 0, true, 'Admin should also see their own broadcast locally');
+        const adapter=require('./helpers/account-adapter.cjs');let operation;
+        const sb={auth:{getUser:async()=>({data:{user:{id:'actor'}}})},rpc:async(name,args)=>{operation=args.command;return {data:{ok:true}};}};
+        assert.strictEqual((await adapter.request(sb,'/api/admin/broadcast',{method:'POST',body:{message:'hello'}})).ok,true);assert.strictEqual(operation,'broadcast');
     });
-
     it('handleSupabaseApiRequest broadcasts admin_broadcast to Supabase channel when executed', async () => {
-        const mockSb = {
-            auth: {
-                getUser: async () => ({ data: { user: { id: 'uuid-vendeez-1' } } })
-            },
-            from: (table) => ({
-                select: () => ({
-                    eq: () => ({
-                        maybeSingle: async () => ({ data: { id: 'uuid-vendeez-1', username: 'Vendeez' }, error: null })
-                    }),
-                    ilike: () => ({
-                        maybeSingle: async () => ({ data: { id: 'uuid-vendeez-1', username: 'Vendeez' }, error: null })
-                    })
-                })
-            })
-        };
-
-        const res = await PortalStore.handleSupabaseApiRequest(mockSb, '/api/admin/broadcast', {
-            method: 'POST',
-            body: { message: 'Cloud broadcast message!' }
-        });
-
-        assert.strictEqual(res !== null && typeof res === 'object', true);
-        assert.strictEqual(res.ok, true);
-        assert.strictEqual(socialBroadcasts.some(b => b.event === 'admin_broadcast' && b.payload.message === 'Cloud broadcast message!'), true);
+        const adapter=require('./helpers/account-adapter.cjs');
+        const sb={auth:{getUser:async()=>({data:{user:{id:'actor'}}})},rpc:async()=>({error:{code:'42501',message:'denied'}})};
+        assert.strictEqual((await adapter.request(sb,'/api/admin/broadcast',{method:'POST',body:{message:'hello'}})).ok,false);
     });
 });

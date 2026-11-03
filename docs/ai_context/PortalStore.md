@@ -1,118 +1,20 @@
-# PortalStore.js - AI Context
+# Account state and transport (v9.4)
 
-## Shared game social data (v9.1)
-`handleSupabaseApiRequest` reads/writes shared `game_ratings` and `comments`. Failed writes or reads return 503 via `gameSocialUnavailable`; never acknowledge a local-only comment/vote. `apiRequest` also stops fallback on thrown Supabase errors for these routes, and `handleOfflineApiFallback` rejects all game social routes. This prevents false success and device-specific discussions. Invalid Supabase votes are rejected before upsert. Tests: `game-comments-and-ratings-resilience.test.js` (cloud failures/offline), `game-social-cross-device.test.js` (real SQLite API, independent accounts and fresh login). Production Supabase schema/RLS remains a deployment prerequisite; local tests do not certify its policies.
+## Ownership and entry points
+- `PortalStore.js`: authState, STORAGE_KEYS, account hydration, profile sync queue, apiRequest and public social reads.
+- `AccountBackend.js`: one `request(sb,path,options)` interface. Supabase Auth is verified with getUser; account writes use authenticated account_command RPC. The sb_jwt_* value is only a UI marker, never authorization.
+- `AccountCommands.js`: serial economic commands, request UUIDs and account-identity checks. Only confirmed server snapshots update persistent state. Older revisions cannot overwrite newer snapshots.
+- `AccountSocial.js`: targeted friendship operations, account-scoped cache reset, 10-second visible-page refresh, persisted direct-message reads and read-only announcements. No private text is broadcast publicly.
 
-## 1. Quick Summary (TL;DR)
-`src/state/PortalStore.js` představuje centrální stavový a transportní pilíř Bobloxu. Spravuje autentizaci uživatele (`authState`), zmrazené klíče úložiště (`STORAGE_KEYS`), ekonomiku virtuální měny Bobux a její auditní transakční deník, definici katalogu miniher (`GAMES_CATALOG`) a vícevrstvý transportní router `apiRequest()`, který transparentně přepíná mezi Node.js backendem, Supabase cloudovou databází (pro GitHub Pages) a offline mezipamětí.
+## Commands and persistence
+Cloud account operations never fall back to Node or an offline account database. Offline API operations return 503; guest gameplay can keep local practice state. No password hashes are generated/verified in the browser.
+syncAccountToServer sends only bio, outfit, torsoHex and the current revision. Coins, VIP, ownership, pet progress, friend lists and transactions are not part of generic sync. A conflict is an error, never a local success. Account responses are guarded by identity and monotonic revision; logout clears private social caches.
+accountCommand(command,payload,requestId) serializes mutations and applies authoritative results. Purchase, daily, slots, wheel, derby, blackjack, Adopt Me actions and bounded participation rewards have server rules. The UI never calls admin_give_coins to save its own balance.
+addBobux in an authenticated game requests a capped participation reward; arbitrary client amounts/reasons have no authority. spendBobux refuses direct authenticated spending; concrete purchases/bets use commands. Guest balances never migrate into a registered wallet.
 
----
+## Seams and verification
+Relevant symbols: apiRequest, applyAuthenticatedUser, syncAccountToServer, accountCommand, refreshAccountSocial. index.html loads account modules before PortalStore; their globals are resolved at call time. Keep all browser APIs behind apiRequest.
+Regression surface: account-commands.integration.test.js, bobux-pagehide-persistence*.test.js, account-sync-ordering.test.js, supabase-blackjack-coins-rpc-sync.test.js, supabase-chat-transactions-and-friends-cache.test.js, and supabase-account-security.sql (rolled back on the live project).
+Two legacy profiles without matching Auth users require verified recovery. Never reintroduce public-hash login or bind accounts merely by matching editable metadata/usernames.
 
-## 2. Global State & Single Source of Truth (SSOT)
-- **Vlastní a exportuje:**
-  - `STORAGE_KEYS`: Zmrazený slovník (`Object.freeze`) všech klíčů LocalStorage (`BOBUX`, `JWT`, `TORSO`, `DAILY_TS`, `TRANSACTIONS`, `CLOUD_USERS`, `FRIENDS`, atd.).
-  - `authState`: Globální stav přihlášení `{ user, token, backendConnected, isSupabase }`.
-  - `bobuxBalance`: Číselný stav konta hráče (výchozí 250 pro hosta).
-  - `bobuxTransactions` (`Array`): Neměnná transakční historie `{ id, ts, delta, reason, balanceAfter }`.
-  - `GAMES_CATALOG`: Seznam všech 12 her s metadaty (ID, název, tagy, miniatury, popis).
-  - `avatarTorsoHex`: Zvolená barva trupu avatara.
-  - `lastClaimTimestamp`: Časové razítko posledního výběru denního bonusu.
-  - `serverTimeOffsetMs`: Odchylka klientských hodin vůči serveru.
-  - `supabaseClient`: Inicializovaná instance klienta Supabase.
-- **Volá a aktualizuje:**
-  - `updateBobuxUI()`, `updateAuthUI()`, `updateDailyBonusUI()`: Aktualizace DOM prvků v portálu.
-
----
-
-## 3. Key API Functions & Signatures
-- `apiRequest(path: string, options?: Object): Promise<any>`
-  - **POVINNÉ rozhraní** pro veškerou síťovou komunikaci. Nejprve se pokusí o dotaz do Supabase Cloud DB; pokud není dostupná, volá Node.js REST API; při výpadku sítě sáhne do lokální offline DB.
-- `syncAccountToServer(opts?: { bypassQueue: boolean }): Promise<void>`
-  - Asynchronní debounce synchronizátor. Shromáždí zůstatek Bobuxů, inventář, seznam přátel, bio, Adopt Me data a transakce a odešle je na server / do Supabase tabulky `profiles`. V Supabase módu využívá RPC funkci `admin_give_coins(target_username, amount, 'set')`, která běží se `SECURITY DEFINER` právy a spolehlivě perzistuje zůstatek Bobuxů i přes RLS restrikce.
-- `applyAuthenticatedUser(user: Object): void`
-  - Aplikuje přihlášený profil, obnoví data mezi zařízeními (mince, VIP status `is_vip`, vlastněné skiny, příchozí žádosti o přátelství, transakce) a aktualizuje UI.
-- `isCurrentUserVip(): boolean`
-  - Ověří, zda má aktuální hráč aktivní VIP status (kontroluje LocalStorage klíč `boblox_is_vip_v1`, `user.is_vip` i `user.inventory.is_vip`).
-- `grantCurrentUserVip(): void`
-  - Udělí univerzální VIP status, zapíše do LocalStorage, nastaví `is_vip: true` v `authState.user`, spustí cloudový sync `syncAccountToServer()`, aktualizuje UI lobby odznaků a rozešle přítomnost do multiplayeru.
-- `addBobux(amount: number, reasonText?: string): void`
-  - Přičte Bobuxy, aktualizuje `authState.user.coins` i `USER_CACHE`, vytvoří transakční záznam, aktualizuje UI a naplánuje `syncAccountToServer()`.
-- `spendBobux(amount: number, reasonText?: string): boolean`
-  - Ověří dostatek prostředků. Pokud ano, odečte Bobuxy, aktualizuje `authState.user.coins` i `USER_CACHE`, zaloguje transakci, spustí sync a vrátí `true`. Při nedostatku vrátí `false`.
-- `handleSupabaseApiRequest(sb: Object, path: string, options?: Object): Promise<any>`
-  - Plnohodnotná klientská emulace REST API běžící přímo nad tabulkami Supabase (`profiles`, `game_ratings`, `comments`, `direct_messages`).
-- `sanitizeTextClient(input: string, maxLen?: number): string`
-  - Očistí text od nebezpečných HTML znaků a zkrátí na povolenou délku.
-
----
-
-## 4. Lifecycle & Execution Hooks
-- **Start aplikace:** `bootBobloxPortal()` volá `initAuthSession()` – ověří existenci uloženého JWT tokenu a načte profil přes `/api/auth/me`.
-- **Před zavřením okna (`pagehide`/`beforeunload`):** Okamžité odeslání neuložených dat hráče pomocí `keepalive` požadavku.
-- **Změna stavu konta nebo inventáře:** Vyvolá debounced `syncAccountToServer()`.
-
----
-
-## 5. Anti-Duplication Rules & Gotchas
-- **PŘÍSNÝ ZÁKAZ volání `fetch('/api/...')`**: V celém kódu nesmí být žádné přímé volání `fetch` na API. Veškeré požadavky musí jít přes `apiRequest()`.
-- **PŘÍSNÝ ZÁKAZ hardcoded klíčů LocalStorage**: Vždy používej konstanty ze zmrazeného objektu `STORAGE_KEYS`.
-- **Zákaz izolovaného LocalStorage**: Nová uživatelská data nesmí existovat pouze v LocalStorage. Musí být součástí schématu v `syncAccountToServer()` a perzistována na backendu / Supabase.
-- **Barva Bobux měny**: V UI pro částky v Bobuxech používej výhradně barvu `text-[#FFE066]`.
-
----
-
-## 6. Code Snippets / Seams
-
-### Seam A: Centrální transportní směrovač apiRequest
-```javascript
-// src/state/PortalStore.js: L1392-L1410
-async function apiRequest(path, options = {}) {
-    const sb = getSupabaseClient();
-    if (sb) {
-        try { const sbRes = await handleSupabaseApiRequest(sb, path, options); if (sbRes) return sbRes; }
-        catch (sbErr) { console.warn('Supabase fallback:', sbErr); }
-    }
-    // pokračuje na standardní fetch /api/* a offline fallback
-```
-
-### Seam B: Bezpečná útrata virtuální měny
-```javascript
-// src/state/PortalStore.js: L2200-L2215
-function spendBobux(amount, reasonText = '') {
-    if (bobuxBalance < amount) return false;
-    bobuxBalance -= amount;
-    recordBobuxTransaction(-amount, reasonText);
-    updateBobuxUI();
-    syncAccountToServer();
-    return true;
-}
-```
-
-### Seam C: Cross-device synchronizace uživatele
-```javascript
-// src/state/PortalStore.js: L2037-L2055
-async function syncAccountToServer({ bypassQueue = false } = {}) {
-    if (!authState.user) return;
-    const syncBody = { coins: bobuxBalance, inventory: { ... }, friends: friendsList, bio: currentBio };
-    await apiRequest('/api/user/sync', { method: 'POST', body: JSON.stringify(syncBody) });
-}
-```
-
-## Player tag priority
-getPlayerTag(username, isVip) is the cosmetic badge SSOT: only Vendeez (case-insensitive exact username) receives ADMIN, ahead of VIP. Uses the existing persisted account username across devices; grants no permissions. Existing *-vip-badge DOM IDs display the primary tag.
-
-## Admin transport (v8.9)
-handleSupabaseApiRequest checks the current profile username for admin routes (Vendeez only), matching Node. POST /api/admin/reset-daily persists daily_claim_date: 0 and checks update/read-back success. Admin coin fallback checks update errors instead of reporting a rejected save as successful. All calls use apiRequest and existing authenticated transport.
-
-## Game moderation (v9.2)
-- Vendeez-only GET `/api/admin/games/:gameId/social` returns named votes and comments. POST sibling `reset-ratings` deletes all game votes; `delete-comment` takes `commentId`.
-- SQLite mutations are transactional and remove legacy users JSON mirrors. Existing public social/summary reads and fresh auth reflect deletions.
-- AdminUI ratings tab loads on entry/game selection and refreshes after writes; DOM textContent protects user content. Logout invalidates pending reads. Destructive actions require browser confirmation.
-- Supabase uses authenticated SECURITY DEFINER RPC `admin_game_social`, checking auth.uid() against profiles username. Deploy `docs/supabase/schema_update_v9.2.sql` first; unavailable RPC fails closed, with no offline success or Node fallback.
-- Comments have no separate voting model. Moderation supports viewing authors and deleting comments, while game reset preserves comments.
-
-## Casino social and removable votes (v9.3)
-- `casino` (Blox Vegas) must be allowed by Node VALID_GAME_IDS and Supabase admin_game_social. Previously omitted from both lists, causing 404/Unknown game.
-- Clicking an active like/dislike sends explicit `vote: null`; other clicks set the requested vote. Node removes the table row and users.game_ratings mirror atomically. Cloud deletes only matching game_id + authenticated profile username and verifies absence; failures never report success.
-- Re-run updated `docs/supabase/schema_update_v9.2.sql`: adds casino to moderation RPC and authenticated own-vote DELETE RLS policy. Missing RPC errors tell the admin which migration to run. Production deployment remains separate from local verification.
-- Regression tests cover casino admin API, persisted removal, fresh reads, UI payload, scoped cloud deletion, silent RLS rejection and missing RPC.
+Each RPC pins the verified session access token on its PostgREST request. Switching SDK sessions while a command is in flight cannot redirect that write into the new account. Friendship responses also check the originating account identity before applying snapshots.

@@ -1,3 +1,5 @@
+process.env.JWT_SECRET = 'test-only-secret-never-use-in-production-2026';
+process.env.ADMIN_USER_ID = '1';
 const { describe, it, before, after, beforeEach } = require('node:test');
 const assert = require('node:assert');
 const http = require('http');
@@ -83,7 +85,7 @@ describe('Bio Cross-Device Synchronization', () => {
     let baseUrl;
     let userToken;
     let userId;
-    const JWT_SECRET = process.env.JWT_SECRET || 'boblox_super_secret_jwt_key_2026_v2';
+    const JWT_SECRET = process.env.JWT_SECRET;
 
     before(async () => {
         app = serverModule.app;
@@ -138,8 +140,7 @@ describe('Bio Cross-Device Synchronization', () => {
                 'Authorization': `Bearer ${userToken}`
             },
             body: JSON.stringify({
-                bio: testBio,
-                coins: 300
+                bio: testBio
             })
         });
 
@@ -212,63 +213,11 @@ describe('Bio Cross-Device Synchronization', () => {
         const inspectedProfile = PortalUI.getLocalRobloxPlayerProfile();
         assert.strictEqual(inspectedProfile.bio, phoneBio, 'Phone getLocalRobloxPlayerProfile() must return the synced bio');
     });
-
     it('Seam 3 (Supabase & Mock API): persists bio in handleSupabaseApiRequest and handleMockApiRequest', async () => {
-        const cloudBio = 'Bio v Supabase cloudu';
+        const adapter=require('./helpers/account-adapter.cjs');
+        const sb={auth:{getUser:async()=>({data:{user:{id:'actor'}}})},rpc:async(name,args)=>({data:{user:{id:'actor',bio:args.payload.bio}}})};
+        const result=await adapter.request(sb,'/api/user/sync',{method:'POST',body:{bio:'cloud bio',revision:1}});
+        assert.equal(result.data.user.bio,'cloud bio');
 
-        let updatedProfilePayload = null;
-        const currentProfile = {
-            id: 'uuid-cloud-user',
-            username: 'CloudUser',
-            coins: 500,
-            inventory: {}
-        };
-
-        const mockSb = {
-            auth: {
-                getUser: async () => ({ data: { user: { id: 'uuid-cloud-user', email: 'clouduser@boblox.local' } } })
-            },
-            from: (table) => ({
-                select: (cols) => ({
-                    eq: (col, val) => ({
-                        maybeSingle: async () => ({ data: currentProfile, error: null })
-                    })
-                }),
-                update: (payload) => ({
-                    eq: (col, val) => {
-                        updatedProfilePayload = payload;
-                        return Promise.resolve({ error: null });
-                    }
-                })
-            })
-        };
-
-        global.authState.token = 'sb_jwt_mock_token_123';
-        global.authState.user = { id: 'uuid-cloud-user', username: 'CloudUser' };
-
-        const res = await PortalStore.handleSupabaseApiRequest(mockSb, '/api/user/sync', {
-            method: 'POST',
-            body: {
-                bio: cloudBio,
-                coins: 500
-            }
-        });
-
-        assert.strictEqual(res.status, 200, 'Supabase sync must return 200');
-        assert.strictEqual(res.data.user.bio, cloudBio, 'Supabase user must have bio');
-        assert.strictEqual(updatedProfilePayload.bio, cloudBio, 'Supabase update payload must include bio');
-
-        // Test handleOfflineApiFallback sync
-        const usersDb = [
-            { id: 99, username: 'MockUser', bio: 'Old' }
-        ];
-        PortalStore.saveLocalUsersDB(usersDb);
-        global.authState.user = { id: 99, username: 'MockUser' };
-        const mockRes = await PortalStore.handleOfflineApiFallback('/api/user/sync', {
-            method: 'POST',
-            body: { bio: 'Mock bio updated', coins: 100 }
-        });
-        assert.strictEqual(mockRes.ok, true);
-        assert.strictEqual(mockRes.data.user.bio, 'Mock bio updated');
     });
 });

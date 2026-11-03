@@ -117,14 +117,14 @@ describe('Seam 3: Game Comments & Like/Dislike Resilience', () => {
         // Mock Supabase client where insert into comments fails with RLS code 42501
         const mockSb = {
             auth: {
-                getUser: async () => ({ data: { user: { id: 'uuid-vendeez-1' } } })
+                getUser: async () => ({ data: { user: { id: '2806aa83-95cb-405d-8db4-23b95f676612' } } })
             },
             from: (table) => {
                 if (table === 'profiles') {
                     return {
                         select: () => ({
-                            eq: () => ({ maybeSingle: async () => ({ data: { id: 'uuid-vendeez-1', username: 'Vendeez' }, error: null }) }),
-                            ilike: () => ({ maybeSingle: async () => ({ data: { id: 'uuid-vendeez-1', username: 'Vendeez' }, error: null }) })
+                            eq: () => ({ maybeSingle: async () => ({ data: { id: '2806aa83-95cb-405d-8db4-23b95f676612', username: 'Vendeez' }, error: null }) }),
+                            ilike: () => ({ maybeSingle: async () => ({ data: { id: '2806aa83-95cb-405d-8db4-23b95f676612', username: 'Vendeez' }, error: null }) })
                         }),
                         update: () => ({
                             eq: () => Promise.resolve({ error: null })
@@ -159,14 +159,14 @@ describe('Seam 3: Game Comments & Like/Dislike Resilience', () => {
         // Mock Supabase client where upsert into game_ratings fails with RLS code 42501
         const mockSb = {
             auth: {
-                getUser: async () => ({ data: { user: { id: 'uuid-vendeez-1' } } })
+                getUser: async () => ({ data: { user: { id: '2806aa83-95cb-405d-8db4-23b95f676612' } } })
             },
             from: (table) => {
                 if (table === 'profiles') {
                     return {
                         select: () => ({
-                            eq: () => ({ maybeSingle: async () => ({ data: { id: 'uuid-vendeez-1', username: 'Vendeez' }, error: null }) }),
-                            ilike: () => ({ maybeSingle: async () => ({ data: { id: 'uuid-vendeez-1', username: 'Vendeez' }, error: null }) })
+                            eq: () => ({ maybeSingle: async () => ({ data: { id: '2806aa83-95cb-405d-8db4-23b95f676612', username: 'Vendeez' }, error: null }) }),
+                            ilike: () => ({ maybeSingle: async () => ({ data: { id: '2806aa83-95cb-405d-8db4-23b95f676612', username: 'Vendeez' }, error: null }) })
                         }),
                         update: () => ({
                             eq: () => Promise.resolve({ error: null })
@@ -201,9 +201,9 @@ describe('cloud rating removal and casino moderation', () => {
         const filters = [];
         return {
             filters,
-            auth: { getUser: async () => ({ data: { user: { id: 'player-id' } } }) },
+            auth: { getUser: async () => ({ data: { user: { id: (options.username === 'OtherPlayer' ? 'ordinary-id' : '2806aa83-95cb-405d-8db4-23b95f676612') } } }) },
             from(table) {
-                if (table === 'profiles') return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { id: 'player-id', username: options.username || 'Vendeez' } }) }) }) };
+                if (table === 'profiles') return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { id: (options.username === 'OtherPlayer' ? 'ordinary-id' : '2806aa83-95cb-405d-8db4-23b95f676612'), username: options.username || 'Vendeez' } }) }) }) };
                 assert.equal(table, 'game_ratings');
                 return {
                     delete() { return { eq(key, value) { filters.push([key, value]); return this; }, then(resolve) { resolve({ error: options.deleteError || null }); } }; },

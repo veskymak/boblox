@@ -2,6 +2,9 @@
  * 2. BOBLOX PORTAL STATE, BACKEND AUTH/DB, DAILY BONUS & 10 GAMES CATALOG
  * ============================================================================ */
 const STORAGE_KEYS = Object.freeze({
+    VIP: 'boblox_is_vip_v1',
+    BIO: 'boblox_custom_bio_v1',
+    WHEEL: 'boblox_casino_wheel_last_spin_v2',
     BOBUX: 'boblox_bobux_balance_v1',
     PLAYED: 'boblox_games_played_v1',
     TORSO: 'boblox_avatar_torso_v1',
@@ -304,28 +307,11 @@ function saveLocalSocialDB(data) {
     localStorage.setItem(LOCAL_DB_SOCIAL_KEY, JSON.stringify(data));
 }
 
-async function hashPasswordClientFallback(password) {
-    if (window.crypto && window.crypto.subtle) {
-        const enc = new TextEncoder().encode('boblox_salt_v2_' + password);
-        const buf = await window.crypto.subtle.digest('SHA-256', enc);
-        return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-    }
-    let h = 2166136261;
-    for (let i = 0; i < password.length; i++) {
-        h ^= password.charCodeAt(i);
-        h = Math.imul(h, 16777619);
-    }
-    return 'fnv_' + (h >>> 0).toString(16);
-}
 
-/* ============================================================================
- * 2A-1. SUPABASE CLOUD DATABASE (PERSISTENT CROSS-DEVICE STORAGE)
- * ============================================================================ */
 const SUPABASE_URL = 'https://vfbdsclqvsjbzzhyaegw.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_lG31mqqwY-JFiSYbtkJqzg_-vR53iJh';
 let supabaseClient = null;
 let supabaseKeepalive = false;
-
 function getSupabaseClient() {
     if (!supabaseClient && window.supabase && typeof window.supabase.createClient === 'function') {
         try {
@@ -443,480 +429,17 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
     }
     const now = Date.now();
 
+    const accountAdapter = typeof BobloxAccountBackend !== 'undefined' ? BobloxAccountBackend
+        : (typeof require === 'function' ? require('./AccountBackend.js') : null);
+    if (accountAdapter) {
+        const response = await accountAdapter.request(sb, path, options);
+        if (response) return response;
+    }
     async function getCurrentSupabaseProfile() {
-        let uid = null;
-        let authUser = null;
-        try {
-            const { data: authUserRes } = await sb.auth.getUser();
-            authUser = authUserRes?.user || null;
-            if (authUser) uid = authUser.id;
-        } catch (e) {}
-
-        const tokenUid = (authState.token && authState.token.startsWith('sb_jwt_'))
-            ? authState.token.replace('sb_jwt_', '')
-            : null;
-
-        if (!uid && authState.user) {
-            uid = authState.user.id;
-        }
-        if (!uid && authState.user?.username) {
-            try {
-                const { data: byName } = await sb.from('profiles').select('*').ilike('username', authState.user.username).maybeSingle();
-                if (byName) return byName;
-            } catch (e) {}
-            return authState.user;
-        }
-        if (!uid) return null;
-
-        // 1. Zkusit najít přímo podle UUID (nové Supabase Auth ID)
-        let { data, error } = await sb.from('profiles').select('*').eq('id', uid).maybeSingle();
-        if (data) return data;
-
-        // 2. Pokud se UUID ještě neshoduje (starší profil před migrací), zkusit najít podle tokenUid
-        if (tokenUid && tokenUid !== uid) {
-            const { data: byToken } = await sb.from('profiles').select('*').eq('id', tokenUid).maybeSingle();
-            if (byToken) return byToken;
-        }
-
-        // 3. Zkusit najít podle uživatelského jména z Auth metadat nebo emailu
-        const usernameFromAuth = authUser?.user_metadata?.username || (authUser?.email ? authUser.email.split('@')[0] : null);
-        if (usernameFromAuth) {
-            const { data: byName } = await sb.from('profiles').select('*').ilike('username', usernameFromAuth).maybeSingle();
-            if (byName) return byName;
-        }
-
-        return null;
-    }
-
-    if (path === '/api/auth/register' && method === 'POST') {
-        const uname = (body.username || '').trim();
-        const pass = body.password || '';
-        if (!/^[a-zA-Z0-9_]{3,20}$/.test(uname)) {
-            return { ok: false, status: 400, data: { error: 'Uživatelské jméno musí mít 3–20 znaků (písmena, čísla, _).' } };
-        }
-        if (pass.length < 6) {
-            return { ok: false, status: 400, data: { error: 'Heslo musí mít alespoň 6 znaků.' } };
-        }
-
-        const { data: existing } = await sb.from('profiles')
-            .select('id')
-            .ilike('username', uname)
-            .maybeSingle();
-
-        if (existing) {
-            return { ok: false, status: 409, data: { error: 'Toto uživatelské jméno je již v cloudu obsazené.' } };
-        }
-
-        // 1. Bezpečná registrace do Supabase Auth (generuje oficiální JWT token a unikátní UUID)
-        const email = `${uname.toLowerCase().replace(/[^a-z0-9_]/g, '')}@boblox.cz`;
-        const { data: authData, error: authErr } = await sb.auth.signUp({
-            email,
-            password: pass,
-            options: {
-                data: { username: uname }
-            }
-        });
-
-        if (authErr) {
-            if (authErr.message?.toLowerCase().includes('already registered')) {
-                return { ok: false, status: 409, data: { error: 'Toto uživatelské jméno je již v cloudu obsazené.' } };
-            }
-            return { ok: false, status: 400, data: { error: authErr.message || 'Chyba při zakládání účtu v Supabase Auth.' } };
-        }
-
-        const authUser = authData?.user;
-        if (!authUser) {
-            return { ok: false, status: 500, data: { error: 'Chyba: Supabase nevytvořil uživatele. Zkontroluj, zda je v Supabase vypnuto "Confirm email".' } };
-        }
-
-        const password_hash = await hashPasswordClientFallback(pass);
-        const startCoins = Math.max(bobuxBalance, 250);
-        const adoptData = typeof loadAdoptMeSavedData === 'function' ? loadAdoptMeSavedData() : { bucks: 120, pets: [{ id: 'dog', tasksDone: 0, ageIdx: 0 }] };
-
-        const newProfile = {
-            id: authUser.id,
-            username: uname,
-            password_hash,
-            coins: startCoins,
-            inventory: {
-                owned: [...ownedShopItems],
-                outfit: (typeof avatarOutfit !== 'undefined') ? Object.assign({}, avatarOutfit) : {},
-                torsoHex: (typeof avatarTorsoHex !== 'undefined') ? avatarTorsoHex : '#0D69AC',
-                gamesPlayed: gamesPlayedCount
-            },
-            adoptme_pets: adoptData.pets,
-            adoptme_bucks: adoptData.bucks,
-            daily_claim_date: lastClaimTimestamp || 0,
-            last_login_at: new Date(now).toISOString(),
-            last_active_at: new Date(now).toISOString()
-        };
-
-        let { data: inserted, error: insErr } = await sb.from('profiles')
-            .insert(newProfile)
-            .select()
-            .single();
-
-        // Defensive fallback: if database table hasn't added last_login_at/last_active_at columns yet
-        if (insErr && (insErr.message?.toLowerCase().includes('column') || insErr.code === 'PGRST204')) {
-            const fallbackProfile = { ...newProfile };
-            delete fallbackProfile.last_login_at;
-            delete fallbackProfile.last_active_at;
-            const retryRes = await sb.from('profiles').insert(fallbackProfile).select().single();
-            if (!retryRes.error && retryRes.data) {
-                inserted = retryRes.data;
-                insErr = null;
-            }
-        }
-
-        if (insErr || !inserted) {
-            if (insErr?.code === '42501' || String(insErr?.message).includes('row-level security')) {
-                return { ok: false, status: 403, data: { error: 'Chyba RLS pravidel v Supabase. Zkontrolujte oprávnění tabulky profiles.' } };
-            }
-            return { ok: false, status: 500, data: { error: insErr?.message || 'Chyba registrace profilu v Supabase cloudu.' } };
-        }
-
-        const token = 'sb_jwt_' + authUser.id;
-        return { ok: true, status: 201, data: { token, user: inserted, serverTime: now } };
-    }
-
-    if (path === '/api/auth/login' && method === 'POST') {
-        const uname = (body.username || '').trim();
-        const pass = body.password || '';
-        if (!uname || !pass) {
-            return { ok: false, status: 400, data: { error: 'Vyplň uživatelské jméno i heslo.' } };
-        }
-
-        // 1. Zkusit oficiální přihlášení přes Supabase Auth
-        const email = `${uname.toLowerCase().replace(/[^a-z0-9_]/g, '')}@boblox.cz`;
-        const { data: authData, error: authErr } = await sb.auth.signInWithPassword({
-            email,
-            password: pass
-        });
-
-        if (authData?.user) {
-            let { data: userRow } = await sb.from('profiles')
-                .select('*')
-                .eq('id', authData.user.id)
-                .maybeSingle();
-
-            if (!userRow) {
-                const { data: byName } = await sb.from('profiles')
-                    .select('*')
-                    .ilike('username', uname)
-                    .maybeSingle();
-                userRow = byName;
-            }
-
-            if (userRow) {
-                const nowIso = new Date(now).toISOString();
-                try {
-                    await sb.from('profiles').update({ last_login_at: nowIso, last_active_at: nowIso }).eq('id', userRow.id);
-                    userRow.last_login_at = nowIso;
-                    userRow.last_active_at = nowIso;
-                } catch (e) {}
-                const token = 'sb_jwt_' + userRow.id;
-                return { ok: true, status: 200, data: { token, user: userRow, serverTime: now } };
-            }
-        }
-
-        // 2. Zpětná kompatibilita a tichá auto-migrace pro účty vytvořené před zapnutím Supabase Auth
-        const { data: legacyRow } = await sb.from('profiles')
-            .select('*')
-            .ilike('username', uname)
-            .maybeSingle();
-
-        if (legacyRow) {
-            const hash = await hashPasswordClientFallback(pass);
-            if (legacyRow.password_hash === hash) {
-                // Přihlásit nebo registrovat do Supabase Auth:
-                try {
-                    await sb.auth.signInWithPassword({ email, password: pass });
-                } catch (e) {
-                    try {
-                        await sb.auth.signUp({
-                            email,
-                            password: pass,
-                            options: { data: { username: legacyRow.username } }
-                        });
-                    } catch (e2) {}
-                }
-
-                const nowIso = new Date(now).toISOString();
-                try {
-                    await sb.from('profiles').update({ last_login_at: nowIso, last_active_at: nowIso }).eq('id', legacyRow.id);
-                    legacyRow.last_login_at = nowIso;
-                    legacyRow.last_active_at = nowIso;
-                } catch (e) {}
-
-                const token = 'sb_jwt_' + legacyRow.id;
-                return { ok: true, status: 200, data: { token, user: legacyRow, serverTime: now } };
-            }
-        }
-
-        return { ok: false, status: 401, data: { error: 'Nesprávné uživatelské jméno nebo heslo.' } };
-    }
-
-    if (path === '/api/auth/logout' && method === 'POST') {
-        try { await sb.auth.signOut(); } catch (e) {}
-        return { ok: true, status: 200, data: { ok: true, serverTime: now } };
-    }
-
-    if (path === '/api/auth/me' && method === 'GET') {
-        if (!authState.token || !authState.token.startsWith('sb_jwt_')) {
-            return null;
-        }
-        const currentUser = await getCurrentSupabaseProfile();
-        if (!currentUser) {
-            return { ok: false, status: 401, data: { error: 'Nepřihlášen' } };
-        }
-        return { ok: true, status: 200, data: { user: currentUser, serverTime: now } };
-    }
-
-    if (path === '/api/user/sync' && method === 'POST') {
-        let currentUser = await getCurrentSupabaseProfile();
-        if (!currentUser && authState.user) {
-            currentUser = Object.assign({}, authState.user);
-        }
-        if (!currentUser) {
-            if (!authState.token || !authState.token.startsWith('sb_jwt_')) {
-                return null;
-            }
-            return { ok: false, status: 401, data: { error: 'Nepřihlášen' } };
-        }
-
-        const updatePayload = {};
-        if (typeof body.coins === 'number') {
-            updatePayload.coins = Math.max(0, Math.floor(body.coins));
-            currentUser.coins = updatePayload.coins;
-            const targetUsername = currentUser.username || authState.user?.username;
-            if (targetUsername && sb && typeof sb.rpc === 'function') {
-                try {
-                    const { data: rpcRes, error: rpcErr } = await sb.rpc('admin_give_coins', {
-                        target_username: targetUsername,
-                        amount: updatePayload.coins,
-                        action: 'set'
-                    });
-                    if (rpcErr) {
-                        console.warn('Supabase coins RPC sync attempt failed:', rpcErr);
-                    } else if (rpcRes && typeof rpcRes.coins === 'number') {
-                        currentUser.coins = rpcRes.coins;
-                        if (authState.user && authState.user.username && authState.user.username.toLowerCase() === targetUsername.toLowerCase()) {
-                            authState.user.coins = rpcRes.coins;
-                        }
-                    }
-                } catch (rpcErr) {
-                    console.warn('Supabase coins RPC sync exception:', rpcErr);
-                }
-            }
-        }
-
-        if (typeof body.bio === 'string') {
-            updatePayload.bio = body.bio.slice(0, 160);
-            currentUser.bio = updatePayload.bio;
-        }
-
-        const currentInv = (typeof currentUser.inventory === 'object' && currentUser.inventory !== null)
-            ? currentUser.inventory
-            : (typeof currentUser.inventory === 'string' ? (() => { try { return JSON.parse(currentUser.inventory); } catch (e) { return {}; } })() : {});
-        updatePayload.inventory = {
-            ...currentInv,
-            is_vip: typeof body.is_vip === 'boolean' ? body.is_vip : (typeof body.isVip === 'boolean' ? body.isVip : !!currentInv.is_vip),
-            bio: updatePayload.bio !== undefined ? updatePayload.bio : (currentInv.bio || currentUser.bio || ''),
-            owned: Array.isArray(body.owned) ? body.owned : (currentInv.owned || []),
-            outfit: body.outfit || currentInv.outfit || {},
-            torsoHex: body.torsoHex || currentInv.torsoHex || '#0D69AC',
-            gamesPlayed: typeof body.gamesPlayed === 'number' ? body.gamesPlayed : (currentInv.gamesPlayed || 0),
-            friends: Array.isArray(body.friends) ? body.friends : (currentInv.friends || []),
-            sent_friend_requests: Array.isArray(body.sent_friend_requests) ? body.sent_friend_requests : (currentInv.sent_friend_requests || []),
-            received_friend_requests: Array.isArray(body.received_friend_requests) ? body.received_friend_requests : (currentInv.received_friend_requests || []),
-            transactions: Array.isArray(body.transactions) ? body.transactions : (currentInv.transactions || [])
-        };
-        currentUser.inventory = updatePayload.inventory;
-        if (currentUser.inventory.is_vip) currentUser.is_vip = true;
-
-        if (Array.isArray(body.transactions)) {
-            try {
-                const latestTx = body.transactions.slice(0, 5);
-                for (const tx of latestTx) {
-                    if (tx && tx.id && typeof tx.amount === 'number') {
-                        await sb.from('transactions').upsert({
-                            id: tx.id,
-                            user_id: currentUser.id,
-                            username: currentUser.username,
-                            amount: tx.amount,
-                            game: tx.game || 'Boblox',
-                            created_at: tx.timestamp || now
-                        }, { onConflict: 'id', ignoreDuplicates: true });
-                    }
-                }
-            } catch (txErr) {}
-        }
-
-        if (Array.isArray(body.adoptme_pets)) {
-            updatePayload.adoptme_pets = body.adoptme_pets;
-            currentUser.adoptme_pets = body.adoptme_pets;
-        }
-        if (typeof body.adoptme_bucks === 'number') {
-            updatePayload.adoptme_bucks = Math.floor(body.adoptme_bucks);
-            currentUser.adoptme_bucks = updatePayload.adoptme_bucks;
-        }
-        if (typeof body.daily_claim_date === 'number') {
-            updatePayload.daily_claim_date = body.daily_claim_date;
-            currentUser.daily_claim_date = body.daily_claim_date;
-        }
-
-        const nowIso = new Date(now).toISOString();
-        updatePayload.last_active_at = nowIso;
-        currentUser.last_active_at = nowIso;
-
-        if (currentUser.id) {
-            let { error: updErr } = await sb.from('profiles').update(updatePayload).eq('id', currentUser.id);
-            if (updErr && (updErr.message?.toLowerCase().includes('column') || updErr.code === 'PGRST204')) {
-                const fallbackPayload = { ...updatePayload };
-                delete fallbackPayload.last_active_at;
-                if (updErr.message?.toLowerCase().includes('bio')) {
-                    delete fallbackPayload.bio;
-                }
-                const retryRes = await sb.from('profiles').update(fallbackPayload).eq('id', currentUser.id);
-                updErr = retryRes.error;
-            }
-            if (updErr) {
-                console.warn('Supabase sync upozornění:', updErr);
-            }
-        }
-
-        if (authState.user && authState.user.username && currentUser.username &&
-            authState.user.username.toLowerCase() === currentUser.username.toLowerCase()) {
-            authState.user.coins = currentUser.coins;
-            try {
-                localStorage.setItem(STORAGE_KEYS.USER_CACHE, JSON.stringify(authState.user));
-            } catch (e) {}
-        }
-        return { ok: true, status: 200, data: { user: currentUser, serverTime: now } };
-    }
-
-    if (path === '/api/friends/request' && method === 'POST') {
-        const currentUser = await getCurrentSupabaseProfile();
-        if (!currentUser) return { ok: false, status: 401, data: { error: 'Pro odeslání žádosti se musíš přihlásit!' } };
-        const targetUsername = typeof body.targetUsername === 'string' ? body.targetUsername.trim() : '';
-        if (!targetUsername) return { ok: false, status: 400, data: { error: 'Chybí cílový uživatel.' } };
-
-        try {
-            let { data: targetProfile } = await sb.from('profiles').select('id, username, inventory').ilike('username', targetUsername).maybeSingle();
-            if (targetProfile) {
-                const tInv = (typeof targetProfile.inventory === 'object' && targetProfile.inventory !== null)
-                    ? { ...targetProfile.inventory }
-                    : (typeof targetProfile.inventory === 'string' ? (() => { try { return JSON.parse(targetProfile.inventory); } catch (e) { return {}; } })() : {});
-                const recList = Array.isArray(tInv.received_friend_requests) ? [...tInv.received_friend_requests] : [];
-                const reqObj = {
-                    id: `cloud_${currentUser.username.toLowerCase()}`,
-                    username: currentUser.username,
-                    receivedAt: now,
-                    senderProfile: body.sender?.senderProfile || null
-                };
-                if (!recList.some(r => r && (r.username || '').toLowerCase() === currentUser.username.toLowerCase())) {
-                    recList.push(reqObj);
-                    tInv.received_friend_requests = recList;
-                    await sb.from('profiles').update({ inventory: tInv }).eq('id', targetProfile.id);
-                }
-            }
-        } catch (e) {
-            console.warn('Supabase friends request error:', e);
-        }
-        return { ok: true, status: 200, data: { ok: true } };
-    }
-
-    if (path === '/api/friends/accept' && method === 'POST') {
-        const currentUser = await getCurrentSupabaseProfile();
-        if (!currentUser) return { ok: false, status: 401, data: { error: 'Pro přijetí žádosti se musíš přihlásit!' } };
-        const targetUsername = typeof body.targetUsername === 'string' ? body.targetUsername.trim() : '';
-        if (!targetUsername) return { ok: false, status: 400, data: { error: 'Chybí cílový uživatel.' } };
-
-        try {
-            let { data: targetProfile } = await sb.from('profiles').select('id, username, inventory').ilike('username', targetUsername).maybeSingle();
-            if (targetProfile) {
-                const tInv = (typeof targetProfile.inventory === 'object' && targetProfile.inventory !== null)
-                    ? { ...targetProfile.inventory }
-                    : (typeof targetProfile.inventory === 'string' ? (() => { try { return JSON.parse(targetProfile.inventory); } catch (e) { return {}; } })() : {});
-                const tFriends = Array.isArray(tInv.friends) ? [...tInv.friends] : [];
-                const myClean = currentUser.username.toLowerCase();
-                if (!tFriends.includes(myClean)) {
-                    tFriends.push(myClean);
-                    tInv.friends = tFriends;
-                }
-                if (Array.isArray(tInv.sent_friend_requests)) {
-                    tInv.sent_friend_requests = tInv.sent_friend_requests.filter(r => r && (r.username || '').toLowerCase() !== myClean);
-                }
-                if (Array.isArray(tInv.received_friend_requests)) {
-                    tInv.received_friend_requests = tInv.received_friend_requests.filter(r => r && (r.username || '').toLowerCase() !== myClean);
-                }
-                await sb.from('profiles').update({ inventory: tInv }).eq('id', targetProfile.id);
-            }
-        } catch (e) {
-            console.warn('Supabase friends accept error:', e);
-        }
-        return { ok: true, status: 200, data: { ok: true } };
-    }
-
-    if (path === '/api/user/active' && method === 'POST') {
-        if (!authState.token || !authState.token.startsWith('sb_jwt_')) {
-            return null;
-        }
-        const currentUser = await getCurrentSupabaseProfile();
-        if (!currentUser) return { ok: false, status: 401, data: { error: 'Nepřihlášen' } };
-        const nowIso = new Date(now).toISOString();
-        currentUser.last_active_at = nowIso;
-        try {
-            await sb.from('profiles').update({ last_active_at: nowIso }).eq('id', currentUser.id);
-        } catch (e) {}
-        return { ok: true, status: 200, data: { ok: true, last_active_at: nowIso, serverTime: now } };
-    }
-
-    if (path === '/api/daily-claim' && method === 'POST') {
-        if (!authState.token || !authState.token.startsWith('sb_jwt_')) {
-            return null;
-        }
-        const currentUser = await getCurrentSupabaseProfile();
-        const lastTs = currentUser ? Number(currentUser.daily_claim_date || 0) : lastClaimTimestamp;
-        if (lastTs > 0 && (now - lastTs) < DAILY_COOLDOWN_MS) {
-            return {
-                ok: false,
-                status: 400,
-                data: {
-                    error: 'Denní bonus lze vyzvednout pouze 1x za 24 hodin!',
-                    lastClaimTimestamp: lastTs,
-                    nextClaimTimestamp: lastTs + DAILY_COOLDOWN_MS,
-                    serverTime: now
-                }
-            };
-        }
-        let updatedUser = currentUser;
-        if (currentUser) {
-            const nextCoins = (currentUser.coins || 0) + 100;
-            const { data: updated, error: updErr } = await sb.from('profiles')
-                .update({ coins: nextCoins, daily_claim_date: now })
-                .eq('id', currentUser.id)
-                .select()
-                .single();
-            if (!updErr && updated) {
-                updatedUser = updated;
-            } else {
-                currentUser.coins = nextCoins;
-                currentUser.daily_claim_date = now;
-            }
-        }
-        return {
-            ok: true,
-            status: 200,
-            data: {
-                ok: true,
-                reward: 100,
-                user: updatedUser,
-                lastClaimTimestamp: now,
-                nextClaimTimestamp: now + DAILY_COOLDOWN_MS,
-                serverTime: now
-            }
-        };
+        const { data, error } = await sb.auth.getUser();
+        if (error || !data?.user) return null;
+        const result = await sb.from('profiles').select('*').eq('id', data.user.id).maybeSingle();
+        return result.error ? null : result.data;
     }
 
     if (path === '/api/games/summary' && method === 'GET') {
@@ -1089,161 +612,8 @@ async function handleSupabaseApiRequest(sb, path, options = {}) {
         };
     }
 
-    if (path === '/api/chat/messages' && method === 'POST') {
-        const currentUser = await getCurrentSupabaseProfile();
-        if (!currentUser) return { ok: false, status: 401, data: { error: 'Pro chatování se musíš přihlásit!' } };
-        const senderName = currentUser.username || 'Hráč';
-        const recipientName = (body.recipient || body.to || '').trim();
-        const text = typeof body.text === 'string' ? sanitizeTextClient(body.text, 250) : '';
-        if (!recipientName || !text) return { ok: false, status: 400, data: { error: 'Chybí příjemce nebo text zprávy.' } };
-
-        const mId = (typeof body.id === 'string' && body.id.trim())
-            ? body.id.trim().slice(0, 80)
-            : ('msg_' + now + '_' + Math.random().toString(36).slice(2, 7));
-        const timestamp = typeof body.timestamp === 'number' ? body.timestamp : now;
-
-        const msgObj = {
-            id: mId,
-            from: senderName,
-            to: recipientName,
-            text: text,
-            timestamp: timestamp,
-            isMe: true
-        };
-
-        // 1. Uložit do Supabase tabulky direct_messages
-        try {
-            let { error: insErr } = await sb.from('direct_messages').insert({
-                id: mId,
-                sender_id: currentUser.id,
-                sender_username: senderName,
-                recipient_username: recipientName,
-                content: text,
-                created_at: timestamp
-            });
-            if (insErr && (insErr.message?.toLowerCase().includes('column') || insErr.code === 'PGRST204')) {
-                await sb.from('direct_messages').insert({
-                    id: mId,
-                    sender_id: currentUser.id,
-                    sender_username: senderName,
-                    recipient_username: recipientName,
-                    text: text,
-                    created_at: timestamp
-                });
-            }
-        } catch (e) {
-            console.warn('Supabase direct_messages insert error:', e);
-        }
-
-        // 2. Lokální fallback pro okamžité offline/lokální zobrazení
-        const socialDB = (typeof getLocalSocialDB === 'function') ? getLocalSocialDB() : {};
-        if (!socialDB._direct_messages) socialDB._direct_messages = [];
-        if (!socialDB._direct_messages.some(m => m.id === mId)) {
-            socialDB._direct_messages.push(msgObj);
-            if (typeof saveLocalSocialDB === 'function') saveLocalSocialDB(socialDB);
-        }
-
-        // 3. Realtime broadcast k příjemci
-        if (typeof sendSocialBroadcast === 'function') {
-            sendSocialBroadcast('direct_chat_message', {
-                id: mId,
-                fromUsername: senderName,
-                toUsername: recipientName,
-                text: text,
-                timestamp: timestamp
-            });
-        }
-
-        return { ok: true, status: 200, data: { ok: true, message: msgObj } };
-    }
-
-    if (path.startsWith('/api/chat/messages') && method === 'GET') {
-        const currentUser = await getCurrentSupabaseProfile();
-        if (!currentUser) return { ok: false, status: 401, data: { error: 'Pro načtení chatu se musíš přihlásit!' } };
-        const myName = (currentUser.username || '').toLowerCase();
-        let partner = '';
-        try {
-            const urlObj = new URL('http://dummy' + path);
-            partner = (urlObj.searchParams.get('partner') || '').toLowerCase();
-        } catch (e) {}
-
-        let messages = [];
-        try {
-            let req = sb.from('direct_messages').select('*');
-            if (partner) {
-                req = req.or(`and(sender_username.ilike.${currentUser.username},recipient_username.ilike.${partner}),and(sender_username.ilike.${partner},recipient_username.ilike.${currentUser.username})`);
-            } else {
-                req = req.or(`sender_username.ilike.${currentUser.username},recipient_username.ilike.${currentUser.username}`);
-            }
-            const { data: dbRows, error: dbErr } = await req.order('created_at', { ascending: true }).limit(200);
-            if (!dbErr && Array.isArray(dbRows)) {
-                messages = dbRows.map(r => ({
-                    id: r.id || r.msg_id || ('msg_' + r.created_at),
-                    from: r.sender_username,
-                    to: r.recipient_username,
-                    text: r.content || r.text || '',
-                    timestamp: typeof r.created_at === 'number' ? r.created_at : new Date(r.created_at).getTime(),
-                    isMe: (r.sender_username || '').toLowerCase() === myName
-                }));
-            }
-        } catch (e) {
-            console.warn('Supabase get direct_messages error:', e);
-        }
-
-        const socialDB = (typeof getLocalSocialDB === 'function') ? getLocalSocialDB() : {};
-        const localList = (socialDB && Array.isArray(socialDB._direct_messages)) ? socialDB._direct_messages : [];
-        const localFiltered = localList.filter(m => {
-            const f = (m.from || '').toLowerCase();
-            const t = (m.to || '').toLowerCase();
-            if (partner) {
-                return (f === myName && t === partner) || (f === partner && t === myName);
-            }
-            return f === myName || t === myName;
-        });
-
-        const mergedMap = new Map();
-        messages.forEach(m => { if (m && m.id) mergedMap.set(m.id, m); });
-        localFiltered.forEach(m => {
-            if (m && m.id && !mergedMap.has(m.id)) {
-                mergedMap.set(m.id, {
-                    ...m,
-                    isMe: (m.from || '').toLowerCase() === myName
-                });
-            }
-        });
-
-        const sorted = Array.from(mergedMap.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-        return { ok: true, status: 200, data: { ok: true, messages: sorted } };
-    }
-
-    if (path.startsWith('/api/transactions') && method === 'GET') {
-        const currentUser = await getCurrentSupabaseProfile();
-        if (!currentUser) return { ok: false, status: 401, data: { error: 'Nepřihlášen' } };
-        let txList = [];
-        try {
-            const { data: dbTx, error: txErr } = await sb.from('transactions')
-                .select('*')
-                .or(`user_id.eq.${currentUser.id},username.ilike.${currentUser.username}`)
-                .order('created_at', { ascending: false })
-                .limit(50);
-            if (!txErr && Array.isArray(dbTx) && dbTx.length > 0) {
-                txList = dbTx.map(t => ({
-                    id: t.id,
-                    amount: t.amount,
-                    game: t.game,
-                    timestamp: typeof t.created_at === 'number' ? t.created_at : new Date(t.created_at).getTime()
-                }));
-            }
-        } catch (e) {}
-        if (txList.length === 0 && currentUser.inventory && Array.isArray(currentUser.inventory.transactions)) {
-            txList = currentUser.inventory.transactions;
-        }
-        return { ok: true, status: 200, data: { ok: true, transactions: txList } };
-    }
-
     function isSupabaseAdminUser(profile) {
-        const pName = (profile?.username || '').toLowerCase();
-        return pName === 'vendeez';
+        return profile?.id === '2806aa83-95cb-405d-8db4-23b95f676612';
     }
 
     const moderation = path.match(/^\/api\/admin\/games\/([a-z0-9_]+)\/(social|reset-ratings|delete-comment)$/);
@@ -1444,6 +814,7 @@ async function apiRequest(path, options = {}) {
     if (sb) {
         try {
             const sbRes = await handleSupabaseApiRequest(sb, path, options);
+            if (!sbRes) return { ok: false, status: 404, data: { error: 'Nepodporovaná cloudová operace.' } };
             if (sbRes) {
                 authState.backendConnected = true;
                 authState.isSupabase = true;
@@ -1451,7 +822,7 @@ async function apiRequest(path, options = {}) {
             }
         } catch (sbErr) {
             if (isGameSocialRequest(path)) return gameSocialUnavailable();
-            console.warn('Supabase API error, falling back:', sbErr);
+            return { ok: false, status: 503, data: { error: 'Cloud není dostupný. Změna nebyla uložena.' } };
         }
     }
 
@@ -1473,7 +844,7 @@ async function apiRequest(path, options = {}) {
             method: options.method || 'GET',
             headers,
             credentials: CUSTOM_API_BASE ? 'include' : 'same-origin',
-            body: options.body ? JSON.stringify(options.body) : undefined,
+            body: options.body ? (typeof options.body === 'string' ? options.body : JSON.stringify(options.body)) : undefined,
             keepalive: options.keepalive === true
         });
 
@@ -1503,492 +874,22 @@ async function apiRequest(path, options = {}) {
 }
 
 // Seamless cryptographic local DB fallback when hosted on static GitHub Pages or opened without node server.js
-async function handleOfflineApiFallback(path, options = {}) {
-    // Shared interactions must never be acknowledged from device-only storage.
-    if (isGameSocialRequest(path)) return gameSocialUnavailable();
-    const method = (options.method || 'GET').toUpperCase();
-    const body = options.body || {};
-    const users = getLocalUsersDB();
-    const now = Date.now();
-
-    let currentUser = null;
-    if (authState.token && authState.token.startsWith('local_jwt_')) {
-        const uid = parseInt(authState.token.replace('local_jwt_', ''), 10);
-        currentUser = users.find(u => u.id === uid) || null;
-    }
-    if (!currentUser && authState.user) {
-        currentUser = users.find(u => (u.id && u.id === authState.user.id) || (u.username && authState.user.username && u.username.toLowerCase() === authState.user.username.toLowerCase())) || null;
-    }
-
-    if (path === '/api/auth/register' && method === 'POST') {
-        const uname = (body.username || '').trim();
-        const pass = body.password || '';
-        if (!/^[a-zA-Z0-9_]{3,20}$/.test(uname)) {
-            return { ok: false, status: 400, data: { error: 'Uživatelské jméno musí mít 3–20 znaků (písmena, čísla, _).' } };
-        }
-        if (pass.length < 6) {
-            return { ok: false, status: 400, data: { error: 'Heslo musí mít alespoň 6 znaků.' } };
-        }
-        if (users.some(u => u.username.toLowerCase() === uname.toLowerCase())) {
-            return { ok: false, status: 409, data: { error: 'Toto uživatelské jméno je již obsazené.' } };
-        }
-        const password_hash = await hashPasswordClientFallback(pass);
-        const startCoins = Math.max(bobuxBalance, 250);
-        const newUser = {
-            id: users.length + 1,
-            username: uname,
-            password_hash,
-            inventory: {
-                owned: [...ownedShopItems],
-                outfit: (typeof avatarOutfit !== 'undefined') ? Object.assign({}, avatarOutfit) : {},
-                torsoHex: (typeof avatarTorsoHex !== 'undefined') ? avatarTorsoHex : '#0D69AC',
-                gamesPlayed: gamesPlayedCount
-            },
-            coins: startCoins,
-            daily_claim_date: lastClaimTimestamp,
-            last_login_at: now,
-            last_active_at: now,
-            game_ratings: {},
-            comments: [],
-            last_comment_at: 0
-        };
-        users.push(newUser);
-        saveLocalUsersDB(users);
-        const token = 'local_jwt_' + newUser.id;
-        return { ok: true, status: 201, data: { token, user: newUser, serverTime: now } };
-    }
-
-    if (path === '/api/auth/login' && method === 'POST') {
-        const uname = (body.username || '').trim();
-        const pass = body.password || '';
-        const u = users.find(x => x.username.toLowerCase() === uname.toLowerCase());
-        const hash = await hashPasswordClientFallback(pass);
-        if (!u || u.password_hash !== hash) {
-            return { ok: false, status: 401, data: { error: 'Nesprávné uživatelské jméno nebo heslo.' } };
-        }
-        u.last_login_at = now;
-        u.last_active_at = now;
-        saveLocalUsersDB(users);
-        const token = 'local_jwt_' + u.id;
-        return { ok: true, status: 200, data: { token, user: u, serverTime: now } };
-    }
-
-    if (path === '/api/auth/logout' && method === 'POST') {
-        return { ok: true, status: 200, data: { ok: true, serverTime: now } };
-    }
-
-    if (path === '/api/auth/me' && method === 'GET') {
-        if (!currentUser) return { ok: false, status: 401, data: { error: 'Nepřihlášen' } };
-        return { ok: true, status: 200, data: { user: currentUser, serverTime: now } };
-    }
-
-    if (path === '/api/user/sync' && method === 'POST') {
-        if (!currentUser) return { ok: false, status: 401, data: { error: 'Nepřihlášen' } };
-        if (typeof body.coins === 'number') currentUser.coins = Math.floor(body.coins);
-        if (typeof body.bio === 'string') currentUser.bio = body.bio.slice(0, 160);
-        currentUser.last_active_at = now;
-        const currentInv = currentUser.inventory || {};
-        currentUser.inventory = {
-            ...currentInv,
-            is_vip: typeof body.is_vip === 'boolean' ? body.is_vip : (typeof body.isVip === 'boolean' ? body.isVip : !!currentInv.is_vip),
-            bio: typeof body.bio === 'string' ? body.bio.slice(0, 160) : currentInv.bio,
-            owned: Array.isArray(body.owned) ? body.owned : (currentInv.owned || []),
-            outfit: body.outfit || currentInv.outfit,
-            torsoHex: body.torsoHex || currentInv.torsoHex,
-            gamesPlayed: typeof body.gamesPlayed === 'number' ? body.gamesPlayed : (currentInv.gamesPlayed || 0),
-            friends: Array.isArray(body.friends) ? body.friends : (currentInv.friends || []),
-            sent_friend_requests: Array.isArray(body.sent_friend_requests) ? body.sent_friend_requests : (currentInv.sent_friend_requests || []),
-            received_friend_requests: Array.isArray(body.received_friend_requests) ? body.received_friend_requests : (currentInv.received_friend_requests || [])
-        };
-        if (currentUser.inventory.is_vip) currentUser.is_vip = true;
-        saveLocalUsersDB(users);
-        return { ok: true, status: 200, data: { user: currentUser, serverTime: now } };
-    }
-
-    if (path === '/api/friends/request' && method === 'POST') {
-        const actingUser = currentUser || authState.user;
-        if (!actingUser) return { ok: false, status: 401, data: { error: 'Pro odeslání žádosti se musíš přihlásit!' } };
-        const targetUsername = typeof body.targetUsername === 'string' ? body.targetUsername.trim() : '';
-        if (!targetUsername) return { ok: false, status: 400, data: { error: 'Chybí cílový uživatel.' } };
-        const targetUser = users.find(u => u.username && u.username.toLowerCase() === targetUsername.toLowerCase());
-        if (targetUser) {
-            targetUser.inventory = targetUser.inventory || {};
-            const recList = Array.isArray(targetUser.inventory.received_friend_requests) ? targetUser.inventory.received_friend_requests : [];
-            const reqObj = {
-                id: `local_${actingUser.username.toLowerCase()}`,
-                username: actingUser.username,
-                receivedAt: now,
-                senderProfile: body.sender?.senderProfile || null
-            };
-            if (!recList.some(r => r && (r.username || '').toLowerCase() === actingUser.username.toLowerCase())) {
-                recList.push(reqObj);
-                targetUser.inventory.received_friend_requests = recList;
-                saveLocalUsersDB(users);
-            }
-        }
-        return { ok: true, status: 200, data: { ok: true } };
-    }
-
-    if (path === '/api/friends/accept' && method === 'POST') {
-        const actingUser = currentUser || authState.user;
-        if (!actingUser) return { ok: false, status: 401, data: { error: 'Pro přijetí žádosti se musíš přihlásit!' } };
-        const targetUsername = typeof body.targetUsername === 'string' ? body.targetUsername.trim() : '';
-        if (!targetUsername) return { ok: false, status: 400, data: { error: 'Chybí cílový uživatel.' } };
-        const targetUser = users.find(u => u.username && u.username.toLowerCase() === targetUsername.toLowerCase());
-        if (targetUser) {
-            targetUser.inventory = targetUser.inventory || {};
-            const tFriends = Array.isArray(targetUser.inventory.friends) ? targetUser.inventory.friends : [];
-            const myClean = actingUser.username.toLowerCase();
-            if (!tFriends.includes(myClean)) {
-                tFriends.push(myClean);
-                targetUser.inventory.friends = tFriends;
-            }
-            if (Array.isArray(targetUser.inventory.sent_friend_requests)) {
-                targetUser.inventory.sent_friend_requests = targetUser.inventory.sent_friend_requests.filter(r => r && (r.username || '').toLowerCase() !== myClean);
-            }
-            if (Array.isArray(targetUser.inventory.received_friend_requests)) {
-                targetUser.inventory.received_friend_requests = targetUser.inventory.received_friend_requests.filter(r => r && (r.username || '').toLowerCase() !== myClean);
-            }
-            saveLocalUsersDB(users);
-        }
-        return { ok: true, status: 200, data: { ok: true } };
-    }
-
-    if (path === '/api/user/active' && method === 'POST') {
-        if (!currentUser) return { ok: false, status: 401, data: { error: 'Nepřihlášen' } };
-        currentUser.last_active_at = now;
-        saveLocalUsersDB(users);
-        return { ok: true, status: 200, data: { ok: true, last_active_at: now, serverTime: now } };
-    }
-
-    if (path === '/api/daily-claim' && method === 'POST') {
-        const lastTs = currentUser ? (currentUser.daily_claim_date || 0) : lastClaimTimestamp;
-        if (lastTs > 0 && (now - lastTs) < DAILY_COOLDOWN_MS) {
-            return {
-                ok: false,
-                status: 400,
-                data: {
-                    error: 'Denní bonus lze vyzvednout pouze 1x za 24 hodin!',
-                    lastClaimTimestamp: lastTs,
-                    nextClaimTimestamp: lastTs + DAILY_COOLDOWN_MS,
-                    serverTime: now
-                }
-            };
-        }
-        if (currentUser) {
-            currentUser.coins = (currentUser.coins || 0) + 100;
-            currentUser.daily_claim_date = now;
-            saveLocalUsersDB(users);
-        }
-        return {
-            ok: true,
-            status: 200,
-            data: {
-                ok: true,
-                reward: 100,
-                user: currentUser,
-                lastClaimTimestamp: now,
-                nextClaimTimestamp: now + DAILY_COOLDOWN_MS,
-                serverTime: now
-            }
-        };
-    }
-
-    const socialDB = getLocalSocialDB();
-
-    if (path === '/api/games/summary' && method === 'GET') {
-        const summary = {};
-        GAMES_CATALOG.forEach(g => {
-            const gData = socialDB[g.id] || { votes: {}, comments: [] };
-            const vals = Object.values(gData.votes || {});
-            const likes = vals.filter(v => v === 'like').length;
-            const dislikes = vals.filter(v => v === 'dislike').length;
-            const total = likes + dislikes;
-            summary[g.id] = {
-                likes,
-                dislikes,
-                ratingPct: total ? Math.round((likes / total) * 100) : null,
-                commentCount: (gData.comments || []).length,
-                online: (liveSocialState.perGameOnline && liveSocialState.perGameOnline[g.id]) || 0
-            };
-        });
-        return {
-            ok: true,
-            status: 200,
-            data: {
-                games: summary,
-                totalOnline: liveSocialState.totalOnline || 1,
-                serverTime: now
-            }
-        };
-    }
-
-    const rateMatch = path.match(/^\/api\/games\/([a-z0-9_]+)\/rate$/);
-    if (rateMatch && method === 'POST') {
-        if (!currentUser) return { ok: false, status: 401, data: { error: 'Pro hodnocení hry se nejprve přihlas ke svému účtu!' } };
-        const gid = rateMatch[1];
-        const vote = body.vote;
-        if (!socialDB[gid]) socialDB[gid] = { votes: {}, comments: [] };
-        if (socialDB[gid].votes[currentUser.id] === vote) {
-            return { ok: false, status: 400, data: { error: 'Tuto hru jsi již takto ohodnotil!' } };
-        }
-        socialDB[gid].votes[currentUser.id] = vote;
-        currentUser.game_ratings = currentUser.game_ratings || {};
-        currentUser.game_ratings[gid] = vote;
-        saveLocalUsersDB(users);
-        saveLocalSocialDB(socialDB);
-        const vals = Object.values(socialDB[gid].votes);
-        const likes = vals.filter(v => v === 'like').length;
-        const dislikes = vals.filter(v => v === 'dislike').length;
-        const total = likes + dislikes;
-        return {
-            ok: true,
-            status: 200,
-            data: { ok: true, likes, dislikes, ratingPct: total ? Math.round((likes / total) * 100) : null, myVote: vote }
-        };
-    }
-
-    const commentMatch = path.match(/^\/api\/games\/([a-z0-9_]+)\/comments$/);
-    if (commentMatch && method === 'POST') {
-        if (!currentUser) return { ok: false, status: 401, data: { error: 'Pro psaní komentářů se musíš přihlásit!' } };
-        const gid = commentMatch[1];
-        if (now - (currentUser.last_comment_at || 0) < COMMENT_COOLDOWN_MS) {
-            const retrySec = Math.ceil((COMMENT_COOLDOWN_MS - (now - currentUser.last_comment_at)) / 1000);
-            return { ok: false, status: 429, data: { error: `Anti-spam: Další komentář za ${retrySec}s.`, retryAfterSec: retrySec } };
-        }
-        const clean = sanitizeTextClient(body.content, 250);
-        if (clean.length < 2) return { ok: false, status: 400, data: { error: 'Komentář musí mít 2–250 znaků.' } };
-        if (!socialDB[gid]) socialDB[gid] = { votes: {}, comments: [] };
-        const cObj = { id: Date.now(), gameId: gid, userId: currentUser.id, username: currentUser.username, content: clean, createdAt: now };
-        socialDB[gid].comments.unshift(cObj);
-        currentUser.last_comment_at = now;
-        currentUser.comments = currentUser.comments || [];
-        currentUser.comments.unshift(cObj);
-        saveLocalUsersDB(users);
-        saveLocalSocialDB(socialDB);
-        return { ok: true, status: 201, data: { ok: true, comment: cObj } };
-    }
-
-    const socialGetMatch = path.match(/^\/api\/games\/([a-z0-9_]+)\/social$/);
-    if (socialGetMatch && method === 'GET') {
-        const gid = socialGetMatch[1];
-        const gData = socialDB[gid] || { votes: {}, comments: [] };
-        const vals = Object.values(gData.votes || {});
-        const likes = vals.filter(v => v === 'like').length;
-        const dislikes = vals.filter(v => v === 'dislike').length;
-        const total = likes + dislikes;
-        return {
-            ok: true,
-            status: 200,
-            data: {
-                gameId: gid,
-                likes,
-                dislikes,
-                ratingPct: total ? Math.round((likes / total) * 100) : null,
-                myVote: currentUser && gData.votes ? (gData.votes[currentUser.id] || null) : null,
-                comments: gData.comments || []
-            }
-        };
-    }
-
-    if (path === '/api/chat/messages' && method === 'POST') {
-        const actingUser = currentUser || authState.user;
-        if (!actingUser) return { ok: false, status: 401, data: { error: 'Pro chatování se musíš přihlásit!' } };
-        const senderName = actingUser.username || 'Hráč';
-        const recipientName = (body.recipient || body.to || '').trim();
-        const text = typeof body.text === 'string' ? body.text.trim().slice(0, 250) : '';
-        if (!recipientName || !text) return { ok: false, status: 400, data: { error: 'Chybí příjemce nebo text zprávy.' } };
-        const mId = body.id || ('msg_' + now + '_' + Math.random().toString(36).slice(2, 7));
-        const msgObj = {
-            id: mId,
-            from: senderName,
-            to: recipientName,
-            text: text,
-            timestamp: typeof body.timestamp === 'number' ? body.timestamp : now,
-            isMe: true
-        };
-        if (!socialDB._direct_messages) socialDB._direct_messages = [];
-        if (!socialDB._direct_messages.some(m => m.id === mId)) {
-            socialDB._direct_messages.push(msgObj);
-            saveLocalSocialDB(socialDB);
-        }
-        return { ok: true, status: 200, data: { ok: true, message: msgObj } };
-    }
-
-    if (path.startsWith('/api/chat/messages') && method === 'GET') {
-        const actingUser = currentUser || authState.user;
-        if (!actingUser) return { ok: false, status: 401, data: { error: 'Pro načtení chatu se musíš přihlásit!' } };
-        const myName = (actingUser.username || '').toLowerCase();
-        let partner = '';
-        try {
-            const urlObj = new URL('http://dummy' + path);
-            partner = (urlObj.searchParams.get('partner') || '').toLowerCase();
-        } catch (e) {}
-        const allMsgs = (socialDB && Array.isArray(socialDB._direct_messages)) ? socialDB._direct_messages : [];
-        const filtered = allMsgs.filter(m => {
-            const from = (m.from || '').toLowerCase();
-            const to = (m.to || '').toLowerCase();
-            if (partner) {
-                return (from === myName && to === partner) || (from === partner && to === myName);
-            }
-            return from === myName || to === myName;
-        }).map(m => ({
-            ...m,
-            isMe: (m.from || '').toLowerCase() === myName
-        }));
-        return { ok: true, status: 200, data: { ok: true, messages: filtered } };
-    }
-
-    function isRequestAuthorizedAsAdmin(currentUser) {
-        if (typeof isCurrentUserAdmin === 'function' && isCurrentUserAdmin()) return true;
-        if (currentUser && currentUser.username && currentUser.username.toLowerCase() === 'vendeez') return true;
-        if (authState.user && authState.user.username && authState.user.username.toLowerCase() === 'vendeez') return true;
-        return false;
-    }
-
-    if (path === '/api/admin/users' && method === 'GET') {
-        if (!isRequestAuthorizedAsAdmin(currentUser)) {
-            return { ok: false, status: 403, data: { error: 'Přístup odepřen: Administrátorská práva vyžadována.' } };
-        }
-        const userList = users.map(u => {
-            const inv = u.inventory || {};
-            return {
-                id: u.id,
-                username: u.username,
-                coins: Number(u.coins) || 0,
-                gamesPlayed: Number(inv.gamesPlayed) || 0,
-                daily_claim_date: Number(u.daily_claim_date) || 0,
-                last_login_at: Number(u.last_login_at) || 0,
-                last_active_at: Number(u.last_active_at) || 0,
-                created_at: Number(u.created_at) || 0
-            };
-        });
-        const cloudUsers = typeof getCloudUsersCache === 'function' ? getCloudUsersCache() : [];
-        for (const cu of cloudUsers) {
-            if (!cu || !cu.username) continue;
-            if (!userList.some(u => u.username && u.username.toLowerCase() === cu.username.toLowerCase())) {
-                userList.push({
-                    id: cu.id || (userList.length + 1),
-                    username: cu.username,
-                    coins: Number(cu.coins) || 0,
-                    gamesPlayed: Number(cu.inventory?.gamesPlayed) || 0,
-                    daily_claim_date: Number(cu.daily_claim_date) || 0,
-                    last_login_at: Number(cu.last_login_at) || now,
-                    last_active_at: Number(cu.last_active_at) || now,
-                    created_at: Number(cu.created_at) || now
-                });
-            }
-        }
-        if (authState.user && !userList.some(u => u.username && u.username.toLowerCase() === authState.user.username.toLowerCase())) {
-            userList.unshift({
-                id: authState.user.id || 1,
-                username: authState.user.username,
-                coins: Number(authState.user.coins || bobuxBalance || 250),
-                gamesPlayed: Number(gamesPlayedCount || 0),
-                daily_claim_date: Number(lastClaimTimestamp || 0),
-                last_login_at: now,
-                last_active_at: now,
-                created_at: now
-            });
-        }
-        return { ok: true, status: 200, data: { ok: true, users: userList }, serverTime: now };
-    }
-
-    if (path === '/api/admin/give-coins' && method === 'POST') {
-        if (!isRequestAuthorizedAsAdmin(currentUser)) {
-            return { ok: false, status: 403, data: { error: 'Přístup odepřen: Administrátorská práva vyžadována.' } };
-        }
-        const targetUsername = typeof body.username === 'string' ? body.username.trim() : '';
-        const rawAmount = Number(body.amount);
-        const action = body.action === 'set' || body.setBalance === true ? 'set' : 'add';
-        if (!targetUsername) {
-            return { ok: false, status: 400, data: { error: 'Uživatelské jméno je povinné.' } };
-        }
-        if (isNaN(rawAmount)) {
-            return { ok: false, status: 400, data: { error: 'Částka musí být platné číslo.' } };
-        }
-        let targetUser = users.find(u => u.username && u.username.toLowerCase() === targetUsername.toLowerCase());
-        let wasSynthesized = false;
-        if (!targetUser && authState.user && authState.user.username && authState.user.username.toLowerCase() === targetUsername.toLowerCase()) {
-            targetUser = authState.user;
-            wasSynthesized = true;
-        }
-        if (!targetUser) {
-            return { ok: false, status: 404, data: { error: 'Uživatel nenalezen.' } };
-        }
-        const currentCoins = Number(targetUser.coins) || 0;
-        const newCoins = action === 'set' ? Math.max(0, Math.floor(rawAmount)) : Math.max(0, Math.floor(currentCoins + rawAmount));
-        targetUser.coins = newCoins;
-        if (wasSynthesized && !users.some(u => u.username && u.username.toLowerCase() === targetUser.username.toLowerCase())) {
-            users.push({
-                id: targetUser.id || (users.length + 1),
-                username: targetUser.username,
-                coins: newCoins,
-                inventory: targetUser.inventory || {},
-                daily_claim_date: targetUser.daily_claim_date || 0,
-                last_login_at: targetUser.last_login_at || now,
-                last_active_at: now
-            });
-        }
-        saveLocalUsersDB(users);
-        if (authState.user && authState.user.username && authState.user.username.toLowerCase() === targetUsername.toLowerCase()) {
-            authState.user.coins = newCoins;
-            bobuxBalance = newCoins;
-            try { localStorage.setItem(STORAGE_KEY_BOBUX, String(newCoins)); } catch (e) {}
-            try { localStorage.setItem(STORAGE_KEYS.USER_CACHE, JSON.stringify(authState.user)); } catch (e) {}
-            if (typeof updateBobuxUI === 'function') updateBobuxUI();
-        }
-        return { ok: true, status: 200, data: { ok: true, username: targetUser.username, coins: newCoins, action } };
-    }
-
-    if (path === '/api/admin/broadcast' && method === 'POST') {
-        if (!isRequestAuthorizedAsAdmin(currentUser)) {
-            return { ok: false, status: 403, data: { error: 'Přístup odepřen: Administrátorská práva vyžadována.' } };
-        }
-        const msg = (body.message || '').trim();
-        if (!msg) {
-            return { ok: false, status: 400, data: { error: 'Zpráva oznámení nesmí být prázdná.' } };
-        }
-        const sender = (currentUser ? currentUser.username : (authState.user ? authState.user.username : 'Vendeez'));
-        const broadcastPayload = {
-            type: 'admin_broadcast',
-            message: msg,
-            sender,
-            timestamp: now
-        };
-        if (typeof sendSocialBroadcast === 'function') {
-            sendSocialBroadcast('admin_broadcast', broadcastPayload);
-        }
-        if (typeof handleIncomingAdminBroadcast === 'function') {
-            handleIncomingAdminBroadcast(broadcastPayload);
-        }
-        return { ok: true, status: 200, data: { ok: true, message: msg, sender } };
-    }
-
-    return { ok: false, status: 404, data: {} };
+async function handleOfflineApiFallback() {
+    return { ok: false, status: 503, data: { error: 'Účet vyžaduje spojení se serverem.' } };
 }
 
-// Cosmetic account badge only; authorization remains enforced by the backend.
 function getPlayerTag(username, isVip = false) {
     if (String(username || '').toLowerCase() === 'vendeez') return 'ADMIN';
     return isVip ? 'VIP' : '';
 }
 
 function isCurrentUserVip() {
-    if (typeof localStorage !== 'undefined' && localStorage.getItem('boblox_is_vip_v1') === 'true') {
-        return true;
-    }
-    const user = (typeof window !== 'undefined' && window.authState && window.authState.user)
-        ? window.authState.user
-        : ((typeof authState !== 'undefined' && authState.user) ? authState.user : null);
-    if (user) {
-        if (user.is_vip || user.isVip) return true;
-        if (user.inventory && (user.inventory.is_vip || user.inventory.isVip)) return true;
-    }
-    return false;
+    if (authState.user) return !!(authState.user.is_vip || authState.user.inventory?.is_vip);
+    return localStorage.getItem(STORAGE_KEYS.VIP) === 'true';
 }
 
 function grantCurrentUserVip() {
+    if (typeof isServerAccount === 'function' && isServerAccount()) return false;
     try {
         if (typeof localStorage !== 'undefined') {
             localStorage.setItem('boblox_is_vip_v1', 'true');
@@ -2045,43 +946,22 @@ function grantCurrentUserVip() {
 
 function applyAuthenticatedUser(user) {
     if (!user) return;
+    if (authState.user?.id === user.id && Number.isFinite(user.revision) && Number(authState.user.revision || 0) > user.revision) return;
+    if (typeof user.wheelAt === 'number') localStorage.setItem(STORAGE_KEYS.WHEEL, String(user.extraSpin ? 0 : user.wheelAt));
+    if (authState.user?.id !== user.id && typeof resetAccountSocialCaches === 'function') resetAccountSocialCaches();
     authState.user = user;
-    if (user.is_vip || user.isVip || (user.inventory && (user.inventory.is_vip || user.inventory.isVip))) {
-        try { localStorage.setItem('boblox_is_vip_v1', 'true'); } catch (e) {}
-        if (authState.user) {
-            authState.user.is_vip = true;
-            if (!authState.user.inventory) authState.user.inventory = {};
-            authState.user.inventory.is_vip = true;
-        }
-    } else if (typeof localStorage !== 'undefined' && localStorage.getItem('boblox_is_vip_v1') === 'true') {
-        if (authState.user) {
-            authState.user.is_vip = true;
-            if (!authState.user.inventory) authState.user.inventory = {};
-            authState.user.inventory.is_vip = true;
-        }
-    }
-    if (typeof user.bio === 'string' && user.bio && user.bio !== 'No bio yet') {
-        authState.user.bio = user.bio;
-        try { localStorage.setItem('boblox_custom_bio_v1', user.bio); } catch (e) {}
-    } else if (user.inventory && typeof user.inventory.bio === 'string' && user.inventory.bio && user.inventory.bio !== 'No bio yet') {
-        authState.user.bio = user.inventory.bio;
-        try { localStorage.setItem('boblox_custom_bio_v1', user.inventory.bio); } catch (e) {}
-    } else {
-        const localBio = (typeof localStorage !== 'undefined' && localStorage.getItem('boblox_custom_bio_v1')) || '';
-        if (localBio && localBio !== 'No bio yet') {
-            authState.user.bio = localBio;
-        } else {
-            authState.user.bio = user.bio || 'No bio yet';
-            if (user.bio) {
-                try { localStorage.setItem('boblox_custom_bio_v1', user.bio); } catch (e) {}
-            }
-        }
-    }
+    if (typeof sentFriendRequests !== 'undefined') Object.keys(sentFriendRequests).forEach(k => delete sentFriendRequests[k]);
+    if (typeof receivedFriendRequests !== 'undefined') Object.keys(receivedFriendRequests).forEach(k => delete receivedFriendRequests[k]);
+    const vip = !!(user.is_vip || user.inventory?.is_vip);
+    localStorage.setItem(STORAGE_KEYS.VIP, String(vip));
+    authState.user.is_vip = vip;
+    authState.user.bio = typeof user.bio === 'string' ? user.bio : '';
+    localStorage.setItem(STORAGE_KEYS.BIO, authState.user.bio);
     if (typeof user.coins === 'number') {
         bobuxBalance = user.coins;
         localStorage.setItem(STORAGE_KEY_BOBUX, String(bobuxBalance));
     }
-    if (user.daily_claim_date && user.daily_claim_date > lastClaimTimestamp) {
+    if (typeof user.daily_claim_date === 'number') {
         lastClaimTimestamp = Number(user.daily_claim_date);
         localStorage.setItem(STORAGE_KEY_DAILY_TS, String(lastClaimTimestamp));
     }
@@ -2193,21 +1073,9 @@ async function syncAccountToServer({ bypassQueue = false } = {}) {
 
     const syncIdentity = `${authState.user.id ?? authState.user.username}:${authState.token || ''}`;
     const syncBody = {
-        coins: bobuxBalance,
         bio: currentBio,
-        is_vip: typeof isCurrentUserVip === 'function' ? isCurrentUserVip() : false,
-        isVip: typeof isCurrentUserVip === 'function' ? isCurrentUserVip() : false,
-        owned: (typeof ownedShopItems !== 'undefined') ? [...ownedShopItems] : [],
-        outfit: typeof avatarOutfit !== 'undefined' ? avatarOutfit : {},
-        torsoHex: typeof avatarTorsoHex !== 'undefined' ? avatarTorsoHex : '#0D69AC',
-        gamesPlayed: (typeof gamesPlayedCount !== 'undefined') ? gamesPlayedCount : 0,
-        adoptme_pets: adopt ? adopt.pets : undefined,
-        adoptme_bucks: adopt ? adopt.bucks : undefined,
-        daily_claim_date: lastClaimTimestamp,
-        friends: friendsList,
-        sent_friend_requests: sentReqsList,
-        received_friend_requests: receivedReqsList,
-        transactions: (typeof bobuxTransactions !== 'undefined' && Array.isArray(bobuxTransactions)) ? bobuxTransactions.slice(0, 50) : []
+        outfit: typeof avatarOutfit !== 'undefined' ? { ...avatarOutfit } : {},
+        torsoHex: typeof avatarTorsoHex !== 'undefined' ? avatarTorsoHex : '#0D69AC'
     };
     const runSync = () => {
         const currentIdentity = authState.user
@@ -2216,7 +1084,7 @@ async function syncAccountToServer({ bypassQueue = false } = {}) {
         if (currentIdentity !== syncIdentity) return Promise.resolve(null);
         return apiRequest('/api/user/sync', {
             method: 'POST',
-            body: syncBody,
+            body: { ...syncBody, revision: authState.user.revision },
             keepalive: bypassQueue
         });
     };
@@ -2230,9 +1098,11 @@ async function syncAccountToServer({ bypassQueue = false } = {}) {
     });
     const syncResp = await syncOperation;
 
-    if (syncResp) {
+    if (syncResp && !syncResp.ok) throw new Error(syncResp.data?.error || 'Uložení selhalo.');
+    if (syncResp && authState.user && `${authState.user.id ?? authState.user.username}:${authState.token || ''}` === syncIdentity) {
         const u = syncResp.user || (syncResp.data && syncResp.data.user);
-        if (u && authState.user) {
+        if (u && authState.user && Number(u.revision || 0) >= Number(authState.user.revision || 0)) {
+            authState.user.revision = u.revision;
             if (typeof u.bio === 'string') {
                 authState.user.bio = u.bio;
                 try { localStorage.setItem('boblox_custom_bio_v1', u.bio || 'No bio yet'); } catch (e) {}
@@ -2475,6 +1345,7 @@ async function submitAuthForm() {
 }
 
 async function logoutAccount() {
+    if (typeof resetAccountSocialCaches === 'function') resetAccountSocialCaches();
     await apiRequest('/api/auth/logout', { method: 'POST' });
     authState.token = null;
     authState.user = null;
@@ -2528,17 +1399,6 @@ async function initAuthSession() {
         fetchCloudUsers().catch(() => {});
     }
 
-    // 1. Okamžitá obnova přihlášeného uživatele z mezipaměti před síťovým voláním (zabraňuje odhlášení při reloadu)
-    const cachedUserJson = localStorage.getItem(STORAGE_KEYS.USER_CACHE);
-    if (cachedUserJson) {
-        try {
-            const cachedUser = JSON.parse(cachedUserJson);
-            if (cachedUser && cachedUser.username) {
-                applyAuthenticatedUser(cachedUser);
-            }
-        } catch (e) {}
-    }
-
     const fallbackName = getGuestNickname();
     if (!authState.token) {
         const sb = typeof getSupabaseClient === 'function' ? getSupabaseClient() : null;
@@ -2568,7 +1428,7 @@ async function initAuthSession() {
         localStorage.setItem(STORAGE_KEYS.USER_CACHE, JSON.stringify(res.data.user));
         applyAuthenticatedUser(res.data.user);
         touchUserActivity(true);
-    } else if (!cachedUserJson) {
+    } else {
         authState.token = null;
         authState.user = null;
         localStorage.removeItem(STORAGE_KEY_JWT);
@@ -2620,6 +1480,8 @@ function recordBobuxTransaction(amount, reasonText = '') {
 }
 
 function addBobux(amount, reasonText = '') {
+    if (typeof isServerAccount === 'function' && isServerAccount()) return requestGameReward();
+    if (!Number.isSafeInteger(amount) || amount <= 0) return;
     bobuxBalance += amount;
     localStorage.setItem(STORAGE_KEY_BOBUX, String(bobuxBalance));
     if (authState.user) {
@@ -2632,10 +1494,12 @@ function addBobux(amount, reasonText = '') {
     if (reasonText) {
         showHudToast(`+${amount} Bobux! (${reasonText})`, 'gold');
     }
-    syncAccountToServer();
+    syncAccountToServer().catch(error => { if (typeof reportAccountError === 'function') reportAccountError(error); });
 }
 
 function spendBobux(amount, reasonText = '') {
+    if (typeof isServerAccount === 'function' && isServerAccount()) return false;
+    if (!Number.isSafeInteger(amount) || amount < 0) return false;
     if (amount <= 0) return true;
     if (bobuxBalance < amount) {
         showHudToast(`Nemáš dostatek Bobuxů! (Chybí ${amount - bobuxBalance} B$)`, 'red');
@@ -2649,7 +1513,7 @@ function spendBobux(amount, reasonText = '') {
     }
     recordBobuxTransaction(-amount, reasonText);
     updateBobuxUI();
-    syncAccountToServer();
+    syncAccountToServer().catch(error => { if (typeof reportAccountError === 'function') reportAccountError(error); });
     return true;
 }
 

@@ -29,6 +29,7 @@ test('stopped slot reels retain the symbols used for payout', () => {
         clearInterval: () => { cycle = null; },
         setTimeout: (callback, delay) => { timeouts.push({ callback, delay }); }
     });
+    vm.runInContext('const gameTimers = { generation: 0, timeout: (...args) => setTimeout(...args), interval: (...args) => setInterval(...args), cancel: handle => clearInterval(handle) };', context);
     vm.runInContext(source.slice(start, end), context);
     vm.runInContext('pickRandomSlotSymbol = () => 2; spinSlots();', context);
     cycle();
@@ -90,7 +91,8 @@ for (const reducedMotion of [false, true]) {
                 clearInterval: () => { interval = null; },
                 setTimeout: (callback, delay) => timers.push({ callback, delay })
             });
-            vm.runInContext(source.slice(source.indexOf('const SLOTS_SYMBOLS ='), source.indexOf('const WHEEL_PRIZES =')), context);
+            vm.runInContext('const gameTimers = { generation: 0, timeout: (...args) => setTimeout(...args), interval: (...args) => setInterval(...args), cancel: handle => clearInterval(handle) };', context);
+    vm.runInContext(source.slice(source.indexOf('const SLOTS_SYMBOLS ='), source.indexOf('const WHEEL_PRIZES =')), context);
             context.draw = [...draw];
             vm.runInContext('pickRandomSlotSymbol = () => draw.shift(); spinSlots();', context);
             assert.equal(animations.length, reducedMotion ? 0 : 3);

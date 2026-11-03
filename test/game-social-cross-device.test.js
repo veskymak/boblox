@@ -1,3 +1,5 @@
+process.env.JWT_SECRET = 'test-only-secret-never-use-in-production-2026';
+process.env.ADMIN_USER_ID = '1';
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');

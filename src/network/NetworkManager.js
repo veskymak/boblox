@@ -321,6 +321,7 @@ function connectGlobalPublicMatchmaking(gameId) {
             });
 
             gameCh.subscribe((status) => {
+                gameCh.bobloxReady = status === 'SUBSCRIBED';
                 if (status === 'SUBSCRIBED') {
                     if (statusEl) {
                         statusEl.textContent = 'Globální Pool (Připojeno)';
@@ -399,6 +400,7 @@ function hostMultiplayerRoom() {
                 if (payload && payload.id) removeRemotePlayer(payload.id);
             });
             gameCh.subscribe((status) => {
+                gameCh.bobloxReady = status === 'SUBSCRIBED';
                 if (status === 'SUBSCRIBED') broadcastGameAnnounce();
             });
         } catch (e) {}
@@ -469,6 +471,7 @@ function joinMultiplayerRoom(overrideCode) {
                 if (payload && payload.id) removeRemotePlayer(payload.id);
             });
             gameCh.subscribe((status) => {
+                gameCh.bobloxReady = status === 'SUBSCRIBED';
                 if (status === 'SUBSCRIBED') {
                     if (statusEl) {
                         statusEl.textContent = `Párty ${rawInput} (Připojeno)`;
@@ -516,6 +519,7 @@ function setupPeerConnection(conn) {
 }
 
 function sendSocialBroadcast(event, payload) {
+    if (event === 'direct_chat_message' || event === 'admin_broadcast') return;
     if (mpState.ws && mpState.ws.readyState === 1) {
         try {
             mpState.ws.send(JSON.stringify({
@@ -1102,6 +1106,14 @@ function createNameplateSprite(nameText, isVip = false) {
 
 function handleMultiplayerPacket(packet, sourceConn) {
     if (!packet || !packet.type) return;
+    if (packet.id !== undefined && (typeof packet.id !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(packet.id) || ['__proto__','prototype','constructor'].includes(packet.id))) return;
+    if (packet.type === 'playerState' && ['x','y','z','rotY'].some(key => packet[key] !== undefined && (!Number.isFinite(packet[key]) || Math.abs(packet[key]) > 1000000))) return;
+    if (packet.type === 'playerState' && packet.stream && Number.isSafeInteger(packet.sequence)) {
+        const last = lastRemoteSequence.get(packet.stream) || 0;
+        if (packet.sequence <= last) return;
+        if (lastRemoteSequence.size > 256) lastRemoteSequence.clear();
+        lastRemoteSequence.set(packet.stream, packet.sequence);
+    }
 
     if (mpState.isHost && sourceConn) {
         mpState.connections.forEach(c => {
@@ -1214,53 +1226,25 @@ function handleMultiplayerPacket(packet, sourceConn) {
     }
 }
 
+let multiplayerSequence = 0;
+const lastRemoteSequence = new Map();
 function sendMultiplayerPacket(payload) {
-    // 1. Direct WebRTC DataConnections (PeerJS mesh)
-    mpState.connections.forEach(c => {
-        if (c.open) {
-            try { c.send(payload); } catch (e) {}
-        }
-    });
-
-    // 2. Supabase Realtime fallback broadcast
-    if (mpState.supabaseGameChannel) {
-        if (payload.type === 'chatMessage') {
-            try {
-                mpState.supabaseGameChannel.send({
-                    type: 'broadcast',
-                    event: 'playerPacket',
-                    payload: payload
-                });
-            } catch (e) {}
-        } else if (payload.type === 'playerState') {
-            const now = performance.now();
-            if (!mpState.lastSupabaseSync || now - mpState.lastSupabaseSync > 110) {
-                mpState.lastSupabaseSync = now;
-                try {
-                    mpState.supabaseGameChannel.send({
-                        type: 'broadcast',
-                        event: 'playerPacket',
-                        payload: payload
-                    });
-                } catch (e) {}
-            }
-        }
+    const packet = { ...payload, sequence: ++multiplayerSequence, stream: mpState.myId };
+    // A room uses a shared transport; mesh is used only when no shared relay exists.
+    if (mpState.supabaseGameChannel?.bobloxReady) {
+        mpState.supabaseGameChannel.send({ type: 'broadcast', event: 'playerPacket', payload: packet }).catch(() => {});
+        return;
     }
-
-    // 3. Fallback WebSocket
     if (mpState.ws && mpState.ws.readyState === 1) {
-        try { mpState.ws.send(JSON.stringify(payload)); } catch (e) {}
+        if (mpState.ws.bufferedAmount < 65536) mpState.ws.send(JSON.stringify(packet));
+        return;
     }
-
-    // 4. Same-device multi-tab testing via BroadcastChannel
-    if (mpState.bc) {
-        try {
-            mpState.bc.postMessage(Object.assign({}, payload, {
-                mode: mpState.mode,
-                roomCode: mpState.roomCode
-            }));
-        } catch (e) {}
+    const peers = mpState.connections.filter(c => c.open);
+    if (peers.length) {
+        peers.forEach(c => { if (!c.dataChannel || c.dataChannel.bufferedAmount < 65536) { try { c.send(packet); } catch {} } });
+        return;
     }
+    if (mpState.bc) mpState.bc.postMessage({ ...packet, mode: mpState.mode, roomCode: mpState.roomCode });
 }
 
 function broadcastLocalPlayerState(dt) {

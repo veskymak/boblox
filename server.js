@@ -14,7 +14,10 @@ const cors = require('cors');
 const { WebSocketServer } = require('ws');
 
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'boblox_super_secret_jwt_key_2026_v2';
+if (require.main === module && (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32)) {
+    throw new Error('Set JWT_SECRET to a random secret of at least 32 characters before starting the server.');
+}
+const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(48).toString('hex');
 const COOKIE_NAME = 'boblox_token';
 const DAILY_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours strict interval
 const COMMENT_COOLDOWN_MS = 30 * 1000; // 30s anti-spam cooldown
@@ -28,7 +31,7 @@ const VALID_GAME_IDS = new Set([
 /* ============================================================================
  * 1. SQLITE DATABASE INITIALIZATION & SCHEMA
  * ============================================================================ */
-const dbPath = path.join(__dirname, 'boblox.db');
+const dbPath = process.env.BOBLOX_DB_PATH || (process.env.NODE_TEST_CONTEXT ? ':memory:' : path.join(__dirname, 'boblox.db'));
 const db = new DatabaseSync(dbPath);
 
 db.exec(`
@@ -144,8 +147,12 @@ function serializeUserForClient(row) {
         gamesPlayed: 0
     });
     const isVip = !!(row.is_vip || inv.is_vip || inv.isVip);
+    const commandState = safeParseJSON(db.prepare('SELECT state FROM account_command_state WHERE user_id=?').get(row.id)?.state, {});
     return {
         id: row.id,
+        revision: Number(row.revision) || 0,
+        wheelAt: Number(commandState.wheelAt) || 0,
+        extraSpin: !!commandState.extraSpin,
         username: row.username,
         bio: typeof row.bio === 'string' ? row.bio : '',
         coins: Number(row.coins) || 0,
@@ -168,9 +175,22 @@ function serializeUserForClient(row) {
 const app = express();
 const server = http.createServer(app);
 
-app.use(cors({ origin: true, credentials: true }));
+const allowedOrigins = new Set((process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean));
+app.use(cors({ origin: (origin, callback) => callback(null, !origin || allowedOrigins.has(origin)), credentials: true }));
 app.use(express.json({ limit: '32kb' }));
 app.use(cookieParser());
+const authAttempts = new Map();
+app.use('/api/auth', (req,res,next) => {
+    if (req.method !== 'POST' || !['/login','/register'].includes(req.path)) return next();
+    const key = req.ip;
+    const now = Date.now();
+    if (authAttempts.size > 4096) for (const [ip,entry] of authAttempts) if (now-entry.start>60000) authAttempts.delete(ip);
+    const entry = authAttempts.get(key);
+    if (!entry || now-entry.start>60000) authAttempts.set(key,{start:now,count:1});
+    else if (++entry.count>30) return res.status(429).json({error:'Too many attempts. Try again later.'});
+    next();
+});
+
 
 // Security headers
 app.use((req, res, next) => {
@@ -187,6 +207,7 @@ function signUserToken(user) {
 function setAuthCookie(res, token) {
     res.cookie(COOKIE_NAME, token, {
         httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000
     });
@@ -224,8 +245,8 @@ function requireAdmin(req, res, next) {
     if (!userRow) {
         return res.status(401).json({ error: 'Pro tuto akci se musíš přihlásit.' });
     }
-    const username = (userRow.username || '').trim().toLowerCase();
-    if (username !== 'vendeez') {
+    const adminId = Number(process.env.ADMIN_USER_ID);
+    if (!Number.isSafeInteger(adminId) || adminId !== userRow.id) {
         return res.status(403).json({ error: 'Přístup odepřen: Administrátorská práva vyžadována.' });
     }
     req.userRow = userRow;
@@ -358,33 +379,26 @@ app.get('/api/users/search', (req, res) => {
 /* ============================================================================
  * 5. ACCOUNT SYNC & DAILY REWARD ENDPOINTS
  * ============================================================================ */
+require('./server/AccountCommands').installAccountCommands(app, db, requireAuth, serializeUserForClient);
+
 app.post('/api/user/sync', requireAuth, (req, res) => {
     try {
         const body = req.body || {};
         const currentInv = safeParseJSON(req.userRow.inventory, {});
+        if (req.body?.revision !== undefined && req.body.revision !== req.userRow.revision) return res.status(409).json({error:'Profile changed on another device. Refresh and retry.'});
         let nextCoins = req.userRow.coins;
 
-        // Adopt Me progress shares the account inventory on SQLite; Supabase uses its existing columns.
-        const petIds = new Set(['dog', 'cat', 'penguin', 'bunny', 'redpanda', 'kitsune', 'unicorn', 'dragon']);
-        if (body.adoptme_bucks !== undefined || body.adoptme_pets !== undefined) {
-            if (!Number.isSafeInteger(body.adoptme_bucks) || body.adoptme_bucks < 0 || body.adoptme_bucks > 10000000 ||
-                !Array.isArray(body.adoptme_pets) || !body.adoptme_pets.length || body.adoptme_pets.length > 200 ||
-                body.adoptme_pets.some(p => !p || !petIds.has(p.id) || !Number.isSafeInteger(p.tasksDone) || p.tasksDone < 0 || p.tasksDone > 1000000)) {
-                return res.status(400).json({ error: 'Neplatný postup Adopt Me.' });
-            }
-            currentInv.adoptme_bucks = body.adoptme_bucks;
-            currentInv.adoptme_pets = body.adoptme_pets.map(p => ({
-                id: p.id, tasksDone: p.tasksDone, ageIdx: Math.min(5, Math.floor(p.tasksDone / 2))
-            }));
+        const protectedFields = ['coins','is_vip','isVip','owned','gamesPlayed','adoptme_bucks','adoptme_pets','daily_claim_date','friends','sent_friend_requests','received_friend_requests','transactions'];
+        if (protectedFields.some(k => Object.hasOwn(body,k))) {
+            return res.status(403).json({error:'Protected fields require a server command.'});
         }
-
-        if (typeof body.coins === 'number' && Number.isFinite(body.coins) && body.coins >= 0 && body.coins <= 10000000) {
-            nextCoins = Math.floor(body.coins);
+        const owned = new Set(currentInv.owned || ['face_classic']);
+        if (body.outfit && Object.values(body.outfit).some(id => id !== null && !owned.has(id))) {
+            return res.status(403).json({error:'Item not owned.'});
         }
-
         const updatedInv = {
             ...currentInv,
-            is_vip: (typeof body.is_vip === 'boolean' ? body.is_vip : (typeof body.isVip === 'boolean' ? body.isVip : !!currentInv.is_vip)),
+            is_vip: !!currentInv.is_vip,
             owned: Array.isArray(body.owned) ? body.owned.filter(x => typeof x === 'string').slice(0, 100) : (currentInv.owned || ['face_classic']),
             outfit: (body.outfit && typeof body.outfit === 'object') ? {
                 shirt: typeof body.outfit.shirt === 'string' ? body.outfit.shirt : null,
@@ -405,7 +419,7 @@ app.post('/api/user/sync', requireAuth, (req, res) => {
         }
 
         const now = Date.now();
-        db.prepare('UPDATE users SET coins = ?, bio = ?, inventory = ?, last_active_at = ? WHERE id = ?')
+        db.prepare('UPDATE users SET coins = ?, bio = ?, inventory = ?, last_active_at = ?, revision = revision + 1 WHERE id = ?')
             .run(nextCoins, nextBio, JSON.stringify(updatedInv), now, req.userRow.id);
 
         const fresh = db.prepare('SELECT * FROM users WHERE id = ?').get(req.userRow.id);
@@ -1003,7 +1017,14 @@ app.post('/api/admin/reset-daily', requireAdmin, (req, res) => {
 /* ============================================================================
  * 7. WEBSOCKET LIVE PRESENCE, SIGNALING & GLOBAL/PRIVATE MATCHMAKING
  * ============================================================================ */
-const wss = new WebSocketServer({ server, path: '/ws' });
+const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 8192,
+    verifyClient(info, done) {
+        const origin = info.origin;
+        if (!origin) return done(true);
+        try { return done(new URL(origin).host === info.req.headers.host || allowedOrigins.has(origin)); }
+        catch { return done(false, 403); }
+    }
+});
 
 // Connected clients: ws -> { clientId, username, peerId, gameId, mode, roomCode }
 const clients = new Map();
@@ -1073,7 +1094,11 @@ wss.on('connection', (ws) => {
     }));
     broadcastOnlineStats();
 
+    let windowStart = Date.now();
+    let messageCount = 0;
     ws.on('message', (raw) => {
+        if (Date.now() - windowStart > 1000) { windowStart = Date.now(); messageCount = 0; }
+        if (++messageCount > 60) { ws.close(1008, 'Rate limit'); return; }
         let msg;
         try {
             msg = JSON.parse(String(raw));
@@ -1114,7 +1139,7 @@ wss.on('connection', (ws) => {
                 try {
                     const decoded = jwt.verify(token, JWT_SECRET);
                     const row = db.prepare('SELECT username FROM users WHERE id = ?').get(decoded.id);
-                    if (row && row.username.toLowerCase() === 'vendeez') {
+                    if (row && Number.isSafeInteger(Number(process.env.ADMIN_USER_ID)) && Number(process.env.ADMIN_USER_ID) === Number(decoded.id)) {
                         authorized = true;
                         sender = row.username;
                     }
@@ -1127,45 +1152,14 @@ wss.on('connection', (ws) => {
         }
 
         if (msg.type === 'social_event') {
-            if (msg.event === 'direct_chat_message' && msg.payload && msg.payload.text) {
-                try {
-                    const p = msg.payload;
-                    const fromU = sanitizePlainText(p.fromUsername || info.username, 20);
-                    const toU = sanitizePlainText(p.toUsername, 20);
-                    const txt = sanitizePlainText(p.text, 250);
-                    const mId = (typeof p.id === 'string' && p.id.trim())
-                        ? p.id.trim().slice(0, 80)
-                        : ('msg_' + Date.now() + '_' + crypto.randomBytes(4).toString('hex'));
-                    const ts = (typeof p.timestamp === 'number' && Number.isFinite(p.timestamp))
-                        ? Math.floor(p.timestamp)
-                        : Date.now();
-                    if (fromU && toU && txt) {
-                        const sUser = db.prepare('SELECT id FROM users WHERE username = ? COLLATE NOCASE').get(fromU);
-                        const rUser = db.prepare('SELECT id FROM users WHERE username = ? COLLATE NOCASE').get(toU);
-                        const exists = db.prepare('SELECT id FROM direct_messages WHERE msg_id = ?').get(mId);
-                        if (!exists) {
-                            db.prepare(`
-                                INSERT INTO direct_messages (msg_id, sender_id, sender_username, recipient_id, recipient_username, content, created_at)
-                                VALUES (?, ?, ?, ?, ?, ?, ?)
-                            `).run(mId, sUser ? sUser.id : 0, fromU, rUser ? rUser.id : null, toU, txt, ts);
-                        }
-                    }
-                } catch (e) {
-                    console.warn('[WS] Error storing direct chat message:', e.message);
-                }
-            }
-            const forwardMsg = JSON.stringify(msg);
-            for (const [otherWs, otherInfo] of clients.entries()) {
-                if (otherWs === ws || otherWs.readyState !== 1) continue;
-                otherWs.send(forwardMsg);
-            }
+            // Social writes use authenticated HTTP commands. Never persist or relay user-supplied private contents.
             return;
         }
 
         if (msg.type === 'playerState' || msg.type === 'weaponSwitch' || msg.type === 'gameEvent' || msg.type === 'casino_event' || msg.type === 'casinoEvent' || msg.type === 'hostGameSelect') {
             // Relay multiplayer packet to all players in the same room (public matchmaking pool for gameId OR private party roomCode)
             for (const [otherWs, otherInfo] of clients.entries()) {
-                if (otherWs === ws || otherWs.readyState !== 1) continue;
+                if (otherWs === ws || otherWs.readyState !== 1 || otherWs.bufferedAmount > 65536) continue;
                 const samePublicPool = info.mode === 'public' && otherInfo.mode === 'public' && info.gameId && otherInfo.gameId === info.gameId;
                 const samePrivateRoom = info.mode === 'private' && otherInfo.mode === 'private' && info.roomCode && otherInfo.roomCode === info.roomCode;
                 if (samePublicPool || samePrivateRoom) {
@@ -1209,7 +1203,10 @@ app.get('/version.json', (req, res) => {
 });
 
 // Serve static frontend files
-app.use(express.static(__dirname));
+app.get('/', (req,res) => res.sendFile(path.join(__dirname,'index.html')));
+app.get('/index.html', (req,res) => res.sendFile(path.join(__dirname,'index.html')));
+app.use('/src',express.static(path.join(__dirname,'src')));
+app.use('/assets',express.static(path.join(__dirname,'assets')));
 
 if (require.main === module) {
     server.listen(PORT, () => {

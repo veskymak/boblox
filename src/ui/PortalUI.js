@@ -1634,6 +1634,10 @@ function getMyUniqueSocialId() {
 }
 
 function handleIncomingSocialPacket(event, payload) {
+    if (['direct_chat_message','admin_broadcast','friend_request_send','friend_request_accept','friend_request_cancel'].includes(event)) {
+        if (typeof refreshAccountSocial === 'function') refreshAccountSocial();
+        return;
+    }
     if (!payload) return;
     const myProfile = getLocalRobloxPlayerProfile();
     const myId = getMyUniqueSocialId();
@@ -1796,6 +1800,13 @@ function handleIncomingSocialPacket(event, payload) {
 }
 
 function sendFriendRequest(playerId) {
+    if (typeof isServerAccount === 'function' && !isServerAccount()) { openAuthModal(); return; }
+    if (typeof isServerAccount === 'function' && isServerAccount()) {
+        const player = getPlayerById(playerId);
+        const name = (typeof receivedFriendRequests !== 'undefined' ? receivedFriendRequests[playerId]?.username : null) || player?.username || player?.displayName;
+        if (name) mutateAccountFriend('request', name);
+        return;
+    }
     if (!playerId || playerId === 'local') return;
     const player = getPlayerById(playerId);
     const pName = player.username || player.displayName || 'Hráč';
@@ -1867,6 +1878,13 @@ function sendFriendRequest(playerId) {
 }
 
 function cancelFriendRequest(playerOrId) {
+    if (typeof isServerAccount === 'function' && !isServerAccount()) { openAuthModal(); return; }
+    if (typeof isServerAccount === 'function' && isServerAccount()) {
+        const player = typeof playerOrId === 'object' ? playerOrId : getPlayerById(playerOrId);
+        const name = player?.username || player?.displayName;
+        if (name) mutateAccountFriend('cancel', name);
+        return;
+    }
     if (!playerOrId) return;
     const pid = typeof playerOrId === 'object' ? (playerOrId.id || playerOrId.username) : playerOrId;
     const player = getPlayerById(pid);
@@ -1906,6 +1924,13 @@ function cancelFriendRequest(playerOrId) {
 }
 
 function acceptFriendRequest(playerId) {
+    if (typeof isServerAccount === 'function' && !isServerAccount()) { openAuthModal(); return; }
+    if (typeof isServerAccount === 'function' && isServerAccount()) {
+        const player = getPlayerById(playerId);
+        const name = (typeof receivedFriendRequests !== 'undefined' ? receivedFriendRequests[playerId]?.username : null) || player?.username || player?.displayName;
+        if (name) mutateAccountFriend('accept', name);
+        return;
+    }
     if (!playerId || playerId === 'local') return;
     const myProfile = getLocalRobloxPlayerProfile();
     const mySenderId = getMyUniqueSocialId();
@@ -1982,6 +2007,12 @@ function acceptFriendRequest(playerId) {
 }
 
 function declineFriendRequest(playerOrId) {
+    if (typeof isServerAccount === 'function' && !isServerAccount()) { openAuthModal(); return; }
+    if (typeof isServerAccount === 'function' && isServerAccount()) {
+        const player = typeof playerOrId === 'object' ? playerOrId : receivedFriendRequests[playerOrId] || getPlayerById(playerOrId);
+        if (player?.username || player?.displayName) mutateAccountFriend('reject', player.username || player.displayName);
+        return;
+    }
     if (!playerOrId) return;
     const pid = typeof playerOrId === 'object' ? (playerOrId.id || playerOrId.username) : playerOrId;
     const pidLower = String(pid).toLowerCase();
@@ -2006,6 +2037,13 @@ function declineFriendRequest(playerOrId) {
 }
 
 function removeFriend(playerId) {
+    if (typeof isServerAccount === 'function' && !isServerAccount()) { openAuthModal(); return; }
+    if (typeof isServerAccount === 'function' && isServerAccount()) {
+        const player = getPlayerById(playerId);
+        const name = (typeof receivedFriendRequests !== 'undefined' ? receivedFriendRequests[playerId]?.username : null) || player?.username || player?.displayName;
+        if (name) mutateAccountFriend('remove', name);
+        return;
+    }
     if (!playerId) return;
     const player = getPlayerById(playerId);
     const pName = player.username || player.displayName || 'Hráč';
@@ -2349,6 +2387,7 @@ function getPlayerFriendsCount(profile) {
 }
 
 function syncFriendRequestsWithCloudUsers(cloudUsers) {
+    if (typeof isServerAccount === 'function' && isServerAccount()) return;
     if (!Array.isArray(cloudUsers)) return;
     const myProfile = getLocalRobloxPlayerProfile();
     const myUName = (myProfile.username || '').toLowerCase();
@@ -4667,6 +4706,13 @@ function toggleProfileShowcaseMode() {
  * FRIENDS ADD / REMOVE & EDIT PROFILE MODAL
  * ============================================================================ */
 function toggleFriendStatus(playerId) {
+    if (typeof isServerAccount === 'function') {
+        if (!isServerAccount()) { openAuthModal(); return; }
+        if (isPlayerFriend(playerId)) removeFriend(playerId);
+        else if (hasReceivedFriendRequest(playerId)) acceptFriendRequest(playerId);
+        else sendFriendRequest(playerId);
+        return;
+    }
     if (!playerId || playerId === 'local') return;
     const player = getPlayerById(playerId);
     const pName = player.username || player.displayName || 'Hráč';
@@ -5431,11 +5477,13 @@ async function syncDirectChatMessages(partnerName = null) {
     if (typeof apiRequest !== 'function') return;
     const isLogged = typeof authState !== 'undefined' && authState.user && authState.user.username;
     if (!isLogged) return;
+    const chatIdentity = authState.user.id;
     const myName = (authState.user.username || authState.user.displayName || '').toLowerCase();
 
     try {
         const query = partnerName ? ('?partner=' + encodeURIComponent(partnerName)) : '';
         const res = await apiRequest('/api/chat/messages' + query, { method: 'GET' });
+        if (authState.user?.id !== chatIdentity) return;
         if (!res || !res.ok || !res.data || !Array.isArray(res.data.messages)) {
             return;
         }
@@ -5751,75 +5799,21 @@ function renderLobbyDirectChatMessages() {
     listEl.scrollTop = listEl.scrollHeight;
 }
 
-function sendLobbyDirectChatMessage() {
-    const inp = document.getElementById('lobby-chat-input');
-    if (!inp) return;
-    const clean = sanitizeTextClient(inp.value, 160);
-    inp.value = '';
-    if (!clean) return;
-
-    if (!activeLobbyChatPartnerId) {
-        showLobbyChatFriendsView();
-        return;
-    }
-
+async function sendLobbyDirectChatMessage() {
+    const input = document.getElementById('lobby-chat-input');
+    const text = sanitizeTextClient(input?.value || '', 160);
+    if (!text || !activeLobbyChatPartnerId) return;
     const partner = getPlayerById(activeLobbyChatPartnerId);
-    const myProfile = getLocalRobloxPlayerProfile();
-    const mySenderId = getMyUniqueSocialId();
-    const mySenderName = myProfile.username || myProfile.displayName || 'Hráč';
-    const partnerName = partner.username || partner.displayName || 'Přítel';
-    const targetId = partner.dbId || partner.id;
-    const key = getConversationKey(partner);
-
-    const msgObj = {
-        id: 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
-        from: mySenderName,
-        text: clean,
-        isMe: true,
-        timestamp: Date.now()
-    };
-
-    if (!lobbyDirectMessages[key]) {
-        lobbyDirectMessages[key] = [];
-    }
-    lobbyDirectMessages[key].push(msgObj);
-    saveLobbyDirectMessages();
-
-    // Broadcast across Realtime network to the recipient
-    const packet = {
-        id: msgObj.id,
-        fromId: mySenderId,
-        fromUsername: mySenderName,
-        toId: targetId,
-        toUsername: partnerName,
-        text: clean,
-        timestamp: msgObj.timestamp
-    };
-
-    if (typeof sendSocialBroadcast === 'function') {
-        sendSocialBroadcast('direct_chat_message', packet);
-    }
-
-    // Persist to backend server via apiRequest for cross-device synchronization
-    if (typeof apiRequest === 'function') {
-        apiRequest('/api/chat/messages', {
-            method: 'POST',
-            body: {
-                recipient: partnerName,
-                text: clean,
-                id: msgObj.id,
-                timestamp: msgObj.timestamp
-            }
-        }).catch(err => {
-            console.warn('[DirectChat] Nelze uložit zprávu na API:', err);
-        });
-    }
-
-    renderLobbyDirectChatMessages();
-
-    if (typeof sfx !== 'undefined' && sfx.playCoin) {
-        sfx.playCoin();
-    }
+    const username = partner?.username || partner?.displayName;
+    if (!username) return;
+    input.disabled = true;
+    try {
+        const response = await apiRequest('/api/chat/messages', { method: 'POST', body: { recipient: username, text } });
+        if (!response.ok) throw new Error(response.data?.error || 'Zpráva nebyla uložena.');
+        input.value = '';
+        await syncDirectChatMessages(username);
+    } catch (error) { showHudToast(error.message, 'red'); }
+    finally { input.disabled = false; }
 }
 
 function handleIncomingDirectChatMessage(payload) {

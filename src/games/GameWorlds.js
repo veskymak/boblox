@@ -1,3 +1,4 @@
+const gameTimers = typeof BobloxLifetime !== 'undefined' ? new BobloxLifetime() : { generation: 0, timeout: (...args) => setTimeout(...args), interval: (...args) => setInterval(...args), cancel: handle => clearInterval(handle), reset() {} };
 /* ============================================================================
  * 7. GAME 1: "CLASSIC MEGA OBBY" (PŘEKÁŽKOVÁ DRÁHA)
  * ============================================================================ */
@@ -1095,7 +1096,7 @@ function saveAdoptMeData(bucks, pets) {
     localStorage.setItem(STORAGE_KEY_ADOPTME_BUCKS, String(Math.max(0, Math.floor(bucks))));
     localStorage.setItem(STORAGE_KEY_ADOPTME_PETS, JSON.stringify(pets));
     if (typeof authState !== 'undefined' && authState.user) {
-        syncAccountToServer();
+        syncAccountToServer().catch(error => { if (typeof reportAccountError === 'function') reportAccountError(error); });
     }
 }
 
@@ -1325,6 +1326,17 @@ function spawnAdoptMeActivePetMesh() {
 }
 
 function completeAdoptMeNeed(needId) {
+    if (typeof isServerAccount === 'function' && isServerAccount()) {
+        const gd = gameSpecificData;
+        if (!gd?.currentNeed || gd.currentNeed.id !== needId || gd.accountPending) return false;
+        gd.accountPending = true;
+        accountCommand('adopt_need', { needId, petIndex: gd.activePetIdx || 0 }).then(() => {
+            if (gameSpecificData !== gd) return;
+            gd.currentNeed = null; gd.needTimer = 12.5;
+            spawnAdoptMeActivePetMesh(); refreshAdoptMeHUD();
+        }).catch(reportAccountError).finally(() => { gd.accountPending = false; });
+        return true;
+    }
     const gd = gameSpecificData;
     if (!gd || !gd.currentNeed || gd.currentNeed.id !== needId) return false;
 
@@ -1365,6 +1377,18 @@ function completeAdoptMeNeed(needId) {
 }
 
 function hatchAdoptMeEgg(eggStand) {
+    if (typeof isServerAccount === 'function' && isServerAccount()) {
+        const gd = gameSpecificData;
+        if (gd.accountPending || gd.hatchCooldown > 0) return;
+        gd.accountPending = true;
+        accountCommand('adopt_hatch', { eggId: eggStand.id }).then(data => {
+            if (gameSpecificData !== gd) return;
+            gd.activePetIdx = gd.pets.length - 1; gd.hatchCooldown = 2.6;
+            spawnAdoptMeActivePetMesh(); refreshAdoptMeHUD();
+            showHudToast(`Vylíhnuto: ${ADOPT_ME_PET_CATALOG[data.petId]?.name || data.petId}!`, 'gold');
+        }).catch(reportAccountError).finally(() => { gd.accountPending = false; });
+        return;
+    }
     const gd = gameSpecificData;
     if (!gd || gd.hatchCooldown > 0) return;
     if (gd.pets.length >= 200) {
@@ -2761,6 +2785,8 @@ function sitAt3DBlackjackTable(seatIdx = null) {
     const seatNumEl = document.getElementById('bj-seated-seat-num');
     if (seatNumEl) seatNumEl.textContent = `${seat.label}`;
 
+    if (typeof isServerAccount === 'function' && isServerAccount()) secureBlackjackAction('resume');
+
     showGtaNotification('Blackjack (21)', `Přisedl jsi k ${seat.label}. Zvol výši své sázky!`, '🪑');
 
     const elInworld = document.getElementById('bj-inworld-current-bet');
@@ -2914,6 +2940,7 @@ function clearInWorldBjBet() {
 }
 
 function confirmInWorldBjBet() {
+    if (typeof isServerAccount === 'function' && isServerAccount()) return secureBlackjackAction('deal');
     if (typeof bjTableState === 'undefined' || bjTableState.localSeat < 0) return;
     const seat = bjTableState.seats[bjTableState.localSeat];
     if (!seat.bet || seat.bet <= 0) {
@@ -2963,8 +2990,8 @@ function showGtaNotification(title, message, icon = '🃏') {
     if (iconEl) iconEl.textContent = icon;
 
     pill.classList.remove('hidden');
-    clearTimeout(pill._timer);
-    pill._timer = setTimeout(() => {
+    gameTimers.cancel(pill._timer);
+    pill._timer = gameTimers.timeout(() => {
         pill.classList.add('hidden');
     }, 4500);
 }
@@ -3007,6 +3034,7 @@ function updateInWorldBjUI() {
 // Core 3D Game Loop & State Transitions
 // ----------------------------------------------------------------------------
 function update3DBlackjackGame(dt, elapsedSec) {
+    if (typeof isServerAccount === 'function' && isServerAccount()) { updateInWorldBjUI(); return; }
     if (typeof gameSpecificData === 'undefined' || typeof activeGameMode === 'undefined' || activeGameMode !== 'casino') return;
     if (typeof bjTableState === 'undefined') return;
 
@@ -3046,6 +3074,7 @@ function update3DBlackjackGame(dt, elapsedSec) {
 }
 
 function startInWorldBlackjackDealing() {
+    if (typeof isServerAccount === 'function' && isServerAccount()) return secureBlackjackAction('deal');
     if (typeof bjTableState === 'undefined') return;
     const activeSeats = bjTableState.seats.filter(s => s.occupied && s.confirmedBet);
     if (activeSeats.length === 0) {
@@ -3149,10 +3178,10 @@ function startInWorldBlackjackDealing() {
             if (dScoreEl) dScoreEl.textContent = `Karta: ${dScoreObj.total}`;
         }
 
-        setTimeout(runDealStep, 380);
+        gameTimers.timeout(runDealStep, 380);
     }
 
-    setTimeout(runDealStep, 250);
+    gameTimers.timeout(runDealStep, 250);
 }
 
 function updateSeatScoreBadge(seat, scoreObj) {
@@ -3260,6 +3289,7 @@ function advanceToNextPlayerTurn() {
 }
 
 function executeBjAction(action) {
+    if (typeof isServerAccount === 'function' && isServerAccount()) return secureBlackjackAction(action);
     if (typeof bjTableState === 'undefined' || (bjTableState.phase !== 'players' && bjTableState.phase !== 'playing')) return;
     const seatIdx = bjTableState.localSeat;
     if (seatIdx < 0) return;
@@ -3440,13 +3470,13 @@ function startInWorldBlackjackDealerTurn() {
             }
 
             renderHandCards('bj-dealer-cards', bjTableState.dealerHand, false);
-            setTimeout(dealerDrawStep, 650);
+            gameTimers.timeout(dealerDrawStep, 650);
         } else {
             resolveInWorldBlackjackPayout(dScoreObj);
         }
     }
 
-    setTimeout(dealerDrawStep, 600);
+    gameTimers.timeout(dealerDrawStep, 600);
 }
 
 function resolveInWorldBlackjackPayout(dScoreObj) {
@@ -3577,6 +3607,7 @@ function resetBlackjackTableForNewRound() {
 // Test Compatibility Contract Functions & Fallbacks
 // ----------------------------------------------------------------------------
 function dealBlackjack() {
+    if (typeof isServerAccount === 'function' && isServerAccount()) return secureBlackjackAction('deal');
     if (typeof bjTableState !== 'undefined' && bjTableState.localSeat >= 0 && typeof scene !== 'undefined') {
         confirmInWorldBjBet();
         startInWorldBlackjackDealing();
@@ -3620,6 +3651,7 @@ function dealBlackjack() {
 }
 
 function hitBlackjack() {
+    if (typeof isServerAccount === 'function' && isServerAccount()) return secureBlackjackAction('hit');
     if (typeof bjTableState !== 'undefined' && bjTableState.localSeat >= 0 && typeof scene !== 'undefined') {
         executeBjAction('hit');
         return;
@@ -3644,6 +3676,7 @@ function hitBlackjack() {
 }
 
 function standBlackjack() {
+    if (typeof isServerAccount === 'function' && isServerAccount()) return secureBlackjackAction('stand');
     if (typeof bjTableState !== 'undefined' && bjTableState.localSeat >= 0 && typeof scene !== 'undefined') {
         executeBjAction('stand');
         return;
@@ -3661,6 +3694,7 @@ function standBlackjack() {
 }
 
 function doubleBlackjack() {
+    if (typeof isServerAccount === 'function' && isServerAccount()) return secureBlackjackAction('double');
     if (typeof bjTableState !== 'undefined' && bjTableState.localSeat >= 0 && typeof scene !== 'undefined') {
         executeBjAction('double');
         return;
@@ -3707,12 +3741,12 @@ function resolveBlackjackDealerTurn() {
             if (typeof sfx !== 'undefined' && sfx.playCardFlip) sfx.playCardFlip();
             bjState.dealerHand.push(bjState.deck.pop());
             renderHandCards('bj-dealer-cards', bjState.dealerHand, false);
-            setTimeout(dealerStep, 450);
+            gameTimers.timeout(dealerStep, 450);
         } else {
             evaluateBlackjackWinner(pScore, dScore);
         }
     }
-    setTimeout(dealerStep, 400);
+    gameTimers.timeout(dealerStep, 400);
 }
 
 function evaluateBlackjackWinner(pScore, dScore) {
@@ -3923,21 +3957,28 @@ function celebrateSlots(win, multiplier, winningReels) {
         particle.style.setProperty('--r', `${Math.random() * 540}deg`);
         particle.style.animationDelay = `${Math.random() * 180}ms`;
         particles.appendChild(particle);
-        setTimeout(() => particle.remove(), 2000);
+        gameTimers.timeout(() => particle.remove(), 2000);
     }
 }
 
-function spinSlots() {
+async function spinSlots() {
+    const spinBet = slotsState.bet;
+    const generation = gameTimers.generation;
     if (slotsState.spinning) return;
-    if (bobuxBalance < slotsState.bet) {
+    if (bobuxBalance < spinBet) {
         slotsState.autoSpin = false;
         const cb = document.getElementById('slots-auto-spin');
         if (cb) cb.checked = false;
-        showHudToast(`Nemáš dostatek Bobuxů! (Máš ${bobuxBalance} B$, sázka je ${slotsState.bet} B$)`, 'red');
+        showHudToast(`Nemáš dostatek Bobuxů! (Máš ${bobuxBalance} B$, sázka je ${spinBet} B$)`, 'red');
         return;
     }
 
-    if (!spendBobux(slotsState.bet, `Automaty sázka (${slotsState.bet} B$)`)) return;
+    let serverResult = null;
+    if (typeof isServerAccount === 'function' && isServerAccount()) {
+        slotsState.spinning = true;
+        try { serverResult = await accountCommand('slots', { bet: spinBet }); if (generation !== gameTimers.generation) return; }
+        catch (error) { slotsState.spinning = false; reportAccountError(error); return; }
+    } else if (!spendBobux(spinBet, `Automaty sázka (${spinBet} B$)`)) return;
     updateCasinoBobuxDisplay();
 
     slotsState.spinning = true;
@@ -3957,9 +3998,9 @@ function spinSlots() {
     const particles = document.getElementById('slots-particles');
     if (particles && particles.replaceChildren) particles.replaceChildren();
 
-    const final1 = pickRandomSlotSymbol();
-    const final2 = pickRandomSlotSymbol();
-    const final3 = pickRandomSlotSymbol();
+    const final1 = serverResult ? serverResult.reels[0] : pickRandomSlotSymbol();
+    const final2 = serverResult ? serverResult.reels[1] : pickRandomSlotSymbol();
+    const final3 = serverResult ? serverResult.reels[2] : pickRandomSlotSymbol();
     const animations = [
         animateSlotReel(r1, final1, 600),
         animateSlotReel(r2, final2, 1100),
@@ -3969,7 +4010,7 @@ function spinSlots() {
     // Only animate reels that have not reached their final symbol yet.
     let reel1Stopped = false;
     let reel2Stopped = false;
-    const cycleInterval = setInterval(() => {
+    const cycleInterval = gameTimers.interval(() => {
         if (!animations[0] && !reel1Stopped && !slotsReducedMotion()) r1.textContent = SLOTS_SYMBOLS[Math.floor(Math.random() * SLOTS_SYMBOLS.length)].icon;
         if (!animations[1] && !reel2Stopped && !slotsReducedMotion()) r2.textContent = SLOTS_SYMBOLS[Math.floor(Math.random() * SLOTS_SYMBOLS.length)].icon;
         if (!animations[2] && !slotsReducedMotion()) r3.textContent = SLOTS_SYMBOLS[Math.floor(Math.random() * SLOTS_SYMBOLS.length)].icon;
@@ -3977,7 +4018,7 @@ function spinSlots() {
     }, 60);
 
     // Stop Reel 1
-    setTimeout(() => {
+    gameTimers.timeout(() => {
         reel1Stopped = true;
         if (animations[0]) animations[0].cancel();
         r1.textContent = SLOTS_SYMBOLS[final1].icon;
@@ -3985,7 +4026,7 @@ function spinSlots() {
     }, 600);
 
     // Stop Reel 2
-    setTimeout(() => {
+    gameTimers.timeout(() => {
         reel2Stopped = true;
         if (animations[1]) animations[1].cancel();
         r2.textContent = SLOTS_SYMBOLS[final2].icon;
@@ -3993,8 +4034,8 @@ function spinSlots() {
     }, 1100);
 
     // Stop Reel 3 and Resolve
-    setTimeout(() => {
-        clearInterval(cycleInterval);
+    gameTimers.timeout(() => {
+        gameTimers.cancel(cycleInterval);
         if (animations[2]) animations[2].cancel();
         r3.textContent = SLOTS_SYMBOLS[final3].icon;
         sfx.playWheelTick();
@@ -4010,19 +4051,19 @@ function spinSlots() {
 
         if (final1 === final2 && final2 === final3) {
             // 3-of-a-kind JACKPOT
-            const win = slotsState.bet * s1.mult;
+            const win = spinBet * s1.mult;
             if (s1.mult >= 35) sfx.playJackpot();
             else sfx.playWinFanfare();
-            addBobux(win, `Výhra na automatech: 3x ${s1.icon}`);
+            if (!serverResult) addBobux(win, `Výhra na automatech: 3x ${s1.icon}`);
             updateCasinoBobuxDisplay();
             msgEl.textContent = `🎉 3x ${s1.icon} ${s1.name.toUpperCase()}! VÝHRA ${win} B$ (${s1.mult}x)!`;
             msgEl.className = 'py-2.5 px-4 rounded-xl bg-amber-950/80 border border-amber-400 text-xs sm:text-sm font-black text-[#FFE066] shadow';
             celebrateSlots(win, s1.mult, [r1, r2, r3]);
             if (!slotsReducedMotion()) spawnObbyConfetti(new THREE.Vector3(18, 3, -8));
         } else if (s1.icon === '🍒' && s2.icon === '🍒') {
-            const win = Math.round(slotsState.bet * 1.5);
+            const win = Math.round(spinBet * 1.5);
             sfx.playCoin();
-            addBobux(win, 'Výhra na automatech: 2x 🍒');
+            if (!serverResult) addBobux(win, 'Výhra na automatech: 2x 🍒');
             updateCasinoBobuxDisplay();
             msgEl.textContent = `🍒 2x Třešně! Výhra ${win} B$ (1.5x)`;
             msgEl.className = 'py-2.5 px-4 rounded-xl bg-emerald-950/80 border border-emerald-400 text-xs sm:text-sm font-bold text-[#FFE066] shadow';
@@ -4034,7 +4075,7 @@ function spinSlots() {
 
         // Auto Spin continuation
         if (slotsState.autoSpin) {
-            setTimeout(() => {
+            gameTimers.timeout(() => {
                 if (slotsState.autoSpin && !slotsState.spinning) spinSlots();
             }, 1200);
         }
@@ -4414,11 +4455,19 @@ function toggleWheelAutoSpin() {
     }
 }
 
-function spinDailyWheel() {
+async function spinDailyWheel() {
+    const generation = gameTimers.generation;
     if (isWheelSpinning) return;
+    let serverResult = null;
+    if (typeof isServerAccount === 'function' && isServerAccount()) {
+        isWheelSpinning = true;
+        try { serverResult = await accountCommand('wheel'); if (generation !== gameTimers.generation) return; }
+        catch (error) { isWheelSpinning = false; wheelAutoSpin = false; reportAccountError(error); return; }
+        isWheelSpinning = false;
+    }
     const isFree = isDailyWheelFree();
 
-    if (!isFree) {
+    if (!serverResult && !isFree) {
         if (bobuxBalance < WHEEL_PAID_SPIN_PRICE) {
             wheelAutoSpin = false;
             const cb = document.getElementById('wheel-auto-spin');
@@ -4434,7 +4483,7 @@ function spinDailyWheel() {
         }
         if (typeof updateCasinoBobuxDisplay === 'function') updateCasinoBobuxDisplay();
         if (typeof updateBobuxUI === 'function') updateBobuxUI();
-    } else {
+    } else if (!serverResult) {
         localStorage.setItem(STORAGE_KEY_CASINO_WHEEL, String(Date.now()));
     }
 
@@ -4467,7 +4516,7 @@ function spinDailyWheel() {
     });
 
     // Pick target prize
-    const targetIdx = Math.floor(Math.random() * WHEEL_PRIZES.length);
+    const targetIdx = serverResult ? serverResult.prizeIndex : Math.floor(Math.random() * WHEEL_PRIZES.length);
     const numSlices = WHEEL_PRIZES.length;
     const sliceAngle = (Math.PI * 2) / numSlices;
 
@@ -4523,7 +4572,7 @@ function spinDailyWheel() {
                 } else {
                     if (typeof sfx !== 'undefined' && sfx.playWinFanfare) sfx.playWinFanfare();
                 }
-                if (typeof addBobux === 'function') addBobux(prize.amount, `Kolo Štěstí (${prize.label})`);
+                if (!serverResult && typeof addBobux === 'function') addBobux(prize.amount, `Kolo Štěstí (${prize.label})`);
                 if (typeof updateCasinoBobuxDisplay === 'function') updateCasinoBobuxDisplay();
                 if (typeof updateBobuxUI === 'function') updateBobuxUI();
                 const victoryText = `🎉 GRATULACE! Vyhrál jsi ${prize.label} (${prize.amount} Bobuxů)!`;
@@ -4544,7 +4593,7 @@ function spinDailyWheel() {
             }
 
             if (wheelAutoSpin) {
-                setTimeout(() => {
+                gameTimers.timeout(() => {
                     if (wheelAutoSpin && !isWheelSpinning) spinDailyWheel();
                 }, 1200);
             }
@@ -4637,7 +4686,7 @@ function showJackpotCelebrationScreen(winnerName, prizeName, amount = 3500) {
     overlay.classList.add('flex');
     if (typeof sfx !== 'undefined' && sfx.playWinFanfare) sfx.playWinFanfare();
 
-    setTimeout(() => {
+    gameTimers.timeout(() => {
         closeJackpotCelebrationOverlay();
     }, 7000);
 }
@@ -4769,7 +4818,8 @@ function updateDerbyBetUI() {
     if (potEl) potEl.textContent = `${Math.round(derbyState.bet * horse.odds)} B$`;
 }
 
-function startDerbyRace() {
+async function startDerbyRace() {
+    const generation = gameTimers.generation;
     if (derbyState.racing) return;
     if (bobuxBalance < derbyState.bet) {
         showHudToast(`Nemáš dostatek Bobuxů! (Máš ${bobuxBalance} B$, sázka je ${derbyState.bet} B$)`, 'red');
@@ -4777,7 +4827,13 @@ function startDerbyRace() {
     }
 
     const horse = DERBY_HORSES.find(h => h.id === derbyState.selectedHorseId) || DERBY_HORSES[0];
-    if (!spendBobux(derbyState.bet, `Sázka na koně #${horse.id} ${horse.name} (${derbyState.bet} B$)`)) return;
+    let serverResult = null;
+    if (typeof isServerAccount === 'function' && isServerAccount()) {
+        derbyState.racing = true;
+        try { serverResult = await accountCommand('derby', { bet: derbyState.bet, horseId: horse.id }); if (generation !== gameTimers.generation) return; }
+        catch (error) { derbyState.racing = false; reportAccountError(error); return; }
+    } else if (!spendBobux(derbyState.bet, `Sázka na koně #${horse.id} ${horse.name} (${derbyState.bet} B$)`)) return;
+    derbyState.serverSettlement = serverResult ? { horseId: horse.id, bet: derbyState.bet, payout: serverResult.payout } : null;
     updateCasinoBobuxDisplay();
 
     derbyState.racing = true;
@@ -4826,6 +4882,7 @@ function startDerbyRace() {
         }
         roll -= weights[i];
     }
+    if (serverResult) winnerIndex = serverResult.winnerId - 1;
     const predeterminedWinner = DERBY_HORSES[winnerIndex];
 
     // 2. Setup target finish frames and dynamic pace profiles
@@ -4856,7 +4913,7 @@ function startDerbyRace() {
 
     let currentTick = 0;
     let currentLeadMeters = 0;
-    const raceInterval = setInterval(() => {
+    const raceInterval = gameTimers.interval(() => {
         currentTick++;
         let maxMeters = 0;
 
@@ -4942,7 +4999,7 @@ function startDerbyRace() {
         if (metersEl) metersEl.textContent = `${currentLeadMeters} m / 1 000 m`;
 
         if (derbyState.raceProgress[winnerIndex] >= 1000) {
-            clearInterval(raceInterval);
+            gameTimers.cancel(raceInterval);
             finishDerbyRace(predeterminedWinner.id);
         }
     }, 70);
@@ -4953,16 +5010,17 @@ function finishDerbyRace(winnerId) {
     document.getElementById('derby-start-btn').disabled = false;
 
     const winner = DERBY_HORSES.find(h => h.id === winnerId);
-    const chosen = DERBY_HORSES.find(h => h.id === derbyState.selectedHorseId);
+    const chosenId = derbyState.serverSettlement?.horseId || derbyState.selectedHorseId;
+    const chosen = DERBY_HORSES.find(h => h.id === chosenId);
     const resultBanner = document.getElementById('derby-result-banner');
     const statusLabel = document.getElementById('derby-status-label');
     resultBanner.classList.remove('hidden');
 
-    if (winnerId === derbyState.selectedHorseId) {
+    if (winnerId === chosenId) {
         // Player Won!
-        const payout = Math.round(derbyState.bet * chosen.odds);
+        const payout = derbyState.serverSettlement ? derbyState.serverSettlement.payout : Math.round(derbyState.bet * chosen.odds);
         sfx.playJackpot();
-        addBobux(payout, `Výhra v dostizích (${chosen.name})`);
+        if (!(typeof isServerAccount === 'function' && isServerAccount())) addBobux(payout, `Výhra v dostizích (${chosen.name})`);
         updateCasinoBobuxDisplay();
 
         statusLabel.textContent = `🏆 TVŮJ KŮŇ #${chosen.id} ${chosen.name.toUpperCase()} ZVÍTĚZIL!`;
