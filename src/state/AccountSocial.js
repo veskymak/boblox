@@ -18,6 +18,11 @@ async function mutateAccountFriend(action, targetUsername) {
     }
 }
 function resetAccountSocialCaches() {
+    if (typeof localStorage !== 'undefined' && typeof STORAGE_KEYS !== 'undefined') {
+        for (const key of [STORAGE_KEYS.CHAT_MESSAGES, STORAGE_KEYS.CHAT_UNREAD, STORAGE_KEYS.USER_CACHE]) {
+            if (key) { try { localStorage.removeItem(key); } catch {} }
+        }
+    }
     if (typeof friendsSet !== 'undefined') friendsSet.clear();
     if (typeof sentFriendRequests !== 'undefined')
         Object.keys(sentFriendRequests).forEach((k) => delete sentFriendRequests[k]);

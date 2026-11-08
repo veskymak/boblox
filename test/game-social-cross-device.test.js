@@ -28,8 +28,8 @@ test('game votes and comments are shared across accounts and fresh devices', asy
     }
     try {
         const password = 'TestPassword123!';
-        const first = await request('/api/auth/register', null, { username: 'SocialAlice', password });
-        const second = await request('/api/auth/register', null, { username: 'SocialBob', password });
+        const first = await request('/api/auth/register', null, { ageOver15: true, username: 'SocialAlice', password });
+        const second = await request('/api/auth/register', null, { ageOver15: true, username: 'SocialBob', password });
         assert.equal(first.status, 201);
         assert.equal(second.status, 201);
         const alice = first.data.token;

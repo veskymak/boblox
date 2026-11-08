@@ -2,6 +2,7 @@
 <html lang="cs" class="dark">
 <head>
     <meta charset="UTF-8">
+    <meta name="referrer" content="no-referrer">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <!-- Auto Cache-Busting: Ensures users always load the latest game assets without Shift+R -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -17,7 +18,6 @@
     <!-- Supabase Client pro cloudové účty a cross-device ukládání dat -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0"></script>
     <!-- Google Fonts: Inter & Fredoka for authentic blocky headings -->
-    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
             --boblox-bg: #191B1D;
@@ -40,12 +40,12 @@
             padding: 0;
             background-color: var(--boblox-bg);
             color: #FFFFFF;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
             overflow-x: hidden;
         }
 
         .font-boblox {
-            font-family: 'Fredoka', 'Inter', sans-serif;
+            font-family: system-ui, sans-serif;
             letter-spacing: 0.03em;
         }
 
@@ -585,6 +585,8 @@
                 <button type="button" id="sidebar-settings-btn" onclick="openAuthModal()" class="w-full min-h-[44px] flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-[#232527] text-gray-300 hover:text-white transition">
                     <span aria-hidden="true">⚙</span><span>Nastavení</span>
                 </button>
+
+                <button type="button" onclick="openPrivacyCenter()" class="w-full min-h-[44px] flex items-center px-2.5 py-2 rounded-lg hover:bg-[#232527] text-gray-300">Soukromí a moje údaje</button>
 
                 <!-- Admin Menu (Only for Vendeez) -->
                 <button type="button" id="sidebar-admin-btn" onclick="openAdminModal()" class="w-full min-h-[44px] hidden items-center gap-3 px-2.5 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300 transition font-bold">
@@ -1239,6 +1241,7 @@
                 </div>
             </div>
 
+            <button type="button" onclick="openPrivacyCenter()" class="w-full min-h-[44px] text-sm text-[#00A2FF]">Soukromí a moje údaje</button>
             <!-- Login / Register Form View -->
             <form id="auth-form-view" class="space-y-4" autocomplete="on" onsubmit="event.preventDefault(); submitAuthForm();">
                 <div class="grid grid-cols-2 gap-2 bg-[#191B1D] p-1 rounded-xl border border-[#393B3D]">
@@ -1269,6 +1272,8 @@
                     <label for="auth-email-input" class="text-xs font-bold text-gray-400">E-mail pro potvrzení účtu a obnovu hesla</label>
                     <input id="auth-email-input" name="email" type="email" maxlength="254" autocomplete="email" disabled class="w-full min-h-[44px] mt-1 bg-[#191B1D] text-white px-3.5 py-2.5 rounded-xl border border-[#393B3D] focus:border-[#00A2FF]">
                 </div>
+                <div id="auth-consent-fields" class="hidden space-y-2"><label class="flex items-center gap-3 min-h-[44px] text-sm"><input id="auth-age-consent" type="checkbox" disabled class="w-5 h-5 shrink-0">Potvrzuji, že je mi více než 15 let.</label></div>
+                <p class="text-xs text-gray-400">Před registrací si přečti <a href="privacy.html" target="_blank" rel="noopener noreferrer" class="text-[#00A2FF] underline">zásady ochrany osobních údajů</a>. Potvrzení věku není souhlas s analytikou.</p>
                 <button id="auth-submit-btn" type="submit" class="w-full min-h-[44px] py-3 rounded-xl btn-play-green text-white font-bold text-sm shadow-lg">
                     Přihlásit se k účtu
                 </button>
@@ -1293,6 +1298,30 @@
         #recovery-email-action:disabled { opacity: .6; cursor: wait; }
         @media (prefers-reduced-motion: reduce) { #recovery-email-form, #recovery-email-form * { transition: none !important; } }
     </style>
+    <dialog id="privacy-modal" aria-labelledby="privacy-title" style="color:white;background:#232527;border:1px solid #393B3D;border-radius:24px;width:min(520px,calc(100% - 32px));max-height:calc(100dvh - 32px);overflow:auto;padding:24px">
+        <h2 id="privacy-title" class="text-xl font-bold mb-3">Soukromí a moje údaje</h2>
+        <p class="text-sm text-gray-300 mb-3">Provozovatel: Václav Pěkný · <a href="mailto:venda.pekny@gmail.com" class="underline">venda.pekny@gmail.com</a></p>
+        <a href="privacy.html" target="_blank" rel="noopener noreferrer" class="min-h-[44px] flex items-center text-[#00A2FF] underline">Zásady ochrany osobních údajů</a>
+        <button id="privacy-export" type="button" onclick="exportPrivacyData()" class="w-full min-h-[44px] rounded-xl bg-[#00A2FF] font-bold my-3">Stáhnout údaje účtu (JSON)</button>
+        <p class="text-sm text-gray-300">Následující odkazy pouze připraví e-mail. Žádost odešli ve svém e-mailovém programu; účet se tím automaticky nesmaže. Pro ověření vlastnictví použij potvrzený e-mail účtu. Neposílej heslo.</p>
+        <div class="grid gap-1 my-3">
+            <a id="privacy-access" class="min-h-[44px] flex items-center underline" href="mailto:venda.pekny@gmail.com">Připravit žádost o přístup / přenositelnost</a>
+            <a id="privacy-correction" class="min-h-[44px] flex items-center underline" href="mailto:venda.pekny@gmail.com">Připravit žádost o opravu</a>
+            <a id="privacy-erasure" class="min-h-[44px] flex items-center underline text-red-300" href="mailto:venda.pekny@gmail.com">Připravit žádost o výmaz účtu</a>
+            <a id="privacy-objection" class="min-h-[44px] flex items-center underline" href="mailto:venda.pekny@gmail.com">Připravit námitku, včetně zobrazování aktivity</a>
+            <a id="privacy-restriction" class="min-h-[44px] flex items-center underline" href="mailto:venda.pekny@gmail.com">Připravit žádost o omezení zpracování</a>
+        </div>
+        <p id="privacy-status" role="status" class="text-sm text-gray-300 mb-3"></p>
+        <button type="button" onclick="document.getElementById('privacy-modal').close()" class="w-full min-h-[44px] bg-[#393B3D] rounded-xl">Zavřít</button>
+    </dialog>
+    <dialog id="account-consent-modal" aria-labelledby="consent-title" style="color:white;background:#232527;border:1px solid #393B3D;border-radius:24px;width:min(448px,calc(100% - 32px));max-height:calc(100dvh - 32px);padding:28px">
+        <h2 id="consent-title" class="text-xl font-bold mb-4">Potvrzení pro používání Bobloxu</h2>
+        <p class="text-sm mb-4"><a href="privacy.html" target="_blank" rel="noopener noreferrer" class="text-[#00A2FF] underline">Zásady ochrany osobních údajů</a> · <a href="mailto:venda.pekny@gmail.com" class="underline">Kontakt a žádosti</a></p>
+        <form onsubmit="submitAccountConsent(event)" class="space-y-4"><label class="flex items-center gap-3 min-h-[44px] text-sm"><input id="consent-age" type="checkbox" required class="w-5 h-5 shrink-0">Potvrzuji, že je mi více než 15 let.</label>
+        <p id="consent-status" role="status" class="text-sm text-red-300"></p>
+        <button id="consent-submit" class="w-full min-h-[44px] rounded-xl bg-[#00A2FF] font-bold" type="submit">Potvrdit a pokračovat</button>
+        <button type="button" class="w-full min-h-[44px]" onclick="logoutAccount(); document.getElementById('account-consent-modal').close()">Odhlásit se</button></form>
+    </dialog>
     <dialog id="recovery-email-modal" aria-labelledby="recovery-email-title" aria-describedby="recovery-email-description">
         <div class="text-3xl mb-3" aria-hidden="true">✉</div>
         <h2 id="recovery-email-title" class="text-2xl font-bold mb-3">Chceš si přidat e-mail?</h2>
@@ -2850,24 +2879,26 @@
     </div>
 
     <!-- BOBLOX Modular Architecture (Core Engine, State, Network, Games & UI with Cache-Busting) -->
-    <script src="src/core/SoundEngine.js?v=9.5" defer></script>
-    <script src="src/state/AccountBackend.js?v=9.5" defer></script>
-    <script src="src/state/AccountCommands.js?v=9.5" defer></script>
-    <script src="src/state/AccountSocial.js?v=9.5" defer></script>
-    <script src="src/state/PortalStore.js?v=9.5" defer></script>
-    <script src="src/network/NetworkManager.js?v=9.5" defer></script>
-    <script src="src/ui/PortalUI.js?v=9.5" defer></script>
-    <script src="src/ui/RecoveryEmailUI.js?v=9.5" defer></script>
-    <script src="src/ui/AdminUI.js?v=9.5" defer></script>
-    <script src="src/core/SceneResources.js?v=9.5" defer></script>
-    <script src="src/core/AvatarAndShop.js?v=9.5" defer></script>
-    <script src="src/core/SpatialIndex.js?v=9.5" defer></script>
-    <script src="src/core/Engine.js?v=9.5" defer></script>
-    <script src="src/ui/AdoptMeUI.js?v=9.5" defer></script>
-    <script src="src/core/Lifetime.js?v=9.5" defer></script>
-    <script src="src/games/CasinoCommands.js?v=9.5" defer></script>
-    <script src="src/games/GameWorlds.js?v=9.5" defer></script>
-    <script src="src/core/PhysicsAndLoop.js?v=9.5" defer></script>
-    <script src="src/core/InputManager.js?v=9.5" defer></script>
+    <script src="src/core/SoundEngine.js?v=9.8" defer></script>
+    <script src="src/state/AccountBackend.js?v=9.8" defer></script>
+    <script src="src/state/AccountCommands.js?v=9.8" defer></script>
+    <script src="src/state/AccountSocial.js?v=9.8" defer></script>
+    <script src="src/state/PortalStore.js?v=9.8" defer></script>
+    <script src="src/network/NetworkManager.js?v=9.8" defer></script>
+    <script src="src/ui/PortalUI.js?v=9.8" defer></script>
+    <script src="src/ui/PrivacyUI.js?v=9.8" defer></script>
+    <script src="src/ui/AccountConsentUI.js?v=9.8" defer></script>
+    <script src="src/ui/RecoveryEmailUI.js?v=9.8" defer></script>
+    <script src="src/ui/AdminUI.js?v=9.8" defer></script>
+    <script src="src/core/SceneResources.js?v=9.8" defer></script>
+    <script src="src/core/AvatarAndShop.js?v=9.8" defer></script>
+    <script src="src/core/SpatialIndex.js?v=9.8" defer></script>
+    <script src="src/core/Engine.js?v=9.8" defer></script>
+    <script src="src/ui/AdoptMeUI.js?v=9.8" defer></script>
+    <script src="src/core/Lifetime.js?v=9.8" defer></script>
+    <script src="src/games/CasinoCommands.js?v=9.8" defer></script>
+    <script src="src/games/GameWorlds.js?v=9.8" defer></script>
+    <script src="src/core/PhysicsAndLoop.js?v=9.8" defer></script>
+    <script src="src/core/InputManager.js?v=9.8" defer></script>
 </body>
 </html>

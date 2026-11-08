@@ -11,6 +11,7 @@ function closeRecoveryEmailPrompt() {
 }
 
 async function refreshRecoveryEmailPrompt(force = false) {
+    if (typeof hasAccountConsent === 'function' && !hasAccountConsent()) return;
     const account = authState.user?.id;
     if (!account || recoveryEmailChecking || (!force && recoveryEmailAccount === account)) return;
     recoveryEmailChecking = true;

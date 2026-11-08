@@ -10,3 +10,13 @@ Private messages persist through authenticated HTTP endpoints; WebSocket social_
 
 ## Tests
 account-commands.integration.test.js verifies real HTTP persistence, replay, concurrent purchase and static-file isolation. blackjack-server-rules.test.js covers natural blackjack and splitting. Existing admin, bio, direct-chat and social integration tests continue using real SQLite. Every server edit must update this document.
+
+## Age confirmation (v9.7)
+AccountConsentUI owns a native blocking dialog. Registration requires only an unchecked age-over-15 checkbox. There is no activity consent checkbox or activity consent requirement. /api/auth/consent reads and inserts account-scoped server records (Supabase account_consents with RLS; SQLite equivalent). No localStorage eligibility. Failed requests leave the dialog open; identity checks ignore stale responses. Presence and last activity operate independently of age confirmation. Recovery email invitation waits for consent. Confirmed email signups without an immediate session reconfirm after login. Apply docs/supabase/account_consent.sql before releasing the client. Google font stylesheet was removed; index uses system fonts.
+
+Deployment: account_consents schema and RLS applied to boblox-db on 2026-11-08; rollback-only test verified own-record visibility. 15 focused Node tests pass; full HTTP suite is blocked by localhost EACCES in this environment. Frontend publication remains pending due to read-only .git.
+
+V9.7 stops collecting activity_consent. Its legacy nullable column is retained without client insert permission to preserve historical records. /api/auth/consent POST validates ageOver15 only. Registration and mandatory existing-account dialog require age only.
+
+## Privacy (v9.8)
+server/Privacy.js installs authenticated GET /api/auth/privacy-export after AccountCommands initializes tables. Fixed req.userRow identity, DMs include historical recipient usernames, response no-store, no hashes or cached command results. No arbitrary-user export or public erasure API. /privacy.html is explicitly allowlisted; operator documents remain private. test/privacy.test.js uses real SQLite across fresh export requests without localhost networking. Production SQL export was deployed; rollback-only security tests passed.

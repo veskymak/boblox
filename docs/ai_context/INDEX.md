@@ -32,3 +32,9 @@ Adopt Me GUI, sbírka, atlas a navigace: [AdoptMeUI.md](AdoptMeUI.md) (`src/ui/A
 - CasinoCommands and server/Blackjack → [GameWorlds.md](GameWorlds.md), [Server.md](Server.md).
 - SpatialIndex and SceneResources → [Engine.md](Engine.md), [PhysicsAndLoop.md](PhysicsAndLoop.md).
 - Production migration order and known deployment limits → [release notes](../development/v9.4-security-and-architecture.md).
+
+## Privacy (v9.8)
+- PrivacyUI.js and privacy.html: PortalUI.md.
+- Authenticated export and SQL: PortalStore.md.
+- Node export and static allowlist: Server.md.
+- Operator register and release checks: [privacy operations](../privacy/operations.md).

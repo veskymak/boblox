@@ -259,6 +259,9 @@ function requireAdmin(req, res, next) {
 app.post('/api/auth/register', async (req, res) => {
     try {
         const body = req.body || {};
+        if (body.ageOver15 !== true) {
+            return res.status(400).json({ error: 'Potvrď, že je ti více než 15 let.' });
+        }
         const username = validateUsername(body.username);
         const password = typeof body.password === 'string' ? body.password : '';
 
@@ -288,6 +291,7 @@ app.post('/api/auth/register', async (req, res) => {
             VALUES (?, ?, ?, 250, '', 0, '{}', '[]', 0, ?, ?, ?)
         `);
         const info = insertStmt.run(username, passwordHash, defaultInv, now, now, now);
+        db.prepare('INSERT INTO account_consents (user_id, accepted_at) VALUES (?, ?)').run(info.lastInsertRowid, now);
         const userRow = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
 
         const token = signUserToken(userRow);
@@ -348,6 +352,16 @@ app.post('/api/auth/logout', (req, res) => {
     return res.json({ ok: true });
 });
 
+db.exec('CREATE TABLE IF NOT EXISTS account_consents (user_id TEXT PRIMARY KEY REFERENCES users(id), accepted_at INTEGER NOT NULL)');
+app.get('/api/auth/consent', requireAuth, (req, res) => {
+    res.json({ accepted: !!db.prepare('SELECT user_id FROM account_consents WHERE user_id = ?').get(req.userRow.id) });
+});
+app.post('/api/auth/consent', requireAuth, (req, res) => {
+    if (req.body?.ageOver15 !== true) return res.status(400).json({ error: 'Potvrď, že je ti více než 15 let.' });
+    db.prepare('INSERT OR IGNORE INTO account_consents (user_id, accepted_at) VALUES (?, ?)').run(req.userRow.id, Date.now());
+    res.json({ accepted: true });
+});
+
 app.get('/api/auth/me', (req, res) => {
     const userRow = extractUserFromReq(req);
     if (!userRow) {
@@ -380,6 +394,7 @@ app.get('/api/users/search', (req, res) => {
  * 5. ACCOUNT SYNC & DAILY REWARD ENDPOINTS
  * ============================================================================ */
 require('./server/AccountCommands').installAccountCommands(app, db, requireAuth, serializeUserForClient);
+require('./server/Privacy').installPrivacy(app, db, requireAuth, serializeUserForClient);
 
 app.post('/api/user/sync', requireAuth, (req, res) => {
     try {
@@ -1205,6 +1220,7 @@ app.get('/version.json', (req, res) => {
 // Serve static frontend files
 app.get('/', (req,res) => res.sendFile(path.join(__dirname,'index.html')));
 app.get('/index.html', (req,res) => res.sendFile(path.join(__dirname,'index.html')));
+app.get('/privacy.html', (req,res) => res.sendFile(path.join(__dirname,'privacy.html')));
 app.use('/src',express.static(path.join(__dirname,'src')));
 app.use('/assets',express.static(path.join(__dirname,'assets')));
 

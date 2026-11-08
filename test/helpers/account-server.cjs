@@ -30,7 +30,7 @@ module.exports = async function accountServer() {
         return { status: response.status, data: await response.json() };
     }
     async function register(username) {
-        return (await request('/api/auth/register', null, { username, password: 'test-password-123!' })).data;
+        return (await request('/api/auth/register', null, { username, password: 'test-password-123!', ageOver15: true })).data;
     }
     async function close() {
         for (const ws of wss.clients) ws.terminate();

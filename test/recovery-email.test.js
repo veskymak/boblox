@@ -13,7 +13,7 @@ test('registration requires a real email before contacting Auth', async () => {
     let calls = 0;
     const sb = client({ signUp: async () => { calls++; } });
     for (const email of ['', 'invalid', 'person@boblox.cz']) {
-        const response = await backend.request(sb, '/api/auth/register', { body: { username: 'Player', password: 'secret123', email } });
+        const response = await backend.request(sb, '/api/auth/register', { body: { ageOver15: true, username: 'Player', password: 'secret123', email } });
         assert.equal(response.status, 400);
     }
     assert.equal(calls, 0);
@@ -25,7 +25,7 @@ test('signup awaiting email confirmation is successful without a profile or sess
         assert.equal(credentials.options.data.username, 'Player');
         return { data: { user: { id: 'new-account' }, session: null } };
     } });
-    const response = await backend.request(sb, '/api/auth/register', { body: { username: 'Player', password: 'secret123', email: 'Player@example.com' } });
+    const response = await backend.request(sb, '/api/auth/register', { body: { ageOver15: true, username: 'Player', password: 'secret123', email: 'Player@example.com' } });
     assert.equal(response.ok, true);
     assert.equal(response.data.confirmationRequired, true);
     assert.equal(response.data.token, undefined);

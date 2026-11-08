@@ -950,6 +950,7 @@ function applyAuthenticatedUser(user) {
     if (typeof user.wheelAt === 'number') localStorage.setItem(STORAGE_KEYS.WHEEL, String(user.extraSpin ? 0 : user.wheelAt));
     if (authState.user?.id !== user.id && typeof resetAccountSocialCaches === 'function') resetAccountSocialCaches();
     authState.user = user;
+    if (typeof refreshAccountConsent === 'function') refreshAccountConsent();
     if (typeof refreshRecoveryEmailPrompt === 'function') refreshRecoveryEmailPrompt();
     if (typeof sentFriendRequests !== 'undefined') Object.keys(sentFriendRequests).forEach(k => delete sentFriendRequests[k]);
     if (typeof receivedFriendRequests !== 'undefined') Object.keys(receivedFriendRequests).forEach(k => delete receivedFriendRequests[k]);
@@ -1291,6 +1292,11 @@ function closeAuthModal() {
 function switchAuthTab(mode) {
     authState.mode = mode === 'register' ? 'register' : 'login';
     const registering = authState.mode === 'register';
+    document.getElementById('auth-consent-fields')?.classList.toggle('hidden', !registering);
+    for (const id of ['auth-age-consent']) {
+        const input = document.getElementById(id);
+        if (input) { input.required = registering; input.disabled = !registering; }
+    }
     const emailInput = document.getElementById('auth-email-input');
     document.getElementById('auth-email-field')?.classList.toggle('hidden', !registering);
     if (emailInput) { emailInput.required = registering; emailInput.disabled = !registering; }
@@ -1333,7 +1339,7 @@ async function submitAuthForm() {
 
     const res = await apiRequest(endpoint, {
         method: 'POST',
-        body: { username, password, email: document.getElementById('auth-email-input')?.value || '', redirectTo: window.location.origin + window.location.pathname }
+        body: { username, password, ageOver15: document.getElementById('auth-age-consent')?.checked === true, email: document.getElementById('auth-email-input')?.value || '', redirectTo: window.location.origin + window.location.pathname }
     });
 
     if (!res.ok) {

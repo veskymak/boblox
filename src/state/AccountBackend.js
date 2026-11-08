@@ -47,6 +47,7 @@
             if (path === '/api/auth/login' || path === '/api/auth/register') {
                 const username = String(body.username || '').trim();
                 const registering = path.endsWith('register');
+                if (registering && body.ageOver15 !== true) return failure('Potvrď, že je ti více než 15 let.', 400);
                 const email = String(body.email || '').trim().toLowerCase();
                 if (registering && (!/^[a-zA-Z0-9_]{3,20}$/.test(username) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.endsWith('@boblox.cz')))
                     return failure('Vyplň platné jméno a skutečný e-mail.', 400);
@@ -76,10 +77,27 @@
                         data.session
                     );
                     if (created.error) return failure(created.error, 400);
+                    const consent = await sb.from('account_consents').insert({ user_id: data.user.id, age_over_15: true });
+                    if (consent.error && consent.error.code !== '23505') return failure(consent.error);
                 }
             }
             const { data: verified, error: authError } = await sb.auth.getUser();
             if (authError || !verified?.user) return failure('Přihlas se prosím znovu.', 401);
+            if (path === '/api/auth/privacy-export') {
+                const session = (await sb.auth.getSession()).data?.session;
+                if (!session?.access_token || session.user?.id !== verified.user.id) return failure('Relace byla změněna.', 401);
+                const { data, error } = await sb.rpc('privacy_export').setHeader('Authorization', 'Bearer ' + session.access_token);
+                return error ? failure(error) : { ok: true, status: 200, data };
+            }
+            if (path === '/api/auth/consent') {
+                if (method === 'POST') {
+                    if (body.ageOver15 !== true) return failure('Potvrď, že je ti více než 15 let.', 400);
+                    const { error } = await sb.from('account_consents').insert({ user_id: verified.user.id, age_over_15: true });
+                    if (error && error.code !== '23505') return failure(error);
+                }
+                const { data, error } = await sb.from('account_consents').select('version').eq('user_id', verified.user.id).maybeSingle();
+                return error ? failure(error) : { ok: true, status: 200, data: { accepted: data?.version === 1 } };
+            }
             if (path === '/api/auth/email-status' || path === '/api/auth/email-dismiss') {
                 const { data, error } = await sb.rpc('recovery_email_status', { dismiss: path.endsWith('dismiss') });
                 return error ? failure(error) : { ok: true, status: 200, data };

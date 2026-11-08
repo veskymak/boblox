@@ -28,8 +28,8 @@ test('admin moderation persists resets and comment removal across devices', asyn
     }
     try {
         const password = 'TestPassword123!';
-        const first = await request('/api/auth/register', null, { username: 'SocialAlice', password });
-        const second = await request('/api/auth/register', null, { username: 'SocialBob', password });
+        const first = await request('/api/auth/register', null, { ageOver15: true, username: 'SocialAlice', password });
+        const second = await request('/api/auth/register', null, { ageOver15: true, username: 'SocialBob', password });
         assert.equal(first.status, 201);
         assert.equal(second.status, 201);
         const alice = first.data.token;
@@ -38,7 +38,7 @@ test('admin moderation persists resets and comment removal across devices', asyn
         assert.equal((await request('/api/games/obby/rate', bob, { vote: 'dislike' })).status, 200);
         const posted = await request('/api/games/obby/comments', alice, { content: 'Skvělá hra z mobilu!' });
         assert.equal(posted.status, 201);
-        const adminAccount = (await request('/api/auth/register', null, { username: 'Vendeez', password })).data;
+        const adminAccount = (await request('/api/auth/register', null, { ageOver15: true, username: 'Vendeez', password })).data;
         process.env.ADMIN_USER_ID=String(adminAccount.user.id);
         const admin=adminAccount.token;
         const route = '/api/admin/games/obby/';
