@@ -24,3 +24,5 @@ server/Privacy.js installs authenticated GET /api/auth/privacy-export after Acco
 ## Shared blackjack and radio (v9.9)
 BlackjackTable.js persists one shared round per room. It shares the rules module with the Supabase blackjack-table Edge Function. Deploy docs/supabase/blackjack_table.sql before the function. The old account blackjack command remains for legacy hands.
 Apply blackjack_table_timeouts.sql to schedule settlement of abandoned rooms. SQLite runs the same saved all-stand outcome every minute. A new action replaces that projection atomically.
+
+Guest blackjack requires blackjack_guests.sql and the blackjack-table guest.mjs dependency. Both backends hash 256-bit guest capabilities, persist separate guest wallets and settle mixed account/guest rounds in one transaction. Existing guest tokens must resolve an existing wallet; only an initial sync creates a guest. Account JWT authorization remains mandatory when guest:true is absent. Private credentials and player IDs are stripped from table views. The idle settlement job uses the same mixed-wallet commit function.

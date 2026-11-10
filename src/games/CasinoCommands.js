@@ -1,5 +1,8 @@
 // Each seated view follows one authoritative table until the player leaves or changes rooms.
 let blackjackSession = null;
+let blackjackGuestToken = null;
+try { blackjackGuestToken = sessionStorage.getItem(STORAGE_KEYS.BLACKJACK_GUEST); } catch (e) {}
+const blackjackIdentity = () => accountIdentity() || 'guest';
 const blackjackRoom = () => mpState.roomCode && !mpState.roomCode.startsWith('PUB_') ? mpState.roomCode : 'PUB_CASINO';
 
 function clearTableMeshes(meshes) {
@@ -28,7 +31,7 @@ function renderTableSnapshot(session, data) {
     data.seats.forEach((p, i) => {
         const seat = bjTableState.seats[i], old = previous?.seats[i];
         seat.occupied = !!p || i === local;
-        seat.username = p?.name || (i === local ? authState.user.username : '');
+        seat.username = p?.name || (i === local ? authState.user?.username || data.guestName || getGuestNickname() : '');
         seat.confirmedBet = !!p;
         const bet = p ? p.hands.reduce((sum,h) => sum + h.bet,0) :
             i === local && !old && previous?.round === data.round ? session.draft : 0;
@@ -105,17 +108,27 @@ function updateSharedTableHUD(session) {
 async function requestTable(session, input) {
     session.busy = true;
     try {
-        const response = await apiRequest('/api/blackjack/table',{method:'POST',body:{...input,room:session.room}});
-        if (blackjackSession !== session || session.world !== gameSpecificData || session.identity !== accountIdentity() || bjTableState.localSeat < 0 || session.room !== blackjackRoom()) return;
+        const guest = !isServerAccount();
+        const response = await apiRequest('/api/blackjack/table',{method:'POST',body:{...input,room:session.room,
+            ...(guest ? {guest:true,guestToken:blackjackGuestToken,guestName:getGuestNickname()} : {})}});
+        if (blackjackSession !== session || session.world !== gameSpecificData || session.identity !== blackjackIdentity() || bjTableState.localSeat < 0 || session.room !== blackjackRoom()) return;
         if (!response.ok) throw Error(response.data?.error || 'Spojení se stolem přerušeno.');
         const data = response.data;
+        if (guest && data.guestToken) {
+            blackjackGuestToken = data.guestToken;
+            try { sessionStorage.setItem(STORAGE_KEYS.BLACKJACK_GUEST,blackjackGuestToken); } catch (e) {}
+        }
         session.failure = '';
         session.draft = bjTableState.seats[bjTableState.localSeat].bet || 0;
         renderTableSnapshot(session,data);
         if (data.error) reportAccountError(Error(data.error));
-        if (data.balance !== bobuxBalance) {
+        if (guest) {
+            bobuxBalance = data.balance;
+            try { localStorage.setItem(STORAGE_KEYS.BOBUX,String(bobuxBalance)); } catch (e) {}
+            updateCasinoBobuxDisplay();
+        } else if (data.balance !== bobuxBalance) {
             const me = await apiRequest('/api/auth/me');
-            if (me.ok && session.identity === accountIdentity()) {
+            if (me.ok && session.identity === blackjackIdentity()) {
                 applyAuthenticatedUser(me.data.user);
                 updateCasinoBobuxDisplay();
             }
@@ -126,7 +139,7 @@ async function requestTable(session, input) {
     } finally {
         session.busy = false;
         session.next = Date.now() + (session.failure ? 3000 : session.snapshot?.phase === 'dealing' ? 350 : 1000);
-        if (session.queued && session === blackjackSession && session.world === gameSpecificData && bjTableState.localSeat >= 0 && session.identity === accountIdentity() && session.room === blackjackRoom()) {
+        if (session.queued && session === blackjackSession && session.world === gameSpecificData && bjTableState.localSeat >= 0 && session.identity === blackjackIdentity() && session.room === blackjackRoom()) {
             const queued = session.queued; session.queued = null;
             requestTable(session,queued);
         }
@@ -135,7 +148,7 @@ async function requestTable(session, input) {
 
 function updateSharedBlackjack() {
     if (bjTableState.localSeat < 0 || activeGameMode !== 'casino') return;
-    const identity = accountIdentity(), room = blackjackRoom();
+    const identity = blackjackIdentity(), room = blackjackRoom();
     if (!blackjackSession || blackjackSession.world !== gameSpecificData || blackjackSession.identity !== identity || blackjackSession.room !== room)
         blackjackSession = {world:gameSpecificData, identity, room, next:0};
     const session = blackjackSession;

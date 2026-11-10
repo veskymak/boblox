@@ -18,6 +18,7 @@ const STORAGE_KEYS = Object.freeze({
     ADOPTME_BUCKS: 'boblox_adoptme_bucks_v1',
     ADOPTME_PETS: 'boblox_adoptme_pets_v1',
     GUEST_NUM: 'boblox_guest_num',
+    BLACKJACK_GUEST: 'boblox_blackjack_guest_token',
     MP_NICK: 'boblox_mp_nick',
     API_BASE: 'boblox_api_base',
     CHAT_MESSAGES: 'boblox_direct_messages_v2',

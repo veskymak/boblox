@@ -16,4 +16,4 @@ Keep all API requests behind apiRequest/accountCommand. Never save authenticated
 Game timers are registered through Lifetime.js and cancelled on world cleanup. Slot bets and derby settlements are captured for the round; later control changes cannot alter displayed payouts.
 
 ## Shared blackjack and radio (v9.9)
-Signed-in players use the shared room controller in CasinoCommands.js. Server snapshots drive all seats, deal order and timers. Guest play remains local practice.
+All players, including guests, use the shared room controller in CasinoCommands.js. Server snapshots drive all seats, deal order and timers. Never gate blackjack dispatch or frame updates on isServerAccount. Guest capabilities are issued by the backend and stored through STORAGE_KEYS.BLACKJACK_GUEST. Signed-in wallet refreshes use /api/auth/me; guest snapshots supply their own persistent casino balance.

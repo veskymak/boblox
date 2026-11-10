@@ -42,3 +42,7 @@ AccountSocial.resetAccountSocialCaches now removes private chat/unread/user snap
 
 ## Shared blackjack and radio (v9.9)
 AccountBackend routes /api/blackjack/table via a session-pinned Edge Function. Wallets and table transitions commit together; changed balances are refreshed through /api/auth/me.
+
+Guest blackjack uses the same apiRequest route with guest:true and an opaque guestToken. AccountBackend allows this request without a Supabase Auth session. Only the backend issues guest credentials and the initial 250 B$ wallet. The local token is a capability cache; all cards, balances and ledger entries live on the server. Never hydrate an account from a guest snapshot.
+
+The guest capability uses sessionStorage to follow the existing per-tab guest identity and survive refreshes. Two guest tabs can occupy different seats. Names accept only the existing Guest NNNN format and never determine wallet ownership.

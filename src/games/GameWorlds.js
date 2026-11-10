@@ -2782,9 +2782,9 @@ function sitAt3DBlackjackTable(seatIdx = null) {
     const seatNumEl = document.getElementById('bj-seated-seat-num');
     if (seatNumEl) seatNumEl.textContent = `${seat.label}`;
 
-    if (typeof isServerAccount === 'function' && isServerAccount()) secureBlackjackAction('resume');
+    if (typeof secureBlackjackAction === 'function') secureBlackjackAction('resume');
 
-    const tableTitle = typeof isServerAccount === 'function' && isServerAccount() ? 'Blackjack (21)' : 'Blackjack – sólo trénink';
+    const tableTitle = 'Blackjack (21)';
     showGtaNotification(tableTitle, `Přisedl jsi k ${seat.label}. Zvol výši své sázky!`, '🪑');
 
     const elInworld = document.getElementById('bj-inworld-current-bet');
@@ -2939,7 +2939,7 @@ function clearInWorldBjBet() {
 }
 
 function confirmInWorldBjBet() {
-    if (typeof isServerAccount === 'function' && isServerAccount()) return secureBlackjackAction('deal');
+    if (typeof secureBlackjackAction === 'function') return secureBlackjackAction('deal');
     if (typeof bjTableState === 'undefined' || bjTableState.localSeat < 0) return;
     const seat = bjTableState.seats[bjTableState.localSeat];
     if (!seat.bet || seat.bet <= 0) {
@@ -2996,7 +2996,7 @@ function showGtaNotification(title, message, icon = '🃏') {
 }
 
 function updateInWorldBjUI() {
-    if (typeof isServerAccount === 'function' && isServerAccount() && bjTableState.localSeat >= 0) return updateSharedTableHUD(blackjackSession);
+    if (typeof updateSharedTableHUD === 'function' && bjTableState.localSeat >= 0) return updateSharedTableHUD(blackjackSession);
     if (typeof document === 'undefined') return;
     const phaseBanner = document.getElementById('bj-table-phase-banner');
     const phaseTitle = document.getElementById('bj-table-phase-title');
@@ -3034,7 +3034,7 @@ function updateInWorldBjUI() {
 // Core 3D Game Loop & State Transitions
 // ----------------------------------------------------------------------------
 function update3DBlackjackGame(dt, elapsedSec) {
-    if (typeof isServerAccount === 'function' && isServerAccount()) { updateSharedBlackjack(); return; }
+    if (typeof updateSharedBlackjack === 'function') { updateSharedBlackjack(); return; }
     if (typeof gameSpecificData === 'undefined' || typeof activeGameMode === 'undefined' || activeGameMode !== 'casino') return;
     if (typeof bjTableState === 'undefined') return;
 
@@ -3074,7 +3074,7 @@ function update3DBlackjackGame(dt, elapsedSec) {
 }
 
 function startInWorldBlackjackDealing() {
-    if (typeof isServerAccount === 'function' && isServerAccount()) return secureBlackjackAction('deal');
+    if (typeof secureBlackjackAction === 'function') return secureBlackjackAction('deal');
     if (typeof bjTableState === 'undefined') return;
     const activeSeats = bjTableState.seats.filter(s => s.occupied && s.confirmedBet);
     if (activeSeats.length === 0) {
@@ -3289,7 +3289,7 @@ function advanceToNextPlayerTurn() {
 }
 
 function executeBjAction(action) {
-    if (typeof isServerAccount === 'function' && isServerAccount()) return secureBlackjackAction(action);
+    if (typeof secureBlackjackAction === 'function') return secureBlackjackAction(action);
     if (typeof bjTableState === 'undefined' || (bjTableState.phase !== 'players' && bjTableState.phase !== 'playing')) return;
     const seatIdx = bjTableState.localSeat;
     if (seatIdx < 0) return;
@@ -3607,7 +3607,7 @@ function resetBlackjackTableForNewRound() {
 // Test Compatibility Contract Functions & Fallbacks
 // ----------------------------------------------------------------------------
 function dealBlackjack() {
-    if (typeof isServerAccount === 'function' && isServerAccount()) return secureBlackjackAction('deal');
+    if (typeof secureBlackjackAction === 'function') return secureBlackjackAction('deal');
     if (typeof bjTableState !== 'undefined' && bjTableState.localSeat >= 0 && typeof scene !== 'undefined') {
         confirmInWorldBjBet();
         startInWorldBlackjackDealing();
@@ -3651,7 +3651,7 @@ function dealBlackjack() {
 }
 
 function hitBlackjack() {
-    if (typeof isServerAccount === 'function' && isServerAccount()) return secureBlackjackAction('hit');
+    if (typeof secureBlackjackAction === 'function') return secureBlackjackAction('hit');
     if (typeof bjTableState !== 'undefined' && bjTableState.localSeat >= 0 && typeof scene !== 'undefined') {
         executeBjAction('hit');
         return;
@@ -3676,7 +3676,7 @@ function hitBlackjack() {
 }
 
 function standBlackjack() {
-    if (typeof isServerAccount === 'function' && isServerAccount()) return secureBlackjackAction('stand');
+    if (typeof secureBlackjackAction === 'function') return secureBlackjackAction('stand');
     if (typeof bjTableState !== 'undefined' && bjTableState.localSeat >= 0 && typeof scene !== 'undefined') {
         executeBjAction('stand');
         return;
@@ -3694,7 +3694,7 @@ function standBlackjack() {
 }
 
 function doubleBlackjack() {
-    if (typeof isServerAccount === 'function' && isServerAccount()) return secureBlackjackAction('double');
+    if (typeof secureBlackjackAction === 'function') return secureBlackjackAction('double');
     if (typeof bjTableState !== 'undefined' && bjTableState.localSeat >= 0 && typeof scene !== 'undefined') {
         executeBjAction('double');
         return;
@@ -3819,7 +3819,7 @@ function finishBlackjackRound(result, msg = '', payout = 0, shouldAwardBobux = t
 
 function handleIncomingCasinoEvent(packet) {
     if (!packet || !packet.action) return;
-    if (String(packet.action).startsWith('bj_') && typeof isServerAccount === 'function' && isServerAccount()) return;
+    if (String(packet.action).startsWith('bj_') && typeof updateSharedBlackjack === 'function') return;
     if (packet.action === 'wheel_spin') {
         startRemoteWheelSpin();
     } else if (packet.action === 'bj_sit' && packet.seatIdx >= 0) {

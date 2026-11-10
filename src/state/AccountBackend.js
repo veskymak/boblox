@@ -25,9 +25,9 @@
         try {
             if (path === '/api/blackjack/table') {
                 const session = (await sb.auth.getSession()).data?.session;
-                if (!session) return failure('Přihlas se prosím znovu.', 401);
+                if (!session && body.guest !== true) return failure('Přihlas se prosím znovu.', 401);
                 const { data, error } = await sb.functions.invoke('blackjack-table', {
-                    body, headers: { Authorization: 'Bearer ' + session.access_token }
+                    body, ...(body.guest === true ? {} : { headers: { Authorization: 'Bearer ' + session.access_token } })
                 });
                 return error ? failure(error) : { ok: true, status: 200, data };
             }
