@@ -1,5 +1,6 @@
 # Boblox
 
+
 Boblox je 3D webová herní platforma s multiplayerem a Roblox estetikou, postavená na Three.js, vanilla JavaScriptu, WebSockets/WebRTC a Node.js/SQLite/Supabase backendu.
 
 ## 🛠️ Vývojové prostředí

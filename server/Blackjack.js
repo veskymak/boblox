@@ -1,25 +1,4 @@
-const { randomInt } = require('node:crypto');
-function shuffledDeck() {
-    const deck = [];
-    for (const suit of ['♠', '♥', '♦', '♣'])
-        for (const val of ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'])
-            deck.push({ val, suit, color: ['♥', '♦'].includes(suit) ? 'red' : 'black' });
-    for (let i = deck.length - 1; i > 0; i--) {
-        const j = randomInt(i + 1);
-        [deck[i], deck[j]] = [deck[j], deck[i]];
-    }
-    return deck;
-}
-function score(cards) {
-    let total = 0,
-        aces = 0;
-    for (const c of cards) {
-        total += c.val === 'A' ? 11 : ['J', 'Q', 'K'].includes(c.val) ? 10 : Number(c.val);
-        if (c.val === 'A') aces++;
-    }
-    while (total > 21 && aces-- > 0) total -= 10;
-    return total;
-}
+const { deckOfCards: shuffledDeck, score } = require('../docs/supabase/functions/blackjack-table/table.mjs');
 function advance(previous, action, bet, balance, deckFactory = shuffledDeck) {
     let state = previous ? JSON.parse(JSON.stringify(previous)) : null;
     let amount = 0,

@@ -14,3 +14,6 @@ Main seams: setupGameX/updateGameX, spinSlots, spinDailyWheel, startDerbyRace, s
 Keep all API requests behind apiRequest/accountCommand. Never save authenticated coins, VIP, pets, progress or owned items via generic sync. Existing guest gameplay tests remain; server rules and persistence are covered by account command integration tests and supabase-account-security.sql.
 
 Game timers are registered through Lifetime.js and cancelled on world cleanup. Slot bets and derby settlements are captured for the round; later control changes cannot alter displayed payouts.
+
+## Shared blackjack and radio (v9.9)
+Signed-in players use the shared room controller in CasinoCommands.js. Server snapshots drive all seats, deal order and timers. Guest play remains local practice.

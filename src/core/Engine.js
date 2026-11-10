@@ -451,6 +451,7 @@ function createBlock(x, y, z, w, h, d, colorHex, opts = {}) {
 }
 
 function cleanupCurrentGame() {
+    if (typeof standUpFromBjTable === 'function' && gameSpecificData?.isPlayerSeatedAtBj) standUpFromBjTable();
     if (typeof gameTimers !== 'undefined') gameTimers.reset();
     if (typeof slotsState !== 'undefined') slotsState.spinning = false;
     if (typeof isWheelSpinning !== 'undefined') isWheelSpinning = false;

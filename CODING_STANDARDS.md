@@ -1,5 +1,6 @@
 # Boblox Coding Standards
 
+
 Dokumentované standardy pro vývoj a review kódu v projektu Boblox. Tento dokument slouží primárně jako reference pro review fázi (`code-review` skill).
 
 ---

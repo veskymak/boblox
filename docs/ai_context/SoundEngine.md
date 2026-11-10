@@ -9,7 +9,7 @@
 - **Vlastní a exportuje globálně:**
   - `sfx` (`BobloxSoundEngine`): Jediný globální singleton zvukového enginu pro celou aplikaci.
   - `DEFAULT_CASINO_MUSIC_VOLUME`: Výchozí hlasitost hudby (0.35 = 35 %).
-  - `CASINO_MUSIC_TRACK_URL`: Cesta k audiotracku kasína (`'assets/audio/casino_bgm.mp3'`).
+  - `CASINO_MUSIC_TRACK_URL`: Cesta k audiotracku kasína (`'https://icecast4.play.cz/kiss128.mp3'`).
 - **Interní stav v instanci `sfx`:**
   - `this.ctx`: Instance `AudioContext` (líně inicializovaná při první interakci uživatele).
   - `this.muted`: Boolean příznak ztlumení všech efektů (SFX).
@@ -40,7 +40,7 @@
   - Hluboký bzučivý tón při neplatné akci nebo nedostatku Bobuxů.
 - `sfx.playCasinoSpin()` / `sfx.playCasinoWin(): void`
   - Tikání kola štěstí / fanfára výhry na automatech.
-- `sfx.playCasinoMusic()` / `sfx.stopCasinoMusic(): void`
+- `sfx.enterCasino()` / `sfx.stopMusic(): void`
   - Spustí nebo zastaví přehrávání hudební kulisy v kasínu.
 - `toggleAudioMute(): boolean` / `toggleMusicMute(): boolean`
   - Přepíná globální ztlumení zvuků nebo hudby.
@@ -56,7 +56,7 @@
   - Skok hráče -> `sfx.playJump()`
   - Útok zbraní -> `sfx.playSword()` nebo `sfx.playLaser()`
   - Admin broadcast -> `sfx.playFanfare()`
-- **Vstup a odchod z kasína:** `setupGame12Casino()` spustí `sfx.playCasinoMusic()`, zatímco `cleanupCurrentGame()` spolehlivě volá `sfx.stopCasinoMusic()`.
+- **Vstup a odchod z kasína:** `setupGame12Casino()` spustí `sfx.enterCasino()`, zatímco `cleanupCurrentGame()` spolehlivě volá `sfx.stopMusic()`.
 
 ---
 
@@ -67,32 +67,5 @@
 
 ---
 
-## 6. Code Snippets / Seams
 
-### Seam A: Singleton zvuku a líná inicializace kontextu
-```javascript
-// src/core/SoundEngine.js: L463-L470
-const sfx = new BobloxSoundEngine();
-// uvnitř třídy:
-if (this.ctx && this.ctx.state === 'suspended') { this.ctx.resume(); }
-```
-
-### Seam B: Syntéza klasického zvuku Oof
-```javascript
-// src/core/SoundEngine.js: L125-L135
-playOof() {
-    if (this.muted || !this.ensureAudioContext()) return;
-    const osc = this.ctx.createOscillator();
-    osc.frequency.setValueAtTime(280, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(80, this.ctx.currentTime + 0.18);
-```
-
-### Seam C: Spuštění kasínové hudby
-```javascript
-// src/core/SoundEngine.js: L430-L440
-playCasinoMusic() {
-    if (!this.musicAudio) { this.musicAudio = new Audio(CASINO_MUSIC_TRACK_URL); this.musicAudio.loop = true; }
-    this.musicAudio.volume = this.musicMuted ? 0 : this.musicVolume;
-    this.musicAudio.play().catch(() => {});
-}
-```
+Radio starts off on every entry. Only the radio button enables streaming. Station changes release the previous audio element. Mute, zero volume and exit pause, detach src and load before dropping the element.

@@ -18,11 +18,19 @@
         const method = (options.method || 'GET').toUpperCase();
         const body = typeof options.body === 'string' ? JSON.parse(options.body) : options.body || {};
         const supported =
-            /^\/api\/(auth\/|user\/sync|daily-claim|account\/command|friends\/|chat\/|transactions|announcements|admin\/broadcast)/.test(
+            /^\/api\/(blackjack\/table|auth\/|user\/sync|daily-claim|account\/command|friends\/|chat\/|transactions|announcements|admin\/broadcast)/.test(
                 path
             );
         if (!supported) return null;
         try {
+            if (path === '/api/blackjack/table') {
+                const session = (await sb.auth.getSession()).data?.session;
+                if (!session) return failure('Přihlas se prosím znovu.', 401);
+                const { data, error } = await sb.functions.invoke('blackjack-table', {
+                    body, headers: { Authorization: 'Bearer ' + session.access_token }
+                });
+                return error ? failure(error) : { ok: true, status: 200, data };
+            }
             if (path === '/api/announcements') {
                 const { data, error } = await sb
                     .from('announcements')

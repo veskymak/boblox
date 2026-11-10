@@ -9,3 +9,6 @@ SceneResources.js provides disposeObject(object,sharedTexture). It deduplicates 
 Seams: createBlock, cleanupCurrentGame, startGame, SpatialIndex.query, BobloxSceneResources.disposeObject. Tests: game-load-integrity, spatial-index-and-resources, casino lifecycle regressions. Do not rename existing DOM IDs or introduce a second gameplay frame loop.
 
 Lifetime.js owns game-scoped timeout/interval handles. GameWorlds uses gameTimers; cleanup resets them and advances a generation counter, so pending server responses cannot start obsolete animations after leaving a world.
+
+## Shared blackjack and radio (v9.9)
+Stand up before casino cleanup so an in-flight table response cannot render into a new world.

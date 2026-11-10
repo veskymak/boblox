@@ -31,6 +31,8 @@ class MockAudio {
         this.paused = true;
         this.currentTime = 0;
     }
+    removeAttribute(name) { if (name === 'src') this.src = ''; }
+    load() {}
     play() {
         this.paused = false;
         return Promise.resolve();
@@ -62,20 +64,13 @@ describe('Casino Background Music & Volume Control', () => {
         assert.strictEqual(typeof DEFAULT_CASINO_MUSIC_VOLUME, 'number');
         assert.ok(DEFAULT_CASINO_MUSIC_VOLUME >= 0 && DEFAULT_CASINO_MUSIC_VOLUME <= 1);
         assert.strictEqual(typeof CASINO_MUSIC_TRACK_URL, 'string');
-        assert.ok(CASINO_MUSIC_TRACK_URL.includes('casino_bgm.mp3'));
-    });
-
-    it('verifies that the audio file exists on disk in assets/audio/casino_bgm.mp3', () => {
-        const audioPath = path.resolve(__dirname, '..', 'assets', 'audio', 'casino_bgm.mp3');
-        assert.ok(fs.existsSync(audioPath), 'assets/audio/casino_bgm.mp3 must exist');
-        const stats = fs.statSync(audioPath);
-        assert.ok(stats.size > 100000, `Audio file must not be empty (found size: ${stats.size} bytes)`);
+        assert.match(CASINO_MUSIC_TRACK_URL, /^https:/);
     });
 
     it('initializes BobloxSoundEngine with default volume when localStorage is empty', () => {
         const engine = new BobloxSoundEngine();
         assert.strictEqual(engine.musicVolume, DEFAULT_CASINO_MUSIC_VOLUME);
-        assert.strictEqual(engine.isMusicMuted, false);
+        assert.strictEqual(engine.isMusicMuted, true);
         assert.strictEqual(engine.isPlayingMusic, false);
     });
 
@@ -100,6 +95,8 @@ describe('Casino Background Music & Volume Control', () => {
 
     it('supports toggling music mute while preserving the user chosen volume level', () => {
         const engine = new BobloxSoundEngine();
+        engine.enterCasino();
+        engine.toggleMusicMute();
         engine.setMusicVolume(0.25);
         assert.strictEqual(engine.getEffectiveMusicVolume(), 0.25);
 
@@ -118,17 +115,42 @@ describe('Casino Background Music & Volume Control', () => {
     it('plays and stops casino music correctly updating audio instance state', () => {
         const engine = new BobloxSoundEngine();
         engine.setMusicVolume(0.30);
-        engine.playCasinoMusic();
+        engine.enterCasino();
+        assert.equal(engine.musicAudio,null);
+        engine.toggleMusicMute();
 
         assert.ok(engine.musicAudio);
         assert.strictEqual(engine.isPlayingMusic, true);
         assert.strictEqual(engine.musicAudio.paused, false);
-        assert.strictEqual(engine.musicAudio.loop, true);
+        assert.strictEqual(engine.musicAudio.loop, false);
         assert.strictEqual(engine.musicAudio.volume, 0.30);
 
+        const old = engine.musicAudio;
+        engine.setRadioStation("evropa2");
+        assert.equal(old.paused,true);
+        assert.equal(old.src,"");
+        const radio = engine.musicAudio;
+        assert.match(radio.src,/evropa2/);
         engine.stopMusic();
         assert.strictEqual(engine.isPlayingMusic, false);
-        assert.strictEqual(engine.musicAudio.paused, true);
+        assert.strictEqual(radio.paused, true);
+        assert.equal(engine.musicAudio,null);
+    });
+
+    it('releases the stream at zero volume and stays off when returning to the casino', () => {
+        const engine = new BobloxSoundEngine();
+        engine.enterCasino();
+        engine.toggleMusicMute();
+        const old = engine.musicAudio;
+        engine.setMusicVolume(0);
+        assert.equal(old.paused,true);
+        assert.equal(old.muted,true);
+        assert.equal(old.src,'');
+        engine.toggleMusicMute();
+        assert.ok(engine.isPlayingMusic);
+        engine.enterCasino();
+        assert.equal(engine.musicAudio,null);
+        assert.equal(engine.isMusicMuted,true);
     });
 
     it('verifies index.html has casino music controls in both casino modal and roblox settings', () => {
@@ -144,7 +166,7 @@ describe('Casino Background Music & Volume Control', () => {
         const gameWorlds = fs.readFileSync(path.join(__dirname, '..', 'src', 'games', 'GameWorlds.js'), 'utf8');
         const engineJs = fs.readFileSync(path.join(__dirname, '..', 'src', 'core', 'Engine.js'), 'utf8');
 
-        assert.ok(gameWorlds.includes('playCasinoMusic') || engineJs.includes('playCasinoMusic'), 'GameWorlds or Engine must trigger playCasinoMusic');
+        assert.ok(gameWorlds.includes('sfx.enterCasino()'), 'GameWorlds or Engine must trigger playCasinoMusic');
         assert.ok(engineJs.includes('stopMusic'), 'Engine.js cleanupCurrentGame must trigger stopMusic');
     });
 });

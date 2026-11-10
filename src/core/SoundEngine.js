@@ -6,16 +6,17 @@
  * Například 0.35 = 35% hlasitost.
  * ============================================================================ */
 const DEFAULT_CASINO_MUSIC_VOLUME = 0.35; // <- VÝCHOZÍ HLASITOST HUDBY V CASINU (0.35 = 35%)
-const CASINO_MUSIC_TRACK_URL = 'assets/audio/casino_bgm.mp3';
+const CASINO_MUSIC_TRACK_URL = 'https://icecast4.play.cz/kiss128.mp3';
 
 class BobloxSoundEngine {
     constructor() {
         this.ctx = null;
         this.muted = false;
         this.musicAudio = null;
-        this.currentMusicTrack = null;
+        this.station = CASINO_MUSIC_TRACK_URL;
+        this.inCasino = false;
         this.musicVolume = DEFAULT_CASINO_MUSIC_VOLUME;
-        this.isMusicMuted = false;
+        this.isMusicMuted = true;
         this.isPlayingMusic = false;
         this.initMusicVolume();
     }
@@ -46,9 +47,7 @@ class BobloxSoundEngine {
         const parsed = parseFloat(vol);
         if (isNaN(parsed)) return;
         this.musicVolume = Math.max(0, Math.min(1, parsed));
-        if (this.musicAudio) {
-            this.musicAudio.volume = this.getEffectiveMusicVolume();
-        }
+        this.refreshRadio();
         try {
             if (typeof localStorage !== 'undefined') {
                 const storageKey = (typeof window !== 'undefined' && window.STORAGE_KEYS && window.STORAGE_KEYS.MUSIC_VOLUME)
@@ -61,10 +60,10 @@ class BobloxSoundEngine {
     }
 
     toggleMusicMute() {
-        this.isMusicMuted = !this.isMusicMuted;
-        if (this.musicAudio) {
-            this.musicAudio.volume = this.getEffectiveMusicVolume();
-        }
+        if (this.muted) return this.isMusicMuted;
+        this.isMusicMuted = this.musicVolume === 0 ? false : !this.isMusicMuted;
+        if (!this.isMusicMuted && this.musicVolume === 0) this.setMusicVolume(DEFAULT_CASINO_MUSIC_VOLUME);
+        this.refreshRadio();
         this.syncMusicUI();
         return this.isMusicMuted;
     }
@@ -72,6 +71,12 @@ class BobloxSoundEngine {
     syncMusicUI() {
         if (typeof document === 'undefined') return;
         const pct = Math.round(this.musicVolume * 100);
+        const button = document.getElementById('casino-radio-toggle');
+        if (button) {
+            button.disabled = this.muted;
+            button.textContent = this.muted ? 'Zvuk je vypnutý' : this.isPlayingMusic ? 'Vypnout rádio' : 'Zapnout rádio';
+            button.setAttribute('aria-pressed',String(this.isPlayingMusic));
+        }
 
         // 1. In Roblox ESC Menu Settings modal
         const rblxSlider = document.getElementById('rblx-setting-music-slider');
@@ -90,44 +95,63 @@ class BobloxSoundEngine {
         }
     }
 
-    playMusic(trackUrl = CASINO_MUSIC_TRACK_URL, loop = true) {
-        if (typeof window === 'undefined' || typeof Audio === 'undefined') return;
-        try {
-            if (!this.musicAudio) {
-                this.musicAudio = new Audio();
-                this.musicAudio.preload = 'auto';
-            }
-            if (this.currentMusicTrack !== trackUrl || !this.musicAudio.src) {
-                this.musicAudio.src = trackUrl;
-                this.currentMusicTrack = trackUrl;
-            }
-            this.musicAudio.loop = loop;
-            this.musicAudio.volume = this.getEffectiveMusicVolume();
-            this.isPlayingMusic = true;
-
-            const playPromise = this.musicAudio.play();
-            if (playPromise && typeof playPromise.catch === 'function') {
-                playPromise.catch(() => {
-                    // Browser autoplay policy might delay audio until user interaction
-                });
-            }
-        } catch (e) {
-            console.warn('[BobloxSoundEngine] playMusic error:', e);
-        }
+    enterCasino() {
+        this.stopMusic();
+        this.inCasino = true;
+        document.getElementById('casino-radio')?.classList.remove('hidden');
+        this.syncMusicUI();
     }
 
-    playCasinoMusic() {
-        this.playMusic(CASINO_MUSIC_TRACK_URL, true);
+    setRadioStation(value) {
+        const station = value === 'evropa2' ? 'https://ice.actve.net/fm-evropa2-128' : CASINO_MUSIC_TRACK_URL;
+        if (this.station === station) return;
+        this.releaseRadio();
+        this.station = station;
+        this.refreshRadio();
+    }
+
+    releaseRadio() {
+        const audio = this.musicAudio;
+        this.musicAudio = null;
+        this.isPlayingMusic = false;
+        if (!audio) return;
+        audio.onerror = null;
+        audio.muted = true;
+        audio.pause();
+        audio.removeAttribute('src');
+        audio.load();
+    }
+
+    refreshRadio() {
+        if (!this.inCasino || this.getEffectiveMusicVolume() === 0) {
+            this.releaseRadio();
+            return;
+        }
+        if (this.musicAudio) {
+            this.musicAudio.volume = this.musicVolume;
+            return;
+        }
+        const audio = new Audio(this.station);
+        this.musicAudio = audio;
+        audio.volume = this.musicVolume;
+        this.isPlayingMusic = true;
+        const failed = () => {
+            if (audio !== this.musicAudio) return;
+            this.isMusicMuted = true;
+            this.releaseRadio();
+            this.syncMusicUI();
+            if (typeof showHudToast === 'function') showHudToast('Rádio není dostupné. Zkus druhou stanici.', 'red');
+        };
+        audio.onerror = failed;
+        audio.play()?.catch(failed);
     }
 
     stopMusic() {
-        if (this.musicAudio) {
-            try {
-                this.musicAudio.pause();
-                this.musicAudio.currentTime = 0;
-            } catch (e) {}
-        }
-        this.isPlayingMusic = false;
+        this.inCasino = false;
+        this.isMusicMuted = true;
+        this.releaseRadio();
+        if (typeof document !== 'undefined') document.getElementById('casino-radio')?.classList.add('hidden');
+        this.syncMusicUI();
     }
 
     init() {
@@ -464,9 +488,7 @@ const sfx = new BobloxSoundEngine();
 
 function toggleAudioMute() {
     sfx.muted = !sfx.muted;
-    if (sfx.musicAudio) {
-        sfx.musicAudio.volume = sfx.getEffectiveMusicVolume();
-    }
+    sfx.refreshRadio();
     sfx.syncMusicUI();
     const iconOn = typeof document !== 'undefined' ? document.getElementById('icon-sound-on') : null;
     const iconOff = typeof document !== 'undefined' ? document.getElementById('icon-sound-off') : null;

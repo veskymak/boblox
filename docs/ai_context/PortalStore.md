@@ -39,3 +39,6 @@ V9.7 stops collecting activity_consent. Its legacy nullable column is retained w
 AccountBackend.request(/api/auth/privacy-export) verifies getUser, checks the session identity, pins its access token and calls privacy_export(). No supplied account ID. SQL public invoker delegates to a private definer fixed to auth.uid(), verifies the Auth user still exists, and returns only own records/conversations. No Auth secrets, legacy hashes or cached command results. Historical consent records remain accessible; new records collect age only. SQL is in docs/supabase/privacy_export.sql; test/privacy-export-security.sql always rolls back. Presence/activity no longer depends on age confirmation. Requests are explicit mailto drafts, not hidden writes or localStorage flags.
 
 AccountSocial.resetAccountSocialCaches now removes private chat/unread/user snapshot localStorage entries on logout or account switch, in addition to clearing memory. Server data is unchanged.
+
+## Shared blackjack and radio (v9.9)
+AccountBackend routes /api/blackjack/table via a session-pinned Edge Function. Wallets and table transitions commit together; changed balances are refreshed through /api/auth/me.

@@ -6,13 +6,13 @@ Tento návod vysvětluje, jak převést stávající projekt Boblox z lokálníh
 
 ## 1. Srovnání architektur
 
-| Vlastnost | Původní architektura | Nová architektura |
-| :--- | :--- | :--- |
-| **Hosting webu** | Lokální Node.js server (`http://localhost:3000`) | **GitHub Pages** (`https://<username>.github.io/boblox/`) |
-| **Databáze** | SQLite soubor (`boblox.db`) | **Supabase PostgreSQL** v cloudu |
-| **Autentizace** | Vlastní sessions v Express.js | **Supabase Auth** (JWT tokeny, bezpečné heslá, OAuth) |
-| **Realtime** | WebSocket / Polling na server.js | **Supabase Realtime** kanály |
-| **Náklady & Provoz** | Vyžaduje běžící VPS / server | **100% Zdarma** (GitHub Pages Free + Supabase Free Tier) |
+| Vlastnost            | Původní architektura                             | Nová architektura                                         |
+| -------------------- | ------------------------------------------------ | --------------------------------------------------------- |
+| **Hosting webu**     | Lokální Node.js server (`http://localhost:3000`) | **GitHub Pages** (`https://<username>.github.io/boblox/`) |
+| **Databáze**         | SQLite soubor (`boblox.db`)                      | **Supabase PostgreSQL** v cloudu                          |
+| **Autentizace**      | Vlastní sessions v Express.js                    | **Supabase Auth** (JWT tokeny, bezpečné heslá, OAuth)     |
+| **Realtime**         | WebSocket / Polling na server.js                 | **Supabase Realtime** kanály                              |
+| **Náklady & Provoz** | Vyžaduje běžící VPS / server                     | **100% Zdarma** (GitHub Pages Free + Supabase Free Tier)  |
 
 ---
 
@@ -198,6 +198,7 @@ V původním kódu jste pravděpodobně volali `fetch('/api/login')` nebo `fetch
 1. Ujistěte se, že kořen repozitáře obsahuje `index.html`.
 2. Vytvořte v kořenu prázdný soubor `.nojekyll`.
 3. Odešlete změny do GitHub repozitáře:
+
    ```bash
    git add .
    git commit -m "Přechod na GitHub Pages a Supabase"
@@ -205,5 +206,5 @@ V původním kódu jste pravděpodobně volali `fetch('/api/login')` nebo `fetch
    ```
 4. Na GitHubu v **Settings** -> **Pages** zvolte větev `main` a složku `/ (root)`.
 5. Web bude během chvíle dostupný na adrese:
-   `https://<vase-jmeno>.github.io/boblox/`
 
+   `https://<vase-jmeno>.github.io/boblox/`

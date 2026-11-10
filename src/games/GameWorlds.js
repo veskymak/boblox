@@ -2171,8 +2171,8 @@ function setupGame12Casino() {
     document.getElementById('hud-extra-label').textContent = 'Zůstatek: ';
     document.getElementById('hud-extra-value').textContent = `${bobuxBalance.toLocaleString('cs-CZ')} B$`;
 
-    if (typeof sfx !== 'undefined' && typeof sfx.playCasinoMusic === 'function') {
-        sfx.playCasinoMusic();
+    if (typeof sfx !== 'undefined' && typeof sfx.enterCasino === 'function') {
+        sfx.enterCasino();
     }
 
     playerState.spawnPoint.set(0, 3, 26);
@@ -2369,9 +2369,6 @@ function openCasinoModal(tabName = 'blackjack') {
     updateCasinoBobuxDisplay();
     if (typeof sfx !== 'undefined') {
         if (typeof sfx.syncMusicUI === 'function') sfx.syncMusicUI();
-        if (sfx.isPlayingMusic && sfx.musicAudio && sfx.musicAudio.paused) {
-            sfx.musicAudio.play().catch(() => {});
-        }
     }
     switchCasinoTab(tabName);
 }
@@ -2787,7 +2784,8 @@ function sitAt3DBlackjackTable(seatIdx = null) {
 
     if (typeof isServerAccount === 'function' && isServerAccount()) secureBlackjackAction('resume');
 
-    showGtaNotification('Blackjack (21)', `Přisedl jsi k ${seat.label}. Zvol výši své sázky!`, '🪑');
+    const tableTitle = typeof isServerAccount === 'function' && isServerAccount() ? 'Blackjack (21)' : 'Blackjack – sólo trénink';
+    showGtaNotification(tableTitle, `Přisedl jsi k ${seat.label}. Zvol výši své sázky!`, '🪑');
 
     const elInworld = document.getElementById('bj-inworld-current-bet');
     if (elInworld) elInworld.textContent = '0 B$';
@@ -2808,6 +2806,7 @@ function sitAt3DBlackjackTable(seatIdx = null) {
 }
 
 function standUpFromBjTable() {
+    if (typeof blackjackSession !== 'undefined') blackjackSession = null;
     if (typeof gameSpecificData === 'undefined' || !gameSpecificData.isPlayerSeatedAtBj) return;
     if (typeof bjTableState !== 'undefined' && bjTableState.localSeat >= 0 && bjTableState.localSeat < bjTableState.seats.length) {
         const seat = bjTableState.seats[bjTableState.localSeat];
@@ -2997,6 +2996,7 @@ function showGtaNotification(title, message, icon = '🃏') {
 }
 
 function updateInWorldBjUI() {
+    if (typeof isServerAccount === 'function' && isServerAccount() && bjTableState.localSeat >= 0) return updateSharedTableHUD(blackjackSession);
     if (typeof document === 'undefined') return;
     const phaseBanner = document.getElementById('bj-table-phase-banner');
     const phaseTitle = document.getElementById('bj-table-phase-title');
@@ -3034,7 +3034,7 @@ function updateInWorldBjUI() {
 // Core 3D Game Loop & State Transitions
 // ----------------------------------------------------------------------------
 function update3DBlackjackGame(dt, elapsedSec) {
-    if (typeof isServerAccount === 'function' && isServerAccount()) { updateInWorldBjUI(); return; }
+    if (typeof isServerAccount === 'function' && isServerAccount()) { updateSharedBlackjack(); return; }
     if (typeof gameSpecificData === 'undefined' || typeof activeGameMode === 'undefined' || activeGameMode !== 'casino') return;
     if (typeof bjTableState === 'undefined') return;
 
@@ -3819,6 +3819,7 @@ function finishBlackjackRound(result, msg = '', payout = 0, shouldAwardBobux = t
 
 function handleIncomingCasinoEvent(packet) {
     if (!packet || !packet.action) return;
+    if (String(packet.action).startsWith('bj_') && typeof isServerAccount === 'function' && isServerAccount()) return;
     if (packet.action === 'wheel_spin') {
         startRemoteWheelSpin();
     } else if (packet.action === 'bj_sit' && packet.seatIdx >= 0) {

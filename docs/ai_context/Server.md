@@ -20,3 +20,7 @@ V9.7 stops collecting activity_consent. Its legacy nullable column is retained w
 
 ## Privacy (v9.8)
 server/Privacy.js installs authenticated GET /api/auth/privacy-export after AccountCommands initializes tables. Fixed req.userRow identity, DMs include historical recipient usernames, response no-store, no hashes or cached command results. No arbitrary-user export or public erasure API. /privacy.html is explicitly allowlisted; operator documents remain private. test/privacy.test.js uses real SQLite across fresh export requests without localhost networking. Production SQL export was deployed; rollback-only security tests passed.
+
+## Shared blackjack and radio (v9.9)
+BlackjackTable.js persists one shared round per room. It shares the rules module with the Supabase blackjack-table Edge Function. Deploy docs/supabase/blackjack_table.sql before the function. The old account blackjack command remains for legacy hands.
+Apply blackjack_table_timeouts.sql to schedule settlement of abandoned rooms. SQLite runs the same saved all-stand outcome every minute. A new action replaces that projection atomically.

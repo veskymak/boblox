@@ -16,6 +16,7 @@ function installAccountCommands(app, db, requireAuth, serialize) {
     CREATE TRIGGER IF NOT EXISTS wallet_audit AFTER UPDATE OF coins ON users WHEN NEW.coins<>OLD.coins BEGIN
       INSERT INTO account_ledger VALUES(lower(hex(randomblob(16))),NEW.id,NEW.coins-OLD.coins,NEW.coins,'Boblox',CAST(unixepoch('subsec')*1000 AS INTEGER));
     END;`);
+    require('./BlackjackTable')(app, db, requireAuth);
     app.get('/api/transactions', requireAuth, (req, res) =>
         res.json({
             ok: true,

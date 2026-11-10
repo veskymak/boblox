@@ -2514,6 +2514,12 @@
     <!-- =======================================================================
          3D MULTIPLAYER BLACKJACK IN-WORLD HUD (GTA 5 ONLINE STYLE)
          ======================================================================= -->
+    <div id="casino-radio" class="hidden fixed right-2 bottom-2 z-[125] rounded-xl border border-white/20 bg-[#121316] text-xs text-white shadow-lg" style="margin-bottom:env(safe-area-inset-bottom)">
+        <select aria-label="Stanice rádia" onchange="sfx.setRadioStation(this.value)" class="min-h-[44px] rounded-xl bg-[#121316] px-1">
+            <option value="kiss">Rádio Kiss</option><option value="evropa2">Evropa 2</option>
+        </select>
+        <button type="button" id="casino-radio-toggle" aria-pressed="false" onclick="toggleMusicMute()" class="min-h-[44px] px-2 font-bold">Zapnout rádio</button>
+    </div>
     <div id="blackjack-3d-hud" class="fixed inset-0 pointer-events-none z-[115] hidden flex-col justify-between p-4 select-none">
         <!-- Top Status Bar & Phase/Dealer Badges -->
         <div class="flex items-start justify-between w-full max-w-5xl mx-auto">
@@ -2555,7 +2561,7 @@
         <div class="flex-1 pointer-events-none"></div>
 
         <!-- Bottom Controls Bar (Betting Chips or Player Actions) -->
-        <div class="pointer-events-auto w-full max-w-2xl mx-auto space-y-2 pb-2 sm:pb-4">
+        <div class="pointer-events-auto w-full max-w-2xl mx-auto space-y-2 pb-12">
             <!-- Player Hand Score Badge in GUI -->
             <div id="bj-inworld-player-badge" class="hidden pointer-events-auto bg-[#121418]/95 border-2 border-[#00d2ff]/60 px-4 py-2 rounded-xl shadow-xl flex items-center justify-between">
                 <div class="flex items-center gap-2 text-xs sm:text-sm font-bold text-gray-300">
@@ -2879,26 +2885,26 @@
     </div>
 
     <!-- BOBLOX Modular Architecture (Core Engine, State, Network, Games & UI with Cache-Busting) -->
-    <script src="src/core/SoundEngine.js?v=9.8" defer></script>
-    <script src="src/state/AccountBackend.js?v=9.8" defer></script>
-    <script src="src/state/AccountCommands.js?v=9.8" defer></script>
-    <script src="src/state/AccountSocial.js?v=9.8" defer></script>
-    <script src="src/state/PortalStore.js?v=9.8" defer></script>
-    <script src="src/network/NetworkManager.js?v=9.8" defer></script>
-    <script src="src/ui/PortalUI.js?v=9.8" defer></script>
-    <script src="src/ui/PrivacyUI.js?v=9.8" defer></script>
-    <script src="src/ui/AccountConsentUI.js?v=9.8" defer></script>
-    <script src="src/ui/RecoveryEmailUI.js?v=9.8" defer></script>
-    <script src="src/ui/AdminUI.js?v=9.8" defer></script>
-    <script src="src/core/SceneResources.js?v=9.8" defer></script>
-    <script src="src/core/AvatarAndShop.js?v=9.8" defer></script>
-    <script src="src/core/SpatialIndex.js?v=9.8" defer></script>
-    <script src="src/core/Engine.js?v=9.8" defer></script>
-    <script src="src/ui/AdoptMeUI.js?v=9.8" defer></script>
-    <script src="src/core/Lifetime.js?v=9.8" defer></script>
-    <script src="src/games/CasinoCommands.js?v=9.8" defer></script>
-    <script src="src/games/GameWorlds.js?v=9.8" defer></script>
-    <script src="src/core/PhysicsAndLoop.js?v=9.8" defer></script>
-    <script src="src/core/InputManager.js?v=9.8" defer></script>
+    <script src="src/core/SoundEngine.js?v=9.9" defer></script>
+    <script src="src/state/AccountBackend.js?v=9.9" defer></script>
+    <script src="src/state/AccountCommands.js?v=9.9" defer></script>
+    <script src="src/state/AccountSocial.js?v=9.9" defer></script>
+    <script src="src/state/PortalStore.js?v=9.9" defer></script>
+    <script src="src/network/NetworkManager.js?v=9.9" defer></script>
+    <script src="src/ui/PortalUI.js?v=9.9" defer></script>
+    <script src="src/ui/PrivacyUI.js?v=9.9" defer></script>
+    <script src="src/ui/AccountConsentUI.js?v=9.9" defer></script>
+    <script src="src/ui/RecoveryEmailUI.js?v=9.9" defer></script>
+    <script src="src/ui/AdminUI.js?v=9.9" defer></script>
+    <script src="src/core/SceneResources.js?v=9.9" defer></script>
+    <script src="src/core/AvatarAndShop.js?v=9.9" defer></script>
+    <script src="src/core/SpatialIndex.js?v=9.9" defer></script>
+    <script src="src/core/Engine.js?v=9.9" defer></script>
+    <script src="src/ui/AdoptMeUI.js?v=9.9" defer></script>
+    <script src="src/core/Lifetime.js?v=9.9" defer></script>
+    <script src="src/games/CasinoCommands.js?v=9.9" defer></script>
+    <script src="src/games/GameWorlds.js?v=9.9" defer></script>
+    <script src="src/core/PhysicsAndLoop.js?v=9.9" defer></script>
+    <script src="src/core/InputManager.js?v=9.9" defer></script>
 </body>
 </html>

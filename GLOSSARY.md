@@ -19,4 +19,3 @@ _Avoid_: Historie bodů, mince log
 **Avatar Shop**:
 Sjednocený katalog a přizpůsobovací rozhraní pro nákup doplňků, nasazování předmětů a volbu barvy torza avatara.
 _Avoid_: Tržiště, customizer, inventář modal
-
