@@ -10,11 +10,6 @@ async function refreshAccountConsent() {
     const modal = document.getElementById('account-consent-modal');
     if (!account) { consentAccount = null; if (modal.open) modal.close(); return; }
     if (hasAccountConsent() || consentChecking) return;
-    if (!modal.open) {
-        document.getElementById('consent-age').checked = false;
-        if (document.pointerLockElement) document.exitPointerLock();
-        modal.showModal();
-    }
     consentChecking = true;
     try {
         const result = await apiRequest('/api/auth/consent');
@@ -26,7 +21,15 @@ async function refreshAccountConsent() {
         } else if (!result.ok) document.getElementById('consent-status').textContent = 'Stav se nepodařilo ověřit. Zkus potvrzení znovu.';
     } catch {
         if (authState.user?.id === account) document.getElementById('consent-status').textContent = 'Připojení se nezdařilo. Zkus to znovu.';
-    } finally { consentChecking = false; }
+    } finally {
+        // Keep confirmed accounts invisible while their persisted status loads.
+        if (authState.user?.id === account && !hasAccountConsent() && !modal.open) {
+            document.getElementById('consent-age').checked = false;
+            if (document.pointerLockElement) document.exitPointerLock();
+            modal.showModal();
+        }
+        consentChecking = false;
+    }
 }
 async function submitAccountConsent(event) {
     event.preventDefault();

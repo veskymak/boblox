@@ -27,3 +27,6 @@ V9.7 stops collecting activity_consent. Its legacy nullable column is retained w
 
 ## Privacy (v9.8)
 PrivacyUI.js owns openPrivacyCenter and exportPrivacyData. Native privacy-modal is reached from sidebar and auth settings, including guests. privacy.html is script-free, linked before registration and names Václav Pěkný / venda.pekny@gmail.com. Mailto links only prepare requests; users must send them. Export creates an account-scoped JSON Blob, ignores stale identity responses and never saves private data to localStorage. Notice discloses CDN, PeerJS, Google STUN, Supabase and hosting; it does not certify EU-only processing or GDPR compliance. Operator release checks are in docs/privacy/operations.md.
+
+## Age dialog loading (v9.12)
+AccountConsentUI.refreshAccountConsent keeps the dialog closed during the initial server read. Accepted accounts never call showModal; missing consent or a failed read opens the blocking dialog after completion. Account identity guards remain in place. Regression: test/account-consent.test.js checks zero dialog opens during and after a delayed accepted response.

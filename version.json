@@ -1,7 +1,7 @@
 {
-  "version": "9.11",
-  "buildTime": 1794343066253,
-  "updatedAt": "2026-11-10T20:37:46.253Z",
-  "title": "Boblox Aktualizace v9.11",
-  "message": "Blackjack má na telefonu kompaktní ovládání sázek a tahů."
+  "version": "9.12",
+  "buildTime": 1794343345807,
+  "updatedAt": "2026-11-10T20:42:25.813Z",
+  "title": "Boblox Aktualizace v9.12",
+  "message": "Potvrzení věku po dřívějším potvrzení při načítání neproblikává."
 }

@@ -4,6 +4,26 @@ const backend = require('../src/state/AccountBackend');
 const vm = require('node:vm');
 const fs = require('node:fs');
 
+test('persisted consent never opens the dialog, including while loading', async () => {
+    let resolveStatus;
+    let opens = 0;
+    const modal = { open: false, addEventListener() {}, showModal() { opens++; this.open = true; }, close() { this.open = false; } };
+    const context = vm.createContext({
+        authState: { user: { id: 'a' } },
+        document: { getElementById: () => modal, addEventListener() {} },
+        setInterval() {},
+        apiRequest: () => new Promise(resolve => { resolveStatus = resolve; })
+    });
+    vm.runInContext(fs.readFileSync(require.resolve('../src/ui/AccountConsentUI.js'), 'utf8'), context);
+    const pending = context.refreshAccountConsent();
+    assert.equal(opens, 0);
+    resolveStatus({ ok: true, data: { accepted: true } });
+    await pending;
+    await context.refreshAccountConsent();
+    assert.equal(opens, 0);
+    assert.equal(context.hasAccountConsent(), true);
+});
+
 test('mandatory dialog blocks cancellation and stays open after storage failure', async () => {
     const elements = new Map();
     const element = id => {
