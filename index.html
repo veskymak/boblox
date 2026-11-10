@@ -383,6 +383,42 @@
             #adoptme-ui { top:65px; width:min(360px, calc(100% - 32px)); }
             #adoptme-panel { max-height:calc(100dvh - 180px); }
         }
+
+        @media (max-width: 700px), (max-height: 500px) and (orientation: landscape) {
+            #blackjack-3d-hud {
+                padding: max(6px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+                         calc(58px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+            }
+            #blackjack-3d-hud .bj-status {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) auto;
+                align-items: start;
+                gap: 4px;
+            }
+            .bj-status .bj-phase { grid-area: 1 / 1; align-items: flex-start; gap: 3px; }
+            .bj-status .bj-seat { grid-area: 1 / 2; padding: 2px 4px; gap: 4px; }
+            .bj-seat .text-gray-400, #bj-gta-icon, #bj-gta-title,
+            #bj-betting-controls .text-gray-400, #bj-action-controls button .font-mono { display: none; }
+            #bj-table-phase-banner, #bj-inworld-dealer-badge, #bj-inworld-player-badge { padding: 3px 8px; }
+            #bj-table-phase-timer { font-size: 14px; line-height: 1.2; }
+            #bj-gta-notification { grid-column: 1 / -1; padding: 4px 8px; overflow-wrap: anywhere; }
+            #blackjack-3d-hud .bj-controls { padding-bottom: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+            #bj-betting-controls, #bj-action-controls { padding: 6px; }
+            #bj-betting-controls .bj-chip-grid {
+                display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 3px; margin-top: 4px;
+            }
+            .bj-chip-grid > div { display: contents; }
+            #blackjack-3d-hud .bj-chip-grid button { min-height: 44px; min-width: 44px; padding: 2px; }
+            #bj-btn-place-bet { grid-column: span 5; }
+            #bj-action-controls button { padding: 4px; }
+        }
+        @media (max-height: 500px) and (orientation: landscape) and (min-width: 600px) {
+            #blackjack-3d-hud { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 38%); gap: 12px; }
+            #blackjack-3d-hud.hidden { display: none; }
+            #blackjack-3d-hud .flex-1 { display: none; }
+            #blackjack-3d-hud .bj-controls { align-self: end; max-height: 100%; }
+            #bj-action-controls .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -2522,7 +2558,7 @@
     </div>
     <div id="blackjack-3d-hud" class="fixed inset-0 pointer-events-none z-[115] hidden flex-col justify-between p-4 select-none">
         <!-- Top Status Bar & Phase/Dealer Badges -->
-        <div class="flex items-start justify-between w-full max-w-5xl mx-auto">
+        <div class="bj-status flex items-start justify-between w-full max-w-5xl mx-auto">
             <!-- GTA 5 Notification Pill (Top Left) -->
             <div id="bj-gta-notification" class="pointer-events-auto hidden bg-black/90 border-l-4 border-[#00d2ff] px-4 py-3 text-white text-xs sm:text-sm font-bold shadow-2xl rounded-r-xl max-w-sm flex items-center gap-3 backdrop-blur-md transition-all">
                 <span class="text-2xl" id="bj-gta-icon">🃏</span>
@@ -2533,7 +2569,7 @@
             </div>
 
             <!-- Center Phase Timer & Dealer Score Badge (Top Center) -->
-            <div class="pointer-events-auto flex flex-col items-center gap-2">
+            <div class="bj-phase pointer-events-auto flex flex-col items-center gap-2">
                 <div id="bj-table-phase-banner" class="bg-[#121418]/90 border-2 border-[#00d2ff]/60 px-5 py-2 rounded-2xl shadow-[0_0_25px_rgba(0,210,255,0.3)] backdrop-blur-md text-center">
                     <div id="bj-table-phase-title" class="text-[11px] font-black uppercase tracking-widest text-[#00d2ff]">FÁZE SÁZEK</div>
                     <div id="bj-table-phase-timer" class="text-base sm:text-xl font-black text-[#FFE066]">SÁZKY KONČÍ ZA: 10s</div>
@@ -2545,7 +2581,7 @@
             </div>
 
             <!-- Seat Info & Stand Up Button (Top Right) -->
-            <div class="pointer-events-auto flex items-center gap-3 bg-[#191B1D]/90 border border-white/10 px-4 py-2 rounded-2xl shadow-xl backdrop-blur-md">
+            <div class="bj-seat pointer-events-auto flex items-center gap-3 bg-[#191B1D]/90 border border-white/10 px-4 py-2 rounded-2xl shadow-xl backdrop-blur-md">
                 <div class="text-xs">
                     <span class="text-gray-400">MÍSTO:</span>
                     <span id="bj-seated-seat-num" class="font-bold text-[#FFE066] ml-1">Místo 1</span>
@@ -2561,7 +2597,7 @@
         <div class="flex-1 pointer-events-none"></div>
 
         <!-- Bottom Controls Bar (Betting Chips or Player Actions) -->
-        <div class="pointer-events-auto w-full max-w-2xl mx-auto space-y-2 pb-12">
+        <div class="bj-controls pointer-events-auto w-full max-w-2xl mx-auto space-y-2 pb-12">
             <!-- Player Hand Score Badge in GUI -->
             <div id="bj-inworld-player-badge" class="hidden pointer-events-auto bg-[#121418]/95 border-2 border-[#00d2ff]/60 px-4 py-2 rounded-xl shadow-xl flex items-center justify-between">
                 <div class="flex items-center gap-2 text-xs sm:text-sm font-bold text-gray-300">
@@ -2576,7 +2612,7 @@
                     <div>TVOJE SÁZKA: <span id="bj-inworld-current-bet" class="text-[#FFE066] font-black text-base ml-1">0 B$</span></div>
                     <div class="text-gray-400">Kliknutím na žetony přidáš sázku (+)</div>
                 </div>
-                <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="bj-chip-grid flex flex-wrap items-center justify-between gap-2">
                     <div class="flex flex-wrap items-center gap-1.5">
                         <button type="button" onclick="addInWorldBjBet(10)" class="casino-chip-btn px-3 py-2 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] text-white text-xs sm:text-sm font-black shadow min-h-[44px]">+10</button>
                         <button type="button" onclick="addInWorldBjBet(25)" class="casino-chip-btn px-3 py-2 rounded-xl bg-[#10b981] hover:bg-[#059669] text-white text-xs sm:text-sm font-black shadow min-h-[44px]">+25</button>
@@ -2885,26 +2921,26 @@
     </div>
 
     <!-- BOBLOX Modular Architecture (Core Engine, State, Network, Games & UI with Cache-Busting) -->
-    <script src="src/core/SoundEngine.js?v=9.10" defer></script>
-    <script src="src/state/AccountBackend.js?v=9.10" defer></script>
-    <script src="src/state/AccountCommands.js?v=9.10" defer></script>
-    <script src="src/state/AccountSocial.js?v=9.10" defer></script>
-    <script src="src/state/PortalStore.js?v=9.10" defer></script>
-    <script src="src/network/NetworkManager.js?v=9.10" defer></script>
-    <script src="src/ui/PortalUI.js?v=9.10" defer></script>
-    <script src="src/ui/PrivacyUI.js?v=9.10" defer></script>
-    <script src="src/ui/AccountConsentUI.js?v=9.10" defer></script>
-    <script src="src/ui/RecoveryEmailUI.js?v=9.10" defer></script>
-    <script src="src/ui/AdminUI.js?v=9.10" defer></script>
-    <script src="src/core/SceneResources.js?v=9.10" defer></script>
-    <script src="src/core/AvatarAndShop.js?v=9.10" defer></script>
-    <script src="src/core/SpatialIndex.js?v=9.10" defer></script>
-    <script src="src/core/Engine.js?v=9.10" defer></script>
-    <script src="src/ui/AdoptMeUI.js?v=9.10" defer></script>
-    <script src="src/core/Lifetime.js?v=9.10" defer></script>
-    <script src="src/games/CasinoCommands.js?v=9.10" defer></script>
-    <script src="src/games/GameWorlds.js?v=9.10" defer></script>
-    <script src="src/core/PhysicsAndLoop.js?v=9.10" defer></script>
-    <script src="src/core/InputManager.js?v=9.10" defer></script>
+    <script src="src/core/SoundEngine.js?v=9.11" defer></script>
+    <script src="src/state/AccountBackend.js?v=9.11" defer></script>
+    <script src="src/state/AccountCommands.js?v=9.11" defer></script>
+    <script src="src/state/AccountSocial.js?v=9.11" defer></script>
+    <script src="src/state/PortalStore.js?v=9.11" defer></script>
+    <script src="src/network/NetworkManager.js?v=9.11" defer></script>
+    <script src="src/ui/PortalUI.js?v=9.11" defer></script>
+    <script src="src/ui/PrivacyUI.js?v=9.11" defer></script>
+    <script src="src/ui/AccountConsentUI.js?v=9.11" defer></script>
+    <script src="src/ui/RecoveryEmailUI.js?v=9.11" defer></script>
+    <script src="src/ui/AdminUI.js?v=9.11" defer></script>
+    <script src="src/core/SceneResources.js?v=9.11" defer></script>
+    <script src="src/core/AvatarAndShop.js?v=9.11" defer></script>
+    <script src="src/core/SpatialIndex.js?v=9.11" defer></script>
+    <script src="src/core/Engine.js?v=9.11" defer></script>
+    <script src="src/ui/AdoptMeUI.js?v=9.11" defer></script>
+    <script src="src/core/Lifetime.js?v=9.11" defer></script>
+    <script src="src/games/CasinoCommands.js?v=9.11" defer></script>
+    <script src="src/games/GameWorlds.js?v=9.11" defer></script>
+    <script src="src/core/PhysicsAndLoop.js?v=9.11" defer></script>
+    <script src="src/core/InputManager.js?v=9.11" defer></script>
 </body>
 </html>
